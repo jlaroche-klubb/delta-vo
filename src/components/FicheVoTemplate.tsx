@@ -1,0 +1,601 @@
+import { Machine } from "../types/machine";
+import { DELTA_LOGO_BASE64 } from "../assets/deltaLogo";
+
+interface FicheVoTemplateProps {
+  machine: Machine;
+  prixChoisi: "fr" | "export";
+  commercial: {
+    nom: string;
+    email: string;
+    phone: string;
+  };
+}
+
+export default function FicheVoTemplate({
+  machine,
+  prixChoisi,
+  commercial,
+}: FicheVoTemplateProps) {
+  const fc = machine.fiche_commerciale || {};
+  const numero = fc.numero_fiche || "—";
+  const prix = prixChoisi === "fr" ? machine.prix_fr : machine.prix_export;
+  const prixLabel = prixChoisi === "fr" ? "PRIX HT" : "PRIX HT EXPORT";
+
+  return (
+    <>
+      {/* PAGE 1 */}
+      <div id="fiche-vo-page-1" style={pageStyle}>
+        {/* Bandeau gauche vertical */}
+        <SideBanner numero={numero} />
+
+        {/* Contenu principal */}
+        <div style={mainContentStyle}>
+          {/* Header avec logo + titre */}
+          <div style={headerStyle}>
+            <img src={DELTA_LOGO_BASE64} alt="Delta Services" style={logoStyle} />
+            <div style={titleBlockStyle}>
+              <div style={titleStyle}>
+                NACELLE ÉLÉVATRICE{" "}
+                {fc.hauteur_travail_m
+                  ? `${fc.hauteur_travail_m.toString().replace(".", ",")} m`
+                  : ""}
+              </div>
+              <div style={subtitleStyle}>
+                SUR FOURGON {machine.modele_porteur.toUpperCase()}
+              </div>
+            </div>
+          </div>
+
+          {/* Séparateur rouge */}
+          <div style={separatorStyle}></div>
+
+          {/* Grille principale : photo + caractéristiques */}
+          <div style={gridStyle}>
+            {/* Photo principale (placeholder) */}
+            <div style={photoMainStyle}>
+              <div style={photoPlaceholderStyle}>
+                <div style={photoIconStyle}>📷</div>
+                <div style={photoLabelStyle}>Photo à venir</div>
+                <div style={photoSubStyle}>depuis nacelle-expert</div>
+              </div>
+            </div>
+
+            {/* Caractéristiques */}
+            <div style={specsStyle}>
+              {/* Bloc Nacelle */}
+              <div style={specBlockStyle}>
+                <div style={specTitleStyle}>NACELLE ÉLÉVATRICE {machine.type_nacelle}</div>
+                <ul style={specListStyle}>
+                  {fc.hauteur_travail_m && (
+                    <li style={specItemStyle}>
+                      - Hauteur de travail :{" "}
+                      <strong>{fc.hauteur_travail_m.toString().replace(".", ",")} m</strong>
+                    </li>
+                  )}
+                  {fc.deport_travail_m && (
+                    <li style={specItemStyle}>
+                      - Déport de travail :{" "}
+                      <strong>{fc.deport_travail_m.toString().replace(".", ",")} m</strong>
+                    </li>
+                  )}
+                  {fc.nb_personnes_panier && (
+                    <li style={specItemStyle}>
+                      - Panier isolé :{" "}
+                      <strong>
+                        {fc.nb_personnes_panier} personne{fc.nb_personnes_panier > 1 ? "s" : ""}
+                      </strong>
+                    </li>
+                  )}
+                  {machine.heures_nacelle !== undefined && (
+                    <li style={specItemStyle}>
+                      - Nombre d'heures :{" "}
+                      <strong>{machine.heures_nacelle.toLocaleString("fr-FR")}H</strong>
+                    </li>
+                  )}
+                </ul>
+              </div>
+
+              {/* Bloc Porteur */}
+              <div style={specBlockStyle}>
+                <div style={specTitleStyle}>PORTEUR</div>
+                <ul style={specListStyle}>
+                  <li style={specItemStyle}>
+                    - Modèle :{" "}
+                    <strong>
+                      {machine.modele_porteur}
+                      {fc.puissance_porteur ? ` ${fc.puissance_porteur}` : ""}
+                    </strong>
+                  </li>
+                  {machine.annee_circulation && (
+                    <li style={specItemStyle}>
+                      - Année de mise en circulation :{" "}
+                      <strong>{machine.annee_circulation.split("/").pop()}</strong>
+                    </li>
+                  )}
+                  {machine.km_porteur !== undefined && (
+                    <li style={specItemStyle}>
+                      - Kilométrage :{" "}
+                      <strong>{machine.km_porteur.toLocaleString("fr-FR")} km</strong>
+                    </li>
+                  )}
+                </ul>
+              </div>
+
+              {/* Bloc Options */}
+              {fc.options && fc.options.length > 0 && (
+                <div style={specBlockStyle}>
+                  <div style={specTitleStyle}>OPTIONS</div>
+                  <ul style={specListPlainStyle}>
+                    {fc.options.map((opt, idx) => (
+                      <li key={idx} style={specItemPlainStyle}>
+                        {opt}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Bloc Aménagement */}
+              {fc.amenagement_interieur && (
+                <div style={specBlockStyle}>
+                  <div style={specTitleStyle}>AMÉNAGEMENT INTÉRIEUR</div>
+                  <p style={specTextStyle}>{fc.amenagement_interieur}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Encart prix */}
+          {prix !== undefined && (
+            <div style={priceBlockStyle}>
+              <div style={priceLabelStyle}>{prixLabel}</div>
+              <div style={priceValueStyle}>
+                {prix.toLocaleString("fr-FR")} € <span style={priceUnitStyle}>HT</span>
+              </div>
+            </div>
+          )}
+
+          {/* Footer */}
+          <div style={footerStyle}>
+            <div style={footerLineStyle}></div>
+            <div style={footerContentStyle}>
+              <span>84 Bd Courcerin, 77183 Croissy-Beaubourg</span>
+              <span style={footerSepStyle}>·</span>
+              <span style={footerSiteStyle}>delta-services.fr</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* PAGE 2 */}
+      <div id="fiche-vo-page-2" style={pageStyle}>
+        <SideBanner numero={numero} />
+
+        <div style={mainContentStyle}>
+          {/* Header simple page 2 */}
+          <div style={headerPage2Style}>
+            <img src={DELTA_LOGO_BASE64} alt="Delta Services" style={logoSmallStyle} />
+            <div style={pageRefStyle}>
+              FICHE D'OCCASION N°{numero}
+            </div>
+          </div>
+
+          <div style={separatorStyle}></div>
+
+          {/* Grille de 3 photos placeholders */}
+          <div style={photosGridStyle}>
+            <PhotoPlaceholder label="Vue 3/4 avant" />
+            <PhotoPlaceholder label="Vue arrière" />
+            <PhotoPlaceholder label="Vue de profil" />
+          </div>
+
+          {/* Bloc commercial */}
+          <div style={commercialBlockStyle}>
+            <div style={commercialTitleStyle}>VOTRE INTERLOCUTEUR</div>
+            <div style={commercialNameStyle}>{commercial.nom}</div>
+            <div style={commercialInfoStyle}>
+              <div style={commercialRowStyle}>
+                <span style={commercialIconStyle}>📞</span>
+                <span style={commercialValueStyle}>{commercial.phone}</span>
+              </div>
+              <div style={commercialRowStyle}>
+                <span style={commercialIconStyle}>✉️</span>
+                <span style={commercialValueStyle}>{commercial.email}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer page 2 */}
+          <div style={footerStyle}>
+            <div style={footerLineStyle}></div>
+            <div style={footerContentStyle}>
+              <span>84 Bd Courcerin, 77183 Croissy-Beaubourg</span>
+              <span style={footerSepStyle}>·</span>
+              <span style={footerSiteStyle}>delta-services.fr</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// =============== Sous-composants ===============
+
+function SideBanner({ numero }: { numero: string }) {
+  return (
+    <div style={sideBannerStyle}>
+      <div style={sideBannerTextStyle}>
+        <div style={bannerWordStyle}>FICHE</div>
+        <div style={bannerWordBigStyle}>D'OCCASION</div>
+        <div style={bannerNumStyle}>N°{numero}</div>
+      </div>
+    </div>
+  );
+}
+
+function PhotoPlaceholder({ label }: { label: string }) {
+  return (
+    <div style={photoGridItemStyle}>
+      <div style={photoGridIconStyle}>📷</div>
+      <div style={photoGridLabelStyle}>{label}</div>
+      <div style={photoGridSubStyle}>Photo à venir</div>
+    </div>
+  );
+}
+
+// =============== STYLES ===============
+// A4 = 794px × 1123px à 96 DPI (ce qui correspond à 210mm × 297mm)
+// html2canvas avec scale: 2 = bonne qualité
+
+const pageStyle: React.CSSProperties = {
+  width: "794px",
+  height: "1123px",
+  background: "#ffffff",
+  position: "relative",
+  display: "flex",
+  fontFamily: "Arial, sans-serif",
+  color: "#1a2030",
+  boxSizing: "border-box",
+  overflow: "hidden",
+};
+
+const sideBannerStyle: React.CSSProperties = {
+  width: "80px",
+  background: "linear-gradient(180deg, #1a2a6e 0%, #2a3a8e 100%)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  position: "relative",
+};
+
+const sideBannerTextStyle: React.CSSProperties = {
+  transform: "rotate(-90deg)",
+  whiteSpace: "nowrap",
+  color: "#ffffff",
+  display: "flex",
+  alignItems: "baseline",
+  gap: "16px",
+};
+
+const bannerWordStyle: React.CSSProperties = {
+  fontSize: "26px",
+  fontWeight: 700,
+  letterSpacing: "3px",
+};
+
+const bannerWordBigStyle: React.CSSProperties = {
+  fontSize: "32px",
+  fontWeight: 900,
+  letterSpacing: "3px",
+};
+
+const bannerNumStyle: React.CSSProperties = {
+  fontSize: "20px",
+  fontWeight: 700,
+  letterSpacing: "2px",
+  background: "rgba(255,255,255,0.15)",
+  padding: "6px 12px",
+  borderRadius: "4px",
+};
+
+const mainContentStyle: React.CSSProperties = {
+  flex: 1,
+  padding: "40px 50px",
+  display: "flex",
+  flexDirection: "column",
+};
+
+const headerStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "30px",
+  marginBottom: "20px",
+};
+
+const headerPage2Style: React.CSSProperties = {
+  display: "flex",
+  justifyContent: "space-between",
+  alignItems: "center",
+  marginBottom: "20px",
+};
+
+const logoStyle: React.CSSProperties = {
+  height: "70px",
+  width: "auto",
+  flexShrink: 0,
+};
+
+const logoSmallStyle: React.CSSProperties = {
+  height: "45px",
+  width: "auto",
+};
+
+const pageRefStyle: React.CSSProperties = {
+  fontSize: "16px",
+  fontWeight: 700,
+  color: "#1a2a6e",
+  letterSpacing: "1px",
+};
+
+const titleBlockStyle: React.CSSProperties = {
+  flex: 1,
+};
+
+const titleStyle: React.CSSProperties = {
+  fontSize: "28px",
+  fontWeight: 900,
+  color: "#1a2a6e",
+  lineHeight: 1.1,
+  letterSpacing: "0.5px",
+  marginBottom: "4px",
+};
+
+const subtitleStyle: React.CSSProperties = {
+  fontSize: "16px",
+  fontWeight: 700,
+  color: "#4a5468",
+  letterSpacing: "0.5px",
+};
+
+const separatorStyle: React.CSSProperties = {
+  height: "3px",
+  background: "#c8102e",
+  marginBottom: "24px",
+};
+
+const gridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gap: "30px",
+  flex: 1,
+};
+
+const photoMainStyle: React.CSSProperties = {
+  width: "100%",
+  height: "320px",
+  background: "#f0f2f5",
+  border: "2px dashed #c0c4ca",
+  borderRadius: "8px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+};
+
+const photoPlaceholderStyle: React.CSSProperties = {
+  textAlign: "center",
+  color: "#6a7488",
+};
+
+const photoIconStyle: React.CSSProperties = {
+  fontSize: "60px",
+  marginBottom: "12px",
+};
+
+const photoLabelStyle: React.CSSProperties = {
+  fontSize: "16px",
+  fontWeight: 700,
+};
+
+const photoSubStyle: React.CSSProperties = {
+  fontSize: "12px",
+  fontStyle: "italic",
+  marginTop: "4px",
+};
+
+const specsStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "16px",
+};
+
+const specBlockStyle: React.CSSProperties = {
+  marginBottom: "4px",
+};
+
+const specTitleStyle: React.CSSProperties = {
+  fontSize: "13px",
+  fontWeight: 900,
+  color: "#c8102e",
+  letterSpacing: "1px",
+  marginBottom: "6px",
+};
+
+const specListStyle: React.CSSProperties = {
+  listStyle: "none",
+  padding: 0,
+  margin: 0,
+};
+
+const specItemStyle: React.CSSProperties = {
+  fontSize: "13px",
+  color: "#1a2030",
+  lineHeight: 1.6,
+};
+
+const specListPlainStyle: React.CSSProperties = {
+  listStyle: "none",
+  padding: 0,
+  margin: 0,
+};
+
+const specItemPlainStyle: React.CSSProperties = {
+  fontSize: "13px",
+  color: "#1a2030",
+  lineHeight: 1.5,
+};
+
+const specTextStyle: React.CSSProperties = {
+  fontSize: "13px",
+  color: "#1a2030",
+  lineHeight: 1.5,
+};
+
+const priceBlockStyle: React.CSSProperties = {
+  background: "linear-gradient(135deg, #1a2a6e 0%, #2a3a8e 100%)",
+  color: "#ffffff",
+  padding: "18px 30px",
+  borderRadius: "8px",
+  marginTop: "24px",
+  marginBottom: "20px",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  boxShadow: "0 4px 12px rgba(26, 42, 110, 0.25)",
+};
+
+const priceLabelStyle: React.CSSProperties = {
+  fontSize: "16px",
+  fontWeight: 900,
+  letterSpacing: "2px",
+};
+
+const priceValueStyle: React.CSSProperties = {
+  fontSize: "32px",
+  fontWeight: 900,
+  letterSpacing: "1px",
+  fontFamily: "Arial, sans-serif",
+};
+
+const priceUnitStyle: React.CSSProperties = {
+  fontSize: "16px",
+  fontWeight: 700,
+  opacity: 0.85,
+};
+
+const footerStyle: React.CSSProperties = {
+  marginTop: "auto",
+  paddingTop: "20px",
+};
+
+const footerLineStyle: React.CSSProperties = {
+  height: "2px",
+  background: "#c8102e",
+  marginBottom: "12px",
+};
+
+const footerContentStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: "8px",
+  fontSize: "12px",
+  color: "#4a5468",
+};
+
+const footerSepStyle: React.CSSProperties = {
+  color: "#c8102e",
+  fontWeight: 700,
+};
+
+const footerSiteStyle: React.CSSProperties = {
+  color: "#1a2a6e",
+  fontWeight: 700,
+};
+
+// Page 2 — Grille photos
+const photosGridStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gridTemplateRows: "1fr 1fr",
+  gap: "20px",
+  height: "550px",
+  marginBottom: "30px",
+};
+
+const photoGridItemStyle: React.CSSProperties = {
+  background: "#f0f2f5",
+  border: "2px dashed #c0c4ca",
+  borderRadius: "8px",
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  textAlign: "center",
+};
+
+const photoGridIconStyle: React.CSSProperties = {
+  fontSize: "44px",
+  marginBottom: "8px",
+};
+
+const photoGridLabelStyle: React.CSSProperties = {
+  fontSize: "14px",
+  fontWeight: 700,
+  color: "#1a2a6e",
+};
+
+const photoGridSubStyle: React.CSSProperties = {
+  fontSize: "11px",
+  fontStyle: "italic",
+  color: "#6a7488",
+  marginTop: "4px",
+};
+
+// Page 2 — Bloc commercial
+const commercialBlockStyle: React.CSSProperties = {
+  background: "linear-gradient(135deg, #f8f9fb 0%, #ffffff 100%)",
+  border: "1px solid #d0d4da",
+  borderLeft: "4px solid #c8102e",
+  borderRadius: "6px",
+  padding: "24px 30px",
+  marginBottom: "20px",
+};
+
+const commercialTitleStyle: React.CSSProperties = {
+  fontSize: "12px",
+  fontWeight: 900,
+  color: "#c8102e",
+  letterSpacing: "2px",
+  marginBottom: "12px",
+};
+
+const commercialNameStyle: React.CSSProperties = {
+  fontSize: "22px",
+  fontWeight: 900,
+  color: "#1a2a6e",
+  marginBottom: "16px",
+  letterSpacing: "0.5px",
+};
+
+const commercialInfoStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "8px",
+};
+
+const commercialRowStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: "12px",
+};
+
+const commercialIconStyle: React.CSSProperties = {
+  fontSize: "18px",
+};
+
+const commercialValueStyle: React.CSSProperties = {
+  fontSize: "15px",
+  color: "#1a2030",
+  fontWeight: 600,
+};

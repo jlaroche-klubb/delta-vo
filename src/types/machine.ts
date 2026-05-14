@@ -83,7 +83,7 @@ export interface Machine {
   // Disponibles
   date_mise_stock?: string;
   prix_fr?: number;
-  prix_export?: number;
+  prix_dealer?: number;
   prix_modifie_le?: string;
   prix_modifie_par?: string;
   prix_modifie_manuellement?: boolean;
@@ -110,7 +110,13 @@ export interface Machine {
   date_facturation?: string;
   numero_facture?: string;
   date_reglement?: string;
-  marche?: "fr" | "export";
+  marche?: "fr" | "dealer";
+
+  // ====== NOUVEAU v7 : Archivage admin ======
+  archived?: boolean;
+  archived_at?: string;
+  archived_by?: string;
+  ne_dossier_id?: string;  // référence dossier nacelle-expert (si la machine vient de là)
 
   is_test?: boolean;
   createdAt: string;

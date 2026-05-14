@@ -27,7 +27,7 @@ export function exportStatsToExcel({ machines, periodeLabel }: ExportStatsOption
     "Modèle porteur": m.modele_porteur,
     "Acheteur": m.acheteur || "",
     "Commercial": m.commercial_vendeur || "",
-    "Marché": m.marche === "export" ? "Export" : "France",
+    "Marché": m.marche === "dealer" ? "Dealer" : "France",
     "Prix de vente (€)": m.prix_vente_final || 0,
     "Date vente": m.date_vente || "",
     "Date facturation": m.date_facturation || "",
@@ -46,16 +46,16 @@ export function exportStatsToExcel({ machines, periodeLabel }: ExportStatsOption
   XLSX.utils.book_append_sheet(wb, ws1, "Détail ventes");
 
   // ════════ ONGLET 2 : SYNTHÈSE PAR COMMERCIAL ════════
-  const parCommercial = new Map<string, { ca: number; nb: number; fr: number; exp: number }>();
+  const parCommercial = new Map<string, { ca: number; nb: number; fr: number; dealer: number }>();
   machines.forEach((m) => {
     const com = m.commercial_vendeur || "Non renseigné";
     if (!parCommercial.has(com)) {
-      parCommercial.set(com, { ca: 0, nb: 0, fr: 0, exp: 0 });
+      parCommercial.set(com, { ca: 0, nb: 0, fr: 0, dealer: 0 });
     }
     const stat = parCommercial.get(com)!;
     stat.ca += m.prix_vente_final || 0;
     stat.nb += 1;
-    if (m.marche === "export") stat.exp += 1;
+    if (m.marche === "dealer") stat.dealer += 1;
     else stat.fr += 1;
   });
 
@@ -64,7 +64,7 @@ export function exportStatsToExcel({ machines, periodeLabel }: ExportStatsOption
       "Commercial": com,
       "Nb ventes": stat.nb,
       "Ventes France": stat.fr,
-      "Ventes Export": stat.exp,
+      "Ventes Dealer": stat.dealer,
       "CA total (€)": stat.ca,
       "Prix moyen (€)": Math.round(stat.ca / stat.nb),
     }))

@@ -1314,7 +1314,7 @@ button {
     letter-spacing: 1px;
   }
   
-  .price-export { color: #ffd966; }
+  .price-dealer { color: #ffd966; }
   
   .price-divider {
     width: 1px;
@@ -1707,7 +1707,7 @@ button {
     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   }
   
-  /* Toggle Prix FR/Export/Les 2 */
+  /* Toggle Prix FR/Dealer/Les 2 */
   .price-toggle {
     display: flex;
     background: #f5f6f8;
@@ -2737,7 +2737,7 @@ button {
      white-space: nowrap;
    }
    
-   .export-tag {
+   .dealer-tag {
      display: inline-block;
      margin-top: 3px;
      font-size: 10px;
@@ -4665,3 +4665,87 @@ button {
   }
   
   /* ═══════════════════════════════════════════════════ */
+  /* ═══════════════════════════════════════════════════ */
+/* SECTION FRE (FRAIS DE REMISE EN ÉTAT) - DISPONIBLES */
+/* ═══════════════════════════════════════════════════ */
+
+.fre-section {
+  background: linear-gradient(135deg, #f8f9fc 0%, #ffffff 100%);
+  border: 1px solid #e5e8ef;
+  border-radius: 6px;
+  padding: 14px 16px;
+  margin: 12px 0;
+  transition: all 0.2s ease;
+}
+
+.fre-section:hover {
+  border-color: #d0d4da;
+  box-shadow: 0 2px 6px rgba(26, 42, 110, 0.06);
+}
+
+.fre-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.fre-icon {
+  font-size: 16px;
+  filter: grayscale(0.2);
+}
+
+.fre-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1a2a6e;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.fre-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fre-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 14px;
+}
+
+.fre-label {
+  color: #5a6374;
+  font-weight: 500;
+}
+
+.fre-value {
+  color: #1a2030;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.fre-degats {
+  color: #6b7280;
+  font-size: 13px;
+  font-style: italic;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .fre-section {
+    padding: 12px 14px;
+  }
+  
+  .fre-title {
+    font-size: 12px;
+  }
+  
+  .fre-value {
+    font-size: 14px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════ */

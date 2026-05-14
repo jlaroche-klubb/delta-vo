@@ -25,7 +25,7 @@ interface MachinesContextType {
   updatePrice: (
     machineId: string,
     prixFr: number | undefined,
-    prixExport: number | undefined,
+    prixDealer: number | undefined,
     userName: string,
     manuel: boolean
   ) => void;
@@ -121,7 +121,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
   function updatePrice(
     machineId: string,
     prixFr: number | undefined,
-    prixExport: number | undefined,
+    prixDealer: number | undefined,
     userName: string,
     manuel: boolean
   ) {
@@ -132,7 +132,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
           ? {
               ...m,
               prix_fr: prixFr,
-              prix_export: prixExport,
+              prix_dealer: prixDealer,
               prix_modifie_le: today,
               prix_modifie_par: userName,
               prix_modifie_manuellement: manuel,
@@ -216,10 +216,10 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       prev.map((m) => {
         if (m.id !== machineId) return m;
         // Détection auto marché selon commercial
-        const marche: "fr" | "export" = m.commercial_vendeur
+        const marche: "fr" | "dealer" = m.commercial_vendeur
           ?.toLowerCase()
-          .includes("export")
-          ? "export"
+          .includes("dealer")
+          ? "dealer"
           : "fr";
 
         // Cas LLD : on bascule en statut "louee_lld" (pas dans clôturées)

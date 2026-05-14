@@ -54,8 +54,8 @@ export default function ImportResultModal({ result, onClose }: ImportResultModal
                       {s.prixFr !== undefined && (
                         <span>FR: <strong>{s.prixFr.toLocaleString("fr-FR")} €</strong></span>
                       )}
-                      {s.prixExport !== undefined && (
-                        <span>Export: <strong>{s.prixExport.toLocaleString("fr-FR")} €</strong></span>
+                      {s.prixDealer !== undefined && (
+                        <span>Dealer: <strong>{s.prixDealer.toLocaleString("fr-FR")} €</strong></span>
                       )}
                     </span>
                   </div>

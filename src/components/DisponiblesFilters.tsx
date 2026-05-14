@@ -1,6 +1,6 @@
 import { Machine, calculAgeStock } from "../types/machine";
 
-export type PriceType = "fr" | "export" | "both";
+export type PriceType = "fr" | "dealer" | "both";
 export type StatutPrix = "tous" | "avec_prix" | "sans_prix" | "a_repricer";
 
 export interface DispoFilterState {
@@ -51,9 +51,9 @@ export default function DisponiblesFilters({
   const prixValues = machines
     .map((m) => {
       if (filters.priceType === "fr") return m.prix_fr;
-      if (filters.priceType === "export") return m.prix_export;
+      if (filters.priceType === "dealer") return m.prix_dealer;
       // both : prend le minimum des 2
-      return Math.min(m.prix_fr ?? Infinity, m.prix_export ?? Infinity);
+      return Math.min(m.prix_fr ?? Infinity, m.prix_dealer ?? Infinity);
     })
     .filter((v): v is number => v !== undefined && v !== Infinity && !isNaN(v));
 
@@ -70,14 +70,14 @@ export default function DisponiblesFilters({
 
   // Rôle : les commerciaux sont verrouillés sur leur type de prix
   const isVendeurFr = userRole === "vendeur_fr";
-  const isVendeurExport = userRole === "vendeur_export";
-  const lockedPriceType = isVendeurFr || isVendeurExport;
+  const isVendeurDealer = userRole === "dealer";
+  const lockedPriceType = isVendeurFr || isVendeurDealer;
 
   // Si le commercial est verrouillé, forcer priceType
   const effectivePriceType = isVendeurFr
     ? "fr"
-    : isVendeurExport
-    ? "export"
+    : isVendeurDealer
+    ? "dealer"
     : filters.priceType;
 
   const activeCount = countActiveFilters(filters, lockedPriceType);
@@ -137,7 +137,7 @@ export default function DisponiblesFilters({
               </select>
             </div>
 
-            {/* Toggle Prix FR/Export (admin/chef uniquement) */}
+            {/* Toggle Prix FR/Dealer (admin/chef uniquement) */}
             {!lockedPriceType && (
               <div className="filter-field">
                 <label>Filtrer le prix sur</label>
@@ -158,10 +158,10 @@ export default function DisponiblesFilters({
                   </button>
                   <button
                     type="button"
-                    className={`toggle-btn ${effectivePriceType === "export" ? "active" : ""}`}
-                    onClick={() => onChange({ ...filters, priceType: "export" })}
+                    className={`toggle-btn ${effectivePriceType === "dealer" ? "active" : ""}`}
+                    onClick={() => onChange({ ...filters, priceType: "dealer" })}
                   >
-                    Export
+                    Dealer
                   </button>
                 </div>
               </div>
@@ -172,7 +172,7 @@ export default function DisponiblesFilters({
               <div className="filter-field">
                 <label>Filtre prix verrouillé</label>
                 <div className="price-locked">
-                  🔒 {isVendeurFr ? "Prix FR" : "Prix Export"}
+                  🔒 {isVendeurFr ? "Prix FR" : "Prix Dealer"}
                 </div>
               </div>
             )}
@@ -290,8 +290,8 @@ export function applyDispoFilters(
   const effectivePriceType =
     userRole === "vendeur_fr"
       ? "fr"
-      : userRole === "vendeur_export"
-      ? "export"
+      : userRole === "dealer"
+      ? "dealer"
       : f.priceType;
 
   const prixMinNum = f.prixMin ? parseInt(f.prixMin, 10) : null;
@@ -304,7 +304,7 @@ export function applyDispoFilters(
     if (f.typeNacelle && m.type_nacelle !== f.typeNacelle) return false;
 
     // Statut prix
-    const hasPrice = m.prix_fr !== undefined || m.prix_export !== undefined;
+    const hasPrice = m.prix_fr !== undefined || m.prix_dealer !== undefined;
     const age = m.date_mise_stock ? calculAgeStock(m.date_mise_stock) : 0;
 
     if (f.statutPrix === "avec_prix" && !hasPrice) return false;
@@ -331,12 +331,12 @@ function getPriceToCheck(m: Machine, priceType: PriceType): number | null {
   if (priceType === "fr") {
     return m.prix_fr ?? null;
   }
-  if (priceType === "export") {
-    return m.prix_export ?? null;
+  if (priceType === "dealer") {
+    return m.prix_dealer ?? null;
   }
   // both : prend le minimum disponible
   const fr = m.prix_fr ?? Infinity;
-  const exp = m.prix_export ?? Infinity;
-  const min = Math.min(fr, exp);
+  const dealer = m.prix_dealer ?? Infinity;
+  const min = Math.min(fr, dealer);
   return min === Infinity ? null : min;
 }

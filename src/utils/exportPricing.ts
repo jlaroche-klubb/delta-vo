@@ -12,12 +12,12 @@ export function exportPricingToExcel({ machines, seuilRepricer = 60 }: ExportPri
 
   // Séparer en 2 catégories
   const aPricer = disponibles.filter(
-    (m) => m.prix_fr === undefined && m.prix_export === undefined
+    (m) => m.prix_fr === undefined && m.prix_dealer === undefined
   );
 
   const aRepricer = disponibles.filter(
     (m) =>
-      (m.prix_fr !== undefined || m.prix_export !== undefined) &&
+      (m.prix_fr !== undefined || m.prix_dealer !== undefined) &&
       m.date_mise_stock &&
       calculAgeStock(m.date_mise_stock) > seuilRepricer
   );
@@ -48,7 +48,7 @@ export function exportPricingToExcel({ machines, seuilRepricer = 60 }: ExportPri
       "Total retenue HT (info)": m.rapport_expertise?.total_retenue_ht ?? "",
       "VNC (à remplir)": "",
       "Prix FR (à remplir)": "",
-      "Prix Export (à remplir)": "",
+      "Prix Dealer (à remplir)": "",
     }));
 
     const ws1 = XLSX.utils.json_to_sheet(rows1);
@@ -64,7 +64,7 @@ export function exportPricingToExcel({ machines, seuilRepricer = 60 }: ExportPri
       { wch: 20 },  // Total retenue
       { wch: 18 },  // VNC
       { wch: 20 },  // Prix FR
-      { wch: 22 },  // Prix Export
+      { wch: 22 },  // Prix Dealer
     ];
 
     // Mise en forme header (bleu Delta)
@@ -88,10 +88,10 @@ export function exportPricingToExcel({ machines, seuilRepricer = 60 }: ExportPri
         "Heures nacelle": m.heures_nacelle ?? "",
         "Âge stock (jours)": age,
         "Prix FR actuel": m.prix_fr ?? "",
-        "Prix Export actuel": m.prix_export ?? "",
+        "Prix Dealer actuel": m.prix_dealer ?? "",
         "VNC (à remplir)": "",
         "Nouveau Prix FR (à remplir)": "",
-        "Nouveau Prix Export (à remplir)": "",
+        "Nouveau Prix Dealer (à remplir)": "",
       };
     });
 
@@ -106,10 +106,10 @@ export function exportPricingToExcel({ machines, seuilRepricer = 60 }: ExportPri
       { wch: 14 },  // Heures
       { wch: 16 },  // Âge stock
       { wch: 16 },  // Prix FR actuel
-      { wch: 18 },  // Prix Export actuel
+      { wch: 18 },  // Prix Dealer actuel
       { wch: 18 },  // VNC
       { wch: 26 },  // Nouveau Prix FR
-      { wch: 28 },  // Nouveau Prix Export
+      { wch: 28 },  // Nouveau Prix Dealer
     ];
 
     styleHeader(ws2, 12);

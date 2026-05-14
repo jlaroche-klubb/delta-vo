@@ -1,0 +1,372 @@
+# Query: export
+# ContextLines: 1
+
+274 results - 43 files
+
+vite.config.ts:
+  4: export default defineConfig({
+
+src/App.css:
+  1058    /* ═══════════════════════════════════════════════════
+  1059    /* ═══════════════════════════════════════════════════
+  1060:    BOUTON EXPORT EXCEL
+
+  1060     ═══════════════════════════════════════════════════ */
+  1061     ═══════════════════════════════════════════════════ */
+  1062: .btn-export {
+
+  1062    padding: 12px 18px;
+  1063    padding: 12px 18px;
+
+  1075  
+  1076  
+  1077: .btn-export:hover {
+
+  1077    background: #208040;
+  1078    background: #208040;
+
+  1315    
+  1316    
+  1317:   .price-export { color: #ffd966; }
+
+  1317    
+  1318    
+
+  1476  /* ═══════════════════════════════════════════════════
+  1477  /* ═══════════════════════════════════════════════════
+  1478:    BOUTON EXPORT PRICING
+
+  1478     ═══════════════════════════════════════════════════ */
+  1479     ═══════════════════════════════════════════════════ */
+
+  2738     
+  2739     
+  2740:    .dealer-tag {
+
+  2740       display: inline-block;
+  2741       display: inline-block;
+
+  4291    .btn-secondary,
+  4292    .btn-secondary,
+  4293:   .btn-export,
+  4293    .btn-pricing,
+  4294    .btn-pricing,
+
+src/App.tsx:
+  178: export default function App() {
+
+src/AuthContext.tsx:
+  17: export function AuthProvider({ children }: { children: ReactNode }) {
+  92: export function useAuth() {
+
+src/firebase.ts:
+  20: export const db: Firestore = getFirestore(app);
+  21: export const auth = getAuth(app);
+  22: export const storage = getStorage(app);
+  23: export const googleProvider = new GoogleAuthProvider();
+  45: export const nacelleExpertDb: Firestore = getFirestore(nacelleExpertApp);
+
+src/LoginPage.tsx:
+  3: export default function LoginPage() {
+
+src/types.ts:
+   1: export type UserRole = "admin" | "secretaire" | "vendeur_fr" | "dealer" | "chef" | "atelier";
+   3: export interface UserProfile {
+  13: export interface PendingUser extends UserProfile {
+
+src/assets/deltaLogo.ts:
+  1: export const DELTA_LOGO_BASE64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAicAAADICAYAAAAz3UGjAAABCGlDQ1BJQ0MgUHJvZmlsZQAAeJxjYGA8wQAELAYMDLl5JUVB7k4KEZFRCuwPGBiBEAwSk4sLGHADoKpv1yBqL+viUYcLcKakFicD6Q9ArFIEtBxopAiQLZIOYWuA2EkQtg2IXV5SUAJkB4DYRSFBzkB2CpCtkY7ETkJiJxcUgdT3ANk2uTmlyQh3M/Ck5oUGA2kOIJZhKGYIYnBncAL5H6IkfxEDg8VXBgbmCQixpJkMDNtbGRgkbiHEVBYwMPC3MDBsO48QQ4RJQWJRIliIBYiZ0tIYGD4tZ2DgjWRgEL7AwMAVDQsIHG5TALvNnSEfCNMZchhSgSKeDHkMyQx6QJYRgwGDIYMZAKbWPz9HbOBQAAC6FUlEQVR4nOydd5xcR5W233OqbqfJQSONcrYlOSLD2mDcEsEJg8F2yzbJRJPzsonQasMuu7AsfGRMXsDgaZPBa1jWUpNsgwWOcpIly1YOo8kdblWd74/bPbF7lG2F++hXmpkO99ZNVaeqznkPEBISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhISEhIS
+
+src/components/ChoixPrixModal.tsx:
+   7:   onConfirm: (prixChoisi: "fr" | "dealer") => void;
+  10: export default function ChoixPrixModal({ machine, onClose, onConfirm }: ChoixPrixModalProps) {
+  11:   const [choix, setChoix] = useState<"fr" | "dealer">("fr");
+  14:   const hasPrixDealer = machine.prix_dealer !== undefined;
+  59:             {hasPrixExport && (
+  61:                 className={`choix-prix-btn ${choix === "dealer" ? "active" : ""}`}
+  62:                 onClick={() => setChoix("dealer")}
+  65:                 <div className="choix-prix-label">Version dealer</div>
+  67:                   {machine.prix_dealer!.toLocaleString("fr-FR")} €
+  69:                 <div className="choix-prix-sub">Prix Dealer</div>
+
+src/components/ConfigEnCoursModal.tsx:
+  10: export interface ConfigEnCoursPayload {
+  18: export default function ConfigEnCoursModal({
+
+src/components/ConfirmDeleteModal.tsx:
+  9: export default function ConfirmDeleteModal({
+
+src/components/ConfirmFactureModal.tsx:
+  10: export default function ConfirmFactureModal({
+
+src/components/DisponibleCard.tsx:
+   15: export default function DisponibleCard({
+   28:   const hasPrice = machine.prix_fr !== undefined || machine.prix_export !== undefined;
+  135:               <div className="price-label">Prix Export</div>
+  136:               <div className="price-value price-export">
+  137:                 {machine.prix_export !== undefined
+  138:                   ? machine.prix_export.toLocaleString("fr-FR") + " €"
+
+src/components/DisponiblesFilters.tsx:
+    3: export type PriceType = "fr" | "export" | "both";
+    4: export type StatutPrix = "tous" | "avec_prix" | "sans_prix" | "a_repricer";
+    6: export interface DispoFilterState {
+   16: export const EMPTY_DISPO_FILTERS: DispoFilterState = {
+   36: export default function DisponiblesFilters({
+   54:       if (filters.priceType === "export") return m.prix_export;
+   56:       return Math.min(m.prix_fr ?? Infinity, m.prix_export ?? Infinity);
+   73:   const isVendeurExport = userRole === "dealer";
+   74:   const lockedPriceType = isVendeurFr || isVendeurExport;
+   79:     : isVendeurExport
+   80:     ? "export"
+  140:             {/* Toggle Prix FR/Export (admin/chef uniquement) */}
+  161:                     className={`toggle-btn ${effectivePriceType === "export" ? "active" : ""}`}
+  162:                     onClick={() => onChange({ ...filters, priceType: "export" })}
+  164:                     Export
+  175:                   🔒 {isVendeurFr ? "Prix FR" : "Prix Export"}
+  282: // Fonction de filtrage exportée
+  283: export function applyDispoFilters(
+  294:       ? "export"
+  307:     const hasPrice = m.prix_fr !== undefined || m.prix_export !== undefined;
+  334:   if (priceType === "export") {
+  335:     return m.prix_export ?? null;
+  339:   const exp = m.prix_export ?? Infinity;
+
+src/components/EditPriceModal.tsx:
+   8:   onSave: (id: string, prixFr: number | undefined, prixExport: number | undefined) => void;
+  11: export default function EditPriceModal({ machine, userName, onClose, onSave }: EditPriceModalProps) {
+  15:   const [prixExport, setPrixExport] = useState<string>(
+  16:     machine.prix_export !== undefined ? String(machine.prix_export) : ""
+  21:     const exp = prixExport.trim() ? parseInt(prixExport.replace(/\s/g, ""), 10) : undefined;
+  28:       alert("Le prix Export doit être un nombre");
+  80:               <label>Prix Export (en €)</label>
+  85:                 value={prixExport}
+  86:                 onChange={(e) => setPrixExport(e.target.value)}
+  88:               {machine.prix_export !== undefined && (
+  90:                   Actuel : {machine.prix_export.toLocaleString("fr-FR")} €
+
+src/components/EnCoursCard.tsx:
+  19: export default function EnCoursCard({
+
+src/components/EnCoursFilters.tsx:
+    3: export type TypePrepaFilter = "tous" | "normale" | "en_etat";
+    4: export type StatutEnCoursFilter =
+   10: export type LivraisonRapide =
+   17: export interface EnCoursFilterState {
+   28: export const EMPTY_ENCOURS_FILTERS: EnCoursFilterState = {
+   47: export default function EnCoursFilters({
+  251: // Fonction de filtrage exportée
+  252: export function applyEnCoursFilters(
+
+src/components/ExpertiseModal.tsx:
+  8: export default function ExpertiseModal({ machine, onClose }: ExpertiseModalProps) {
+
+src/components/FicheCommercialeModal.tsx:
+  10: export default function FicheCommercialeModal({
+
+src/components/FicheVoTemplate.tsx:
+   6:   prixChoisi: "fr" | "export";
+  14: export default function FicheVoTemplate({
+  21:   const prix = prixChoisi === "fr" ? machine.prix_fr : machine.prix_export;
+  22:   const prixLabel = prixChoisi === "fr" ? "PRIX HT" : "PRIX HT EXPORT";
+
+src/components/FiltersBar.tsx:
+    3: export interface FilterState {
+   11: export const EMPTY_FILTERS: FilterState = {
+   27: export default function FiltersBar({
+  152: // Fonction de filtrage exportée — utilisée par RestitutionsPage
+  153: export function applyFilters(machines: Machine[], f: FilterState): Machine[] {
+
+src/components/ImportResultModal.tsx:
+   8: export default function ImportResultModal({ result, onClose }: ImportResultModalProps) {
+  57:                       {s.prixExport !== undefined && (
+  58:                         <span>Export: <strong>{s.prixExport.toLocaleString("fr-FR")} €</strong></span>
+
+src/components/LldModal.tsx:
+  10: export default function LldModal({ machine, onClose, onConfirm }: LldModalProps) {
+
+src/components/MachineCard.tsx:
+  17: export default function MachineCard({ machine, onSetDate, onToggleField }: MachineCardProps) {
+
+src/components/MarkPaidModal.tsx:
+  10: export default function MarkPaidModal({
+
+src/components/PhoneSetupModal.tsx:
+  9: export default function PhoneSetupModal({
+
+src/contexts/MachinesContext.tsx:
+   28:     prixDealer: number | undefined,
+   75: export function MachinesProvider({ children }: { children: ReactNode }) {
+  124:     prixDealer: number | undefined,
+  135:               prix_dealer: prixDealer,
+  219:         const marche: "fr" | "dealer" = m.commercial_vendeur
+  221:           .includes("dealer")
+  222:           ? "dealer"
+  319: export function useMachines() {
+  327: export function useMachinesFiltered(showArchived: boolean = false) {
+
+src/data/mockCloturees.ts:
+    4: export const MOCK_CLOTUREES: Machine[] = [
+   24:     prix_export: 42500,
+   55:     prix_export: 36500,
+   86:     prix_export: 32000,
+  119:     prix_export: 50000,
+  150:     prix_export: 25000,
+  153:     commercial_vendeur: "Marc Dupont (Export)",
+  159:     marche: "export",
+  183:     prix_export: 21000,
+  214:     prix_export: 34000,
+  216:     acheteur: "BTP Export Marocco",
+  217:     commercial_vendeur: "Marc Dupont (Export)",
+  222:     marche: "export",
+  246:     prix_export: 29500,
+  279:     prix_export: 25500,
+  310:     prix_export: 47000,
+  312:     acheteur: "Export Algérie SARL",
+  313:     commercial_vendeur: "Marc Dupont (Export)",
+  319:     marche: "export",
+
+src/data/mockDisponibles.ts:
+    4: export const MOCK_DISPONIBLES: Machine[] = [
+   72:     prix_export: 42000,
+   99:     prix_export: 31000,
+  126:     prix_export: 39500,
+  155:     prix_export: 36000,
+  182:     prix_export: 25500,
+  209:     prix_export: 33500,
+
+src/data/mockEnCours.ts:
+    4: export const MOCK_EN_COURS: Machine[] = [
+   25:     prix_export: 39500,
+   51:     prix_export: 42500,
+   89:     prix_export: 36500,
+  129:     prix_export: 32000,
+  167:     prix_export: 50000,
+  207:     prix_export: 25000,
+  210:     commercial_vendeur: "Marc Dupont (Export)",
+  238:     prix_export: 21000,
+
+src/data/mockMachines.ts:
+  3: export const MOCK_MACHINES: Machine[] = [
+
+src/pages/ClotureesPage.tsx:
+   27: type MarcheFilter = "tous" | "fr" | "export";
+   29: export default function ClotureesPage({ userRole, userName }: ClotureesPageProps) {
+  322:                   <option value="export">🌍 Export</option>
+  450:         {machine.marche === "export" && <span className="export-tag">🌍 Export</span>}
+
+src/pages/DisponiblesPage.tsx:
+   22: import { exportPricingToExcel } from "../utils/exportPricing";
+   34: export default function DisponiblesPage({ userRole, userName }: DisponiblesPageProps) {
+   61:   const [generatingPrix, setGeneratingPrix] = useState<"fr" | "export">("fr");
+  104:     (m) => m.prix_fr === undefined && m.prix_export === undefined
+  107:     (m) => m.prix_fr !== undefined || m.prix_export !== undefined
+  115:     baseDispo.filter((m) => m.prix_fr === undefined && m.prix_export === undefined).length +
+  118:         (m.prix_fr !== undefined || m.prix_export !== undefined) &&
+  126:     prixExport: number | undefined
+  128:     updatePrice(id, prixFr, prixExport, userName, true);
+  131:   function handleExportPricing() {
+  132:     exportPricingToExcel({ machines, seuilRepricer: SEUIL_REPRICER });
+  164:       doGeneratePdf(machine, "export");
+  179:   function handleChoixPrixConfirm(prixChoisi: "fr" | "export") {
+  186:   async function doGeneratePdf(machine: Machine, prixChoisi: "fr" | "export") {
+  250:               s.prixExport !== undefined ? s.prixExport : machine.prix_export,
+  299:           onClick={handleExportPricing}
+  302:           📋 Export Pricing
+
+src/pages/EnCoursPage.tsx:
+  25: export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
+
+src/pages/RestitutionsPage.tsx:
+    6: import { exportMachinesToExcel } from "../utils/exportExcel";
+   29: export default function RestitutionsPage() {
+  131:   function handleExport() {
+  133:       alert("Aucune machine à exporter avec les filtres actuels");
+  136:     exportMachinesToExcel(filtered);
+  172:         <button className="btn-export" onClick={handleExport} title="Télécharger en Excel">
+  173:           ⬇ Export Excel
+
+src/pages/StatsPage.tsx:
+    4: import { exportStatsToExcel } from "../utils/exportStats";
+   13: export default function StatsPage() {
+  177:   function handleExport() {
+  178:     exportStatsToExcel({ machines: machinesPeriode, periodeLabel });
+  194:           <button className="btn-pricing" onClick={handleExport} disabled={stats.total === 0}>
+  195:             📥 Export Excel
+
+src/services/nacelleExpertService.ts:
+  188:   export function subscribeToDossiers(
+
+src/types/machine.ts:
+    1: export type MachineStatut =
+    8: export type TypePrepa = "normale" | "en_etat";
+    9: export type TypeSortie = "vente" | "lld";
+   10: export type StatutPaiement = "en_attente" | "payee" | "retard";
+   12: export interface DegatExpertise {
+   19: export interface RapportExpertise {
+   32: export interface EtapePrepa {
+   41: export interface FicheCommerciale {
+   52: export interface Machine {
+   86:   prix_export?: number;
+  113:   marche?: "fr" | "export";
+  127: export function calculAgeStock(dateStock: string): number {
+  134: export function getAgeStockColor(jours: number, seuilRepricer: number = 60): {
+  145: export const ETAPES_PREPA_DEFAULT: { id: string; label: string }[] = [
+  154: export function creerEtapesPrepa(): EtapePrepa[] {
+  162: export function prepaTerminee(etapes: EtapePrepa[] | undefined): boolean {
+  167: export function isLivraisonEnRetard(dateLivraison: string | undefined): boolean {
+  173: export function isMiseDispoEnRetard(dateMiseDispo: string | undefined): boolean {
+  180: export const SEUIL_RETARD_PAIEMENT_DEFAULT = 30;
+  182: export function getStatutPaiement(
+  195: export function joursDepuisFacturation(dateFacturation: string | undefined): number {
+  202: export function getAnneeFacturation(machine: Machine): number {
+  210: export function isFicheComplete(machine: Machine): boolean {
+  222: export function getNextFicheNumber(machines: Machine[], startFrom: number = 2196): string {
+
+src/utils/exportExcel.ts:
+   4: export function exportMachinesToExcel(machines: Machine[], filename = "delta-vo-restitutions") {
+  81:     Subject: "Export ADV",
+
+src/utils/exportPricing.ts:
+    4: interface ExportPricingOptions {
+    9: export function exportPricingToExcel({ machines, seuilRepricer = 60 }: ExportPricingOptions) {
+   15:     (m) => m.prix_fr === undefined && m.prix_export === undefined
+   20:       (m.prix_fr !== undefined || m.prix_export !== undefined) &&
+   51:       "Prix Export (à remplir)": "",
+   67:       { wch: 22 },  // Prix Export
+   91:         "Prix Export actuel": m.prix_export ?? "",
+   94:         "Nouveau Prix Export (à remplir)": "",
+  109:       { wch: 18 },  // Prix Export actuel
+  112:       { wch: 28 },  // Nouveau Prix Export
+
+src/utils/exportStats.ts:
+   4: interface ExportStatsOptions {
+   9: export function exportStatsToExcel({ machines, periodeLabel }: ExportStatsOptions) {
+  11:     alert("Aucune donnée à exporter pour cette période.");
+  30:     "Marché": m.marche === "export" ? "Export" : "France",
+  58:     if (m.marche === "export") stat.exp += 1;
+  67:       "Ventes Export": stat.exp,
+
+src/utils/generateFichePdf.ts:
+    7:   prixChoisi: "fr" | "export";
+   66: export async function generateFichePdf({
+  127: export function showOrSkip<T>(value: T | undefined | null, formatter?: (v: T) => string): string {
+  133: export function formatNumber(n: number): string {
+
+src/utils/importPricing.ts:
+    4: export interface ImportResult {
+   10: export interface ImportSuccess {
+   13:   prixExport?: number;
+   17: export interface ImportError {
+   28: export async function importPricingFromExcel({
+   63:       "Le fichier ne contient pas les onglets attendus. Vérifiez que vous utilisez bien le modèle exporté depuis Delta VO (onglets « À pricer » et/ou « À repricer »)."
+  113:   const prixExportKey = isRepricer
+  114:     ? "Nouveau Prix Export (à remplir)"
+  115:     : "Prix Export (à remplir)";
+  118:   const prixExportRaw = row[prixExportKey];
+  121:   const prixExport = parsePrice(prixExportRaw);
+  123:   if (prixFr === null && prixExport === null) {
+  126:       raison: "Aucun prix renseigné (Prix FR et Prix Export vides)",
+  136:   if (prixExport !== null && prixExport < 0) {
+  137:     errors.push({ immat, raison: "Prix Export négatif", source });
+  144:     prixExport: prixExport === null ? undefined : prixExport,

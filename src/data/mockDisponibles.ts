@@ -22,6 +22,14 @@ export const MOCK_DISPONIBLES: Machine[] = [
     km_porteur: 87450,
     agent_expertise: "Marc Dupont",
     date_mise_stock: "2026-05-08", // 3 jours en stock
+    rapport_expertise: {
+      total_retenue_ht: 2450,
+      degats: [
+        { categorie: "Carrosserie", description: "Rayure portière gauche", cout_estime: 450 },
+        { categorie: "Nacelle", description: "Garde-corps à repeindre", cout_estime: 800 },
+        { categorie: "Mécanique", description: "Remplacement filtre à air", cout_estime: 1200 },
+      ],
+    },
     is_test: true,
     createdAt: "2026-04-28T10:00:00Z",
   },
@@ -44,6 +52,13 @@ export const MOCK_DISPONIBLES: Machine[] = [
     km_porteur: 52180,
     agent_expertise: "Marc Dupont",
     date_mise_stock: "2026-05-09", // 2 jours en stock
+    rapport_expertise: {
+      total_retenue_ht: 850,
+      degats: [
+        { categorie: "Intérieur", description: "Siège conducteur usé", cout_estime: 600 },
+        { categorie: "Électrique", description: "Gyrophare HS", cout_estime: 250 },
+      ],
+    },
     is_test: true,
     createdAt: "2026-05-05T16:00:00Z",
   },
@@ -69,10 +84,17 @@ export const MOCK_DISPONIBLES: Machine[] = [
     agent_expertise: "Sophie Bernard",
     date_mise_stock: "2026-04-20", // 21 jours
     prix_fr: 38500,
-    prix_export: 42000,
+    prix_dealer: 42000,
     prix_modifie_le: "2026-04-22",
     prix_modifie_par: "Pierre Martin (PDG)",
     prix_modifie_manuellement: false,
+    rapport_expertise: {
+      total_retenue_ht: 1520,
+      degats: [
+        { categorie: "Carrosserie", description: "Pare-choc avant enfoncé", cout_estime: 900 },
+        { categorie: "Nacelle", description: "Vérin stabilisateur fuyant", cout_estime: 620 },
+      ],
+    },
     is_test: true,
     createdAt: "2026-04-15T14:00:00Z",
   },
@@ -96,10 +118,19 @@ export const MOCK_DISPONIBLES: Machine[] = [
     agent_expertise: "Marc Dupont",
     date_mise_stock: "2026-04-05", // 36 jours (vert→jaune)
     prix_fr: 27500,
-    prix_export: 31000,
+    prix_dealer: 31000,
     prix_modifie_le: "2026-04-08",
     prix_modifie_par: "Pierre Martin (PDG)",
     prix_modifie_manuellement: false,
+    rapport_expertise: {
+      total_retenue_ht: 3250,
+      degats: [
+        { categorie: "Carrosserie", description: "Hayon arrière cabossé", cout_estime: 750 },
+        { categorie: "Nacelle", description: "Plancher nacelle troué", cout_estime: 1100 },
+        { categorie: "Mécanique", description: "Échappement percé", cout_estime: 850 },
+        { categorie: "Électrique", description: "Feux de recul cassés", cout_estime: 550 },
+      ],
+    },
     is_test: true,
     createdAt: "2026-04-02T11:00:00Z",
   },
@@ -123,10 +154,17 @@ export const MOCK_DISPONIBLES: Machine[] = [
     agent_expertise: "Sophie Bernard",
     date_mise_stock: "2026-04-22", // 19 jours
     prix_fr: 35000,
-    prix_export: 39500,
+    prix_dealer: 39500,
     prix_modifie_le: "2026-04-25",
     prix_modifie_par: "Pierre Martin (PDG)",
     prix_modifie_manuellement: false,
+    rapport_expertise: {
+      total_retenue_ht: 680,
+      degats: [
+        { categorie: "Carrosserie", description: "Rétroviseur droit cassé", cout_estime: 380 },
+        { categorie: "Intérieur", description: "Tapis cabine manquant", cout_estime: 300 },
+      ],
+    },
     is_test: true,
     createdAt: "2026-04-18T09:00:00Z",
   },
@@ -152,10 +190,20 @@ export const MOCK_DISPONIBLES: Machine[] = [
     agent_expertise: "Marc Dupont",
     date_mise_stock: "2026-02-15", // 85 jours (à repricer)
     prix_fr: 32000,
-    prix_export: 36000,
+    prix_dealer: 36000,
     prix_modifie_le: "2026-02-18",
     prix_modifie_par: "Pierre Martin (PDG)",
     prix_modifie_manuellement: false,
+    rapport_expertise: {
+      total_retenue_ht: 4180,
+      degats: [
+        { categorie: "Carrosserie", description: "Aile avant gauche enfoncée", cout_estime: 1200 },
+        { categorie: "Nacelle", description: "Flexible hydraulique à changer", cout_estime: 980 },
+        { categorie: "Mécanique", description: "Plaquettes de frein usées", cout_estime: 850 },
+        { categorie: "Électrique", description: "Batterie faible", cout_estime: 650 },
+        { categorie: "Intérieur", description: "Tableau de bord fissuré", cout_estime: 500 },
+      ],
+    },
     is_test: true,
     createdAt: "2026-02-10T13:00:00Z",
   },
@@ -179,10 +227,19 @@ export const MOCK_DISPONIBLES: Machine[] = [
     agent_expertise: "Sophie Bernard",
     date_mise_stock: "2026-01-30", // 101 jours (stock long)
     prix_fr: 22000,
-    prix_export: 25500,
+    prix_dealer: 25500,
     prix_modifie_le: "2026-02-02",
     prix_modifie_par: "Pierre Martin (PDG)",
     prix_modifie_manuellement: false,
+    rapport_expertise: {
+      total_retenue_ht: 5420,
+      degats: [
+        { categorie: "Carrosserie", description: "Peinture très abîmée (complète)", cout_estime: 2500 },
+        { categorie: "Nacelle", description: "Pompe hydraulique à réviser", cout_estime: 1800 },
+        { categorie: "Mécanique", description: "Embrayage à remplacer", cout_estime: 920 },
+        { categorie: "Intérieur", description: "Sièges déchirés", cout_estime: 200 },
+      ],
+    },
     is_test: true,
     createdAt: "2026-01-25T10:00:00Z",
   },
@@ -206,10 +263,18 @@ export const MOCK_DISPONIBLES: Machine[] = [
     agent_expertise: "Marc Dupont",
     date_mise_stock: "2026-03-04", // 68 jours (à repricer)
     prix_fr: 29500,
-    prix_export: 33500,
+    prix_dealer: 33500,
     prix_modifie_le: "2026-03-08",
     prix_modifie_par: "Pierre Martin (PDG)",
     prix_modifie_manuellement: false,
+    rapport_expertise: {
+      total_retenue_ht: 1950,
+      degats: [
+        { categorie: "Carrosserie", description: "Capot rayé", cout_estime: 650 },
+        { categorie: "Nacelle", description: "Commandes à réviser", cout_estime: 800 },
+        { categorie: "Électrique", description: "Feu stop gauche HS", cout_estime: 500 },
+      ],
+    },
     is_test: true,
     createdAt: "2026-02-28T15:00:00Z",
   },

@@ -3,7 +3,7 @@ import { DELTA_LOGO_BASE64 } from "../assets/deltaLogo";
 
 interface FicheVoTemplateProps {
   machine: Machine;
-  prixChoisi: "fr" | "export";
+  prixChoisi: "fr" | "dealer";
   commercial: {
     nom: string;
     email: string;
@@ -18,19 +18,23 @@ export default function FicheVoTemplate({
 }: FicheVoTemplateProps) {
   const fc = machine.fiche_commerciale || {};
   const numero = fc.numero_fiche || "—";
-  const prix = prixChoisi === "fr" ? machine.prix_fr : machine.prix_export;
-  const prixLabel = prixChoisi === "fr" ? "PRIX HT" : "PRIX HT EXPORT";
+  const prix = prixChoisi === "fr" ? machine.prix_fr : machine.prix_dealer;
+  const prixLabel = prixChoisi === "fr" ? "PRIX HT" : "PRIX HT DEALER";
+
+  // === Photos détourées disponibles depuis nacelle-expert ===
+  const photos = machine.photos_detourees || [];
+  const photoPrincipale = photos[0]; // 1ère photo = page 1
+  const photo3qAvant = photos[1] || photos[0]; // page 2 - vue 3/4 avant
+  const photoArriere = photos[2] || photos[0]; // page 2 - vue arrière
+  const photoProfil = photos[3] || photos[0]; // page 2 - vue de profil
 
   return (
     <>
       {/* PAGE 1 */}
       <div id="fiche-vo-page-1" style={pageStyle}>
-        {/* Bandeau gauche vertical */}
         <SideBanner numero={numero} />
 
-        {/* Contenu principal */}
         <div style={mainContentStyle}>
-          {/* Header avec logo + titre */}
           <div style={headerStyle}>
             <img src={DELTA_LOGO_BASE64} alt="Delta Services" style={logoStyle} />
             <div style={titleBlockStyle}>
@@ -46,23 +50,27 @@ export default function FicheVoTemplate({
             </div>
           </div>
 
-          {/* Séparateur rouge */}
           <div style={separatorStyle}></div>
 
-          {/* Grille principale : photo + caractéristiques */}
           <div style={gridStyle}>
-            {/* Photo principale (placeholder) */}
+            {/* Photo principale */}
             <div style={photoMainStyle}>
-              <div style={photoPlaceholderStyle}>
-                <div style={photoIconStyle}>📷</div>
-                <div style={photoLabelStyle}>Photo à venir</div>
-                <div style={photoSubStyle}>depuis nacelle-expert</div>
-              </div>
+              {photoPrincipale ? (
+                <img
+                  src={photoPrincipale}
+                  alt="Vue principale"
+                  style={photoMainImgStyle}
+                />
+              ) : (
+                <div style={photoPlaceholderStyle}>
+                  <div style={photoIconStyle}>📷</div>
+                  <div style={photoLabelStyle}>Photo à venir</div>
+                  <div style={photoSubStyle}>depuis nacelle-expert</div>
+                </div>
+              )}
             </div>
 
-            {/* Caractéristiques */}
             <div style={specsStyle}>
-              {/* Bloc Nacelle */}
               <div style={specBlockStyle}>
                 <div style={specTitleStyle}>NACELLE ÉLÉVATRICE {machine.type_nacelle}</div>
                 <ul style={specListStyle}>
@@ -95,7 +103,6 @@ export default function FicheVoTemplate({
                 </ul>
               </div>
 
-              {/* Bloc Porteur */}
               <div style={specBlockStyle}>
                 <div style={specTitleStyle}>PORTEUR</div>
                 <ul style={specListStyle}>
@@ -121,7 +128,6 @@ export default function FicheVoTemplate({
                 </ul>
               </div>
 
-              {/* Bloc Options */}
               {fc.options && fc.options.length > 0 && (
                 <div style={specBlockStyle}>
                   <div style={specTitleStyle}>OPTIONS</div>
@@ -135,7 +141,6 @@ export default function FicheVoTemplate({
                 </div>
               )}
 
-              {/* Bloc Aménagement */}
               {fc.amenagement_interieur && (
                 <div style={specBlockStyle}>
                   <div style={specTitleStyle}>AMÉNAGEMENT INTÉRIEUR</div>
@@ -145,7 +150,6 @@ export default function FicheVoTemplate({
             </div>
           </div>
 
-          {/* Encart prix */}
           {prix !== undefined && (
             <div style={priceBlockStyle}>
               <div style={priceLabelStyle}>{prixLabel}</div>
@@ -155,7 +159,6 @@ export default function FicheVoTemplate({
             </div>
           )}
 
-          {/* Footer */}
           <div style={footerStyle}>
             <div style={footerLineStyle}></div>
             <div style={footerContentStyle}>
@@ -172,24 +175,20 @@ export default function FicheVoTemplate({
         <SideBanner numero={numero} />
 
         <div style={mainContentStyle}>
-          {/* Header simple page 2 */}
           <div style={headerPage2Style}>
             <img src={DELTA_LOGO_BASE64} alt="Delta Services" style={logoSmallStyle} />
-            <div style={pageRefStyle}>
-              FICHE D'OCCASION N°{numero}
-            </div>
+            <div style={pageRefStyle}>FICHE D'OCCASION N°{numero}</div>
           </div>
 
           <div style={separatorStyle}></div>
 
-          {/* Grille de 3 photos placeholders */}
+          {/* Grille de 3 photos (utilise les vraies photos détourées si dispo) */}
           <div style={photosGridStyle}>
-            <PhotoPlaceholder label="Vue 3/4 avant" />
-            <PhotoPlaceholder label="Vue arrière" />
-            <PhotoPlaceholder label="Vue de profil" />
+            <PhotoSlot label="Vue 3/4 avant" src={photo3qAvant} />
+            <PhotoSlot label="Vue arrière" src={photoArriere} />
+            <PhotoSlot label="Vue de profil" src={photoProfil} />
           </div>
 
-          {/* Bloc commercial */}
           <div style={commercialBlockStyle}>
             <div style={commercialTitleStyle}>VOTRE INTERLOCUTEUR</div>
             <div style={commercialNameStyle}>{commercial.nom}</div>
@@ -205,7 +204,6 @@ export default function FicheVoTemplate({
             </div>
           </div>
 
-          {/* Footer page 2 */}
           <div style={footerStyle}>
             <div style={footerLineStyle}></div>
             <div style={footerContentStyle}>
@@ -234,7 +232,19 @@ function SideBanner({ numero }: { numero: string }) {
   );
 }
 
-function PhotoPlaceholder({ label }: { label: string }) {
+/**
+ * Emplacement photo qui affiche la vraie photo détourée si disponible,
+ * sinon un placeholder.
+ */
+function PhotoSlot({ label, src }: { label: string; src?: string }) {
+  if (src) {
+    return (
+      <div style={photoGridItemFilledStyle}>
+        <img src={src} alt={label} style={photoGridImgStyle} />
+        <div style={photoGridCaptionStyle}>{label}</div>
+      </div>
+    );
+  }
   return (
     <div style={photoGridItemStyle}>
       <div style={photoGridIconStyle}>📷</div>
@@ -245,8 +255,6 @@ function PhotoPlaceholder({ label }: { label: string }) {
 }
 
 // =============== STYLES ===============
-// A4 = 794px × 1123px à 96 DPI (ce qui correspond à 210mm × 297mm)
-// html2canvas avec scale: 2 = bonne qualité
 
 const pageStyle: React.CSSProperties = {
   width: "794px",
@@ -380,6 +388,14 @@ const photoMainStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
+  overflow: "hidden",
+};
+
+const photoMainImgStyle: React.CSSProperties = {
+  width: "100%",
+  height: "100%",
+  objectFit: "contain",
+  background: "#ffffff",
 };
 
 const photoPlaceholderStyle: React.CSSProperties = {
@@ -532,6 +548,36 @@ const photoGridItemStyle: React.CSSProperties = {
   alignItems: "center",
   justifyContent: "center",
   textAlign: "center",
+};
+
+const photoGridItemFilledStyle: React.CSSProperties = {
+  background: "#ffffff",
+  border: "1px solid #d0d4da",
+  borderRadius: "8px",
+  display: "flex",
+  flexDirection: "column",
+  overflow: "hidden",
+  position: "relative",
+};
+
+const photoGridImgStyle: React.CSSProperties = {
+  flex: 1,
+  width: "100%",
+  height: "100%",
+  objectFit: "contain",
+  background: "#fafbfc",
+};
+
+const photoGridCaptionStyle: React.CSSProperties = {
+  fontSize: "11px",
+  fontWeight: 700,
+  color: "#1a2a6e",
+  textAlign: "center",
+  padding: "6px",
+  background: "#f8f9fb",
+  borderTop: "1px solid #e5e8ec",
+  letterSpacing: "0.5px",
+  textTransform: "uppercase",
 };
 
 const photoGridIconStyle: React.CSSProperties = {

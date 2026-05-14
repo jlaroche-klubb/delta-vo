@@ -24,7 +24,7 @@ type SortKey =
   | "statut_paiement";
 
 type StatutPaiementFilter = "tous" | "payee" | "en_attente" | "retard";
-type MarcheFilter = "tous" | "fr" | "export";
+type MarcheFilter = "tous" | "fr" | "dealer";
 
 export default function ClotureesPage({ userRole, userName }: ClotureesPageProps) {
   // 🆕 Toggle "Voir archivées"
@@ -319,7 +319,7 @@ export default function ClotureesPage({ userRole, userName }: ClotureesPageProps
                 >
                   <option value="tous">Tous</option>
                   <option value="fr">🇫🇷 France</option>
-                  <option value="export">🌍 Export</option>
+                  <option value="dealer">🌍 Dealer</option>
                 </select>
               </div>
               <div className="filter-field">
@@ -447,7 +447,7 @@ function ClotureeRow({
       </td>
       <td>
         <div>{machine.acheteur}</div>
-        {machine.marche === "export" && <span className="export-tag">🌍 Export</span>}
+        {machine.marche === "dealer" && <span className="dealer-tag">🌍 Dealer</span>}
       </td>
       <td>{machine.commercial_vendeur}</td>
       <td className="col-num cell-prix">

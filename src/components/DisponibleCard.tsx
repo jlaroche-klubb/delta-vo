@@ -25,7 +25,7 @@ export default function DisponibleCard({
 }: DisponibleCardProps) {
   const age = machine.date_mise_stock ? calculAgeStock(machine.date_mise_stock) : 0;
   const ageInfo = getAgeStockColor(age, seuilRepricer);
-  const hasPrice = machine.prix_fr !== undefined || machine.prix_export !== undefined;
+  const hasPrice = machine.prix_fr !== undefined || machine.prix_dealer !== undefined;
   const ficheComplete = isFicheComplete(machine);
 
   return (
@@ -119,6 +119,31 @@ export default function DisponibleCard({
         )}
       </div>
 
+      {/* ════════ SECTION FRE (NOUVEAU) ════════ */}
+      {machine.rapport_expertise && (
+        <div className="fre-section">
+          <div className="fre-header">
+            <span className="fre-icon">🔧</span>
+            <span className="fre-title">Frais de remise en état</span>
+          </div>
+          <div className="fre-details">
+            <div className="fre-item">
+              <span className="fre-label">Retenue HT:</span>
+              <span className="fre-value">
+                {machine.rapport_expertise.total_retenue_ht !== undefined
+                  ? `${machine.rapport_expertise.total_retenue_ht.toLocaleString("fr-FR")} €`
+                  : "—"}
+              </span>
+            </div>
+            <div className="fre-item">
+              <span className="fre-degats">
+                {machine.rapport_expertise.degats.length} dégât(s) identifié(s)
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="dispo-prices">
         {hasPrice ? (
           <>
@@ -132,10 +157,10 @@ export default function DisponibleCard({
             </div>
             <div className="price-divider"></div>
             <div className="price-block">
-              <div className="price-label">Prix Export</div>
-              <div className="price-value price-export">
-                {machine.prix_export !== undefined
-                  ? machine.prix_export.toLocaleString("fr-FR") + " €"
+              <div className="price-label">Prix Dealer</div>
+              <div className="price-value price-dealer">
+                {machine.prix_dealer !== undefined
+                  ? machine.prix_dealer.toLocaleString("fr-FR") + " €"
                   : "—"}
               </div>
             </div>

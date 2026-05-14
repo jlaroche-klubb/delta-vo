@@ -1,4 +1,4 @@
-export type UserRole = "admin" | "secretaire" | "vendeur_fr" | "vendeur_export" | "chef" | "atelier";
+export type UserRole = "admin" | "secretaire" | "vendeur_fr" | "dealer" | "chef" | "atelier";
 
 export interface UserProfile {
   email: string;

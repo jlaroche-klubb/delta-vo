@@ -1,9 +1,10 @@
 import { useState, useMemo } from "react";
 import { Machine } from "../types/machine";
-import { MOCK_MACHINES } from "../data/mockMachines";
+import { useMachinesFiltered } from "../contexts/MachinesContext";
 import MachineCard from "../components/MachineCard";
 import FiltersBar, { FilterState, EMPTY_FILTERS, applyFilters } from "../components/FiltersBar";
 import { exportMachinesToExcel } from "../utils/exportExcel";
+import { useAuth } from "../AuthContext";
 
 interface NewMachineForm {
   immat: string;
@@ -26,29 +27,61 @@ const EMPTY_FORM: NewMachineForm = {
 };
 
 export default function RestitutionsPage() {
-  const [machines, setMachines] = useState<Machine[]>(MOCK_MACHINES);
+  // 🆕 Toggle "Voir archivées"
+  const [showArchived, setShowArchived] = useState(false);
+
+  // === STATE GLOBAL via useMachinesFiltered (fusion + filtrage archivées) ===
+  const {
+    machines: allMachines,
+    toggleEtapeRestitution,
+    setDateDemandeRecup,
+    createMachineRestitution,
+  } = useMachinesFiltered(showArchived);
+
+  // Pour le compteur total des archivées (cache toujours, hors filtre)
+  const { machines: allMachinesUnfiltered } = useMachinesFiltered(true);
+
+  const { profile } = useAuth();
+  const isAdmin = !profile || profile.role === "admin";
+
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<NewMachineForm>(EMPTY_FORM);
 
+  // === Filtrage par statut restitution puis search + filtres avancés ===
+  const restitutionMachines = useMemo(
+    () => allMachines.filter((m) => m.statut === "restitution"),
+    [allMachines]
+  );
+
+  // Compteur des archivées (pour info dans la barre)
+  const totalArchived = useMemo(
+    () =>
+      allMachinesUnfiltered.filter(
+        (m) => m.archived && m.statut === "restitution"
+      ).length,
+    [allMachinesUnfiltered]
+  );
+
   const filtered = useMemo(() => {
-    let result = machines.filter((m) => m.statut === "restitution");
+    let result = restitutionMachines;
+
     if (search) {
       const q = search.toLowerCase();
       result = result.filter(
         (m) =>
-          m.immat.toLowerCase().includes(q) ||
-          m.modele_porteur.toLowerCase().includes(q) ||
-          m.type_nacelle.toLowerCase().includes(q) ||
-          m.client_precedent.toLowerCase().includes(q) ||
-          m.contrat.toLowerCase().includes(q)
+          (m.immat || "").toLowerCase().includes(q) ||
+          (m.modele_porteur || "").toLowerCase().includes(q) ||
+          (m.type_nacelle || "").toLowerCase().includes(q) ||
+          (m.client_precedent || "").toLowerCase().includes(q) ||
+          (m.contrat || "").toLowerCase().includes(q)
       );
     }
     result = applyFilters(result, filters);
     return result;
-  }, [machines, search, filters]);
+  }, [restitutionMachines, search, filters]);
 
   const total = filtered.length;
   const voCreated = filtered.filter((m) => m.fiche_vo_creee).length;
@@ -56,48 +89,16 @@ export default function RestitutionsPage() {
     (m) => m.fiche_vo_creee && m.facture_ok && !m.facture_reglee_ok
   ).length;
 
+  // === Handlers ===
   function setDate(id: string, date: string) {
-    setMachines((prev) =>
-      prev.map((m) =>
-        m.id === id
-          ? { ...m, date_demande_recuperation: date, updatedAt: new Date().toISOString() }
-          : m
-      )
-    );
+    setDateDemandeRecup(id, date);
   }
 
   function toggleField(
     id: string,
     field: "recuperation_ok" | "expertise_ok" | "facture_ok" | "facture_reglee_ok"
   ) {
-    setMachines((prev) =>
-      prev.map((m) => {
-        if (m.id !== id) return m;
-        const updated: Machine = {
-          ...m,
-          [field]: !m[field],
-          updatedAt: new Date().toISOString(),
-        };
-        updated.fiche_vo_creee = updated.recuperation_ok && updated.expertise_ok;
-
-        if (
-          updated.date_demande_recuperation &&
-          updated.recuperation_ok &&
-          updated.expertise_ok &&
-          updated.facture_ok &&
-          updated.facture_reglee_ok
-        ) {
-          setTimeout(() => {
-            setMachines((cur) =>
-              cur.map((x) =>
-                x.id === id ? { ...x, statut: "disponible" as const } : x
-              )
-            );
-          }, 1500);
-        }
-        return updated;
-      })
-    );
+    toggleEtapeRestitution(id, field);
   }
 
   function createMachine() {
@@ -122,7 +123,7 @@ export default function RestitutionsPage() {
       fiche_vo_creee: false,
       createdAt: new Date().toISOString(),
     };
-    setMachines((prev) => [newMachine, ...prev]);
+    createMachineRestitution(newMachine);
     setForm(EMPTY_FORM);
     setShowForm(false);
   }
@@ -174,12 +175,24 @@ export default function RestitutionsPage() {
         <button className="btn-primary" onClick={() => setShowForm(true)}>
           + Créer un retour
         </button>
+        {isAdmin && (
+          <button
+            className={`toggle-archived ${showArchived ? "active" : ""}`}
+            onClick={() => setShowArchived(!showArchived)}
+            title="Voir les machines archivées"
+          >
+            🗑️ {showArchived ? "Masquer archivées" : "Voir archivées"}
+            {totalArchived > 0 && !showArchived && (
+              <span style={{ marginLeft: 4, opacity: 0.7 }}>({totalArchived})</span>
+            )}
+          </button>
+        )}
       </div>
 
       <FiltersBar
         filters={filters}
         onChange={setFilters}
-        machines={machines.filter((m) => m.statut === "restitution")}
+        machines={restitutionMachines}
         isOpen={filtersOpen}
         onToggle={() => setFiltersOpen(!filtersOpen)}
       />
@@ -283,6 +296,8 @@ export default function RestitutionsPage() {
             filters.dateDebut ||
             filters.dateFin
               ? "Aucune machine ne correspond à vos critères"
+              : showArchived
+              ? "Aucune machine archivée"
               : "Aucun retour en cours · Cliquez sur « + Créer un retour » pour commencer"}
           </div>
         ) : (

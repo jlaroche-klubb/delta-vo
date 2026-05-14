@@ -10,7 +10,7 @@ export interface ImportResult {
 export interface ImportSuccess {
   immat: string;
   prixFr?: number;
-  prixExport?: number;
+  prixDealer?: number;
   source: "À pricer" | "À repricer";
 }
 
@@ -110,20 +110,20 @@ function processRow(
 
   // Récupérer les prix selon l'onglet
   const prixFrKey = isRepricer ? "Nouveau Prix FR (à remplir)" : "Prix FR (à remplir)";
-  const prixExportKey = isRepricer
-    ? "Nouveau Prix Export (à remplir)"
-    : "Prix Export (à remplir)";
+  const prixDealerKey = isRepricer
+    ? "Nouveau Prix Dealer (à remplir)"
+    : "Prix Dealer (à remplir)";
 
   const prixFrRaw = row[prixFrKey];
-  const prixExportRaw = row[prixExportKey];
+  const prixDealerRaw = row[prixDealerKey];
 
   const prixFr = parsePrice(prixFrRaw);
-  const prixExport = parsePrice(prixExportRaw);
+  const prixDealer = parsePrice(prixDealerRaw);
 
-  if (prixFr === null && prixExport === null) {
+  if (prixFr === null && prixDealer === null) {
     errors.push({
       immat,
-      raison: "Aucun prix renseigné (Prix FR et Prix Export vides)",
+      raison: "Aucun prix renseigné (Prix FR et Prix Dealer vides)",
       source,
     });
     return;
@@ -133,15 +133,15 @@ function processRow(
     errors.push({ immat, raison: "Prix FR négatif", source });
     return;
   }
-  if (prixExport !== null && prixExport < 0) {
-    errors.push({ immat, raison: "Prix Export négatif", source });
+  if (prixDealer !== null && prixDealer < 0) {
+    errors.push({ immat, raison: "Prix Dealer négatif", source });
     return;
   }
 
   success.push({
     immat,
     prixFr: prixFr === null ? undefined : prixFr,
-    prixExport: prixExport === null ? undefined : prixExport,
+    prixDealer: prixDealer === null ? undefined : prixDealer,
     source,
   });
 }

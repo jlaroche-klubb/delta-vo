@@ -5,7 +5,7 @@ import {
   FicheCommerciale,
   getNextFicheNumber,
 } from "../types/machine";
-import { useMachines } from "../contexts/MachinesContext";
+import { useMachinesFiltered } from "../contexts/MachinesContext";
 import DisponibleCard from "../components/DisponibleCard";
 import EditPriceModal from "../components/EditPriceModal";
 import ImportResultModal from "../components/ImportResultModal";
@@ -32,13 +32,19 @@ interface DisponiblesPageProps {
 }
 
 export default function DisponiblesPage({ userRole, userName }: DisponiblesPageProps) {
+  // 🆕 Toggle "Voir archivées"
+  const [showArchived, setShowArchived] = useState(false);
+
   const {
     machines,
     updatePrice,
     basculerEnLld,
     updateFicheCommerciale,
     attribuerNumeroFiche,
-  } = useMachines();
+  } = useMachinesFiltered(showArchived);
+
+  // Pour le compteur des archivées
+  const { machines: allMachinesUnfiltered } = useMachinesFiltered(true);
 
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<DispoFilterState>(EMPTY_DISPO_FILTERS);
@@ -52,7 +58,7 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
   const [pendingGenerate, setPendingGenerate] = useState<Machine | null>(null);
   const [choixPrixMachine, setChoixPrixMachine] = useState<Machine | null>(null);
   const [generatingMachine, setGeneratingMachine] = useState<Machine | null>(null);
-  const [generatingPrix, setGeneratingPrix] = useState<"fr" | "export">("fr");
+  const [generatingPrix, setGeneratingPrix] = useState<"fr" | "dealer">("fr");
   const [generating, setGenerating] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -62,12 +68,21 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
     userRole === "admin" ||
     userRole === "secretaire" ||
     userRole === "vendeur_fr" ||
-    userRole === "vendeur_export" ||
+    userRole === "dealer" ||
     userRole === "chef";
 
   const baseDispo = useMemo(
     () => machines.filter((m) => m.statut === "disponible"),
     [machines]
+  );
+
+  // Compteur des archivées en disponibles (pour info)
+  const totalArchived = useMemo(
+    () =>
+      allMachinesUnfiltered.filter(
+        (m) => m.archived && m.statut === "disponible"
+      ).length,
+    [allMachinesUnfiltered]
   );
 
   const filtered = useMemo(() => {
@@ -86,10 +101,10 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
   }, [baseDispo, search, filters, userRole]);
 
   const sansPrix = filtered.filter(
-    (m) => m.prix_fr === undefined && m.prix_export === undefined
+    (m) => m.prix_fr === undefined && m.prix_dealer === undefined
   );
   const avecPrix = filtered.filter(
-    (m) => m.prix_fr !== undefined || m.prix_export !== undefined
+    (m) => m.prix_fr !== undefined || m.prix_dealer !== undefined
   );
   const aRepricer = avecPrix.filter(
     (m) => m.date_mise_stock && calculAgeStock(m.date_mise_stock) > SEUIL_REPRICER
@@ -97,10 +112,10 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
   const enVente = avecPrix.filter((m) => !aRepricer.includes(m));
 
   const totalPricing =
-    baseDispo.filter((m) => m.prix_fr === undefined && m.prix_export === undefined).length +
+    baseDispo.filter((m) => m.prix_fr === undefined && m.prix_dealer === undefined).length +
     baseDispo.filter(
       (m) =>
-        (m.prix_fr !== undefined || m.prix_export !== undefined) &&
+        (m.prix_fr !== undefined || m.prix_dealer !== undefined) &&
         m.date_mise_stock &&
         calculAgeStock(m.date_mise_stock) > SEUIL_REPRICER
     ).length;
@@ -108,9 +123,9 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
   function handlePriceUpdate(
     id: string,
     prixFr: number | undefined,
-    prixExport: number | undefined
+    prixDealer: number | undefined
   ) {
-    updatePrice(id, prixFr, prixExport, userName, true);
+    updatePrice(id, prixFr, prixDealer, userName, true);
   }
 
   function handleExportPricing() {
@@ -131,28 +146,24 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
 
   // ====== GÉNÉRATION FICHE VO ======
   function handleGenerateFiche(machine: Machine) {
-    // Étape 1 : vérifier le téléphone
     const phone = localStorage.getItem(PHONE_KEY);
     if (!phone) {
       setPendingGenerate(machine);
       setPhoneSetupOpen(true);
       return;
     }
-    // Étape 2 : déterminer le prix à afficher selon le rôle
     routerPrix(machine);
   }
 
   function routerPrix(machine: Machine) {
-    // Si le rôle force un prix, on génère directement
     if (userRole === "vendeur_fr") {
       doGeneratePdf(machine, "fr");
       return;
     }
-    if (userRole === "vendeur_export") {
-      doGeneratePdf(machine, "export");
+    if (userRole === "dealer") {
+      doGeneratePdf(machine, "dealer");
       return;
     }
-    // Sinon (admin / secretaire / chef) → choix manuel
     setChoixPrixMachine(machine);
   }
 
@@ -165,22 +176,20 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
     }
   }
 
-  function handleChoixPrixConfirm(prixChoisi: "fr" | "export") {
+  function handleChoixPrixConfirm(prixChoisi: "fr" | "dealer") {
     if (!choixPrixMachine) return;
     const m = choixPrixMachine;
     setChoixPrixMachine(null);
     doGeneratePdf(m, prixChoisi);
   }
 
-  async function doGeneratePdf(machine: Machine, prixChoisi: "fr" | "export") {
-    // Attribution du numéro de fiche si pas encore fait
+  async function doGeneratePdf(machine: Machine, prixChoisi: "fr" | "dealer") {
     let numero = machine.fiche_commerciale?.numero_fiche;
     if (!numero) {
       numero = getNextFicheNumber(machines);
       attribuerNumeroFiche(machine.id, numero);
     }
 
-    // On déclenche le rendu du composant FicheVoTemplate
     setGeneratingPrix(prixChoisi);
     setGeneratingMachine({
       ...machine,
@@ -192,11 +201,9 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
 
     setGenerating(true);
 
-    // On attend que le DOM se mette à jour, puis on capture
     setTimeout(async () => {
       try {
         const phone = localStorage.getItem(PHONE_KEY) || "Non renseigné";
-        // userName arrive sous forme "Prénom Nom"
         const email = `${userName.toLowerCase().replace(/\s+/g, ".")}@klubb.com`;
 
         await generateFichePdf({
@@ -240,7 +247,7 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
             updatePrice(
               machine.id,
               s.prixFr !== undefined ? s.prixFr : machine.prix_fr,
-              s.prixExport !== undefined ? s.prixExport : machine.prix_export,
+              s.prixDealer !== undefined ? s.prixDealer : machine.prix_dealer,
               "Workflow Excel (PDG)",
               false
             );
@@ -298,6 +305,18 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
         <button className="btn-import" onClick={handleImportClick} disabled={importing}>
           {importing ? "⏳ Import..." : "📤 Importer pricing"}
         </button>
+        {isAdmin && (
+          <button
+            className={`toggle-archived ${showArchived ? "active" : ""}`}
+            onClick={() => setShowArchived(!showArchived)}
+            title="Voir les machines archivées"
+          >
+            🗑️ {showArchived ? "Masquer archivées" : "Voir archivées"}
+            {totalArchived > 0 && !showArchived && (
+              <span style={{ marginLeft: 4, opacity: 0.7 }}>({totalArchived})</span>
+            )}
+          </button>
+        )}
         <input
           ref={fileInputRef}
           type="file"
@@ -410,6 +429,8 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
           filters.ageMin ||
           filters.ageMax
             ? "Aucune machine ne correspond à vos critères"
+            : showArchived
+            ? "Aucune machine archivée"
             : "Aucune machine disponible"}
         </div>
       )}

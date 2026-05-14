@@ -12,6 +12,57 @@ interface GenerateFicheOptions {
   };
 }
 
+/**
+ * Télécharge une image (Firebase Storage notamment) et la convertit
+ * en data URL base64. Permet à html2canvas de la consommer sans
+ * problème CORS, car les data URLs sont same-origin.
+ */
+async function imageUrlToBase64(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.warn(`[generateFichePdf] Échec téléchargement image: ${url} (${response.status})`);
+      return null;
+    }
+    const blob = await response.blob();
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (e) {
+    console.warn(`[generateFichePdf] Erreur fetch image: ${url}`, e);
+    return null;
+  }
+}
+
+/**
+ * Précharge toutes les <img> d'un élément racine (et de ses enfants)
+ * dont la src commence par http(s)://, et remplace src par la version
+ * base64. Bypasse le CORS pour html2canvas.
+ */
+async function preloadImagesAsBase64(root: HTMLElement): Promise<void> {
+  const imgs = Array.from(root.querySelectorAll("img"));
+  await Promise.all(
+    imgs.map(async (img) => {
+      const src = img.getAttribute("src") || "";
+      // On ne convertit que les URLs distantes (http/https), pas les data URIs ni le logo
+      if (!/^https?:\/\//.test(src)) return;
+      const base64 = await imageUrlToBase64(src);
+      if (base64) {
+        img.setAttribute("src", base64);
+        // Attendre que la nouvelle image soit décodée pour html2canvas
+        try {
+          await img.decode();
+        } catch {
+          // Si decode pas dispo (vieux navigateur), on ignore - le timing du render suffit en général
+        }
+      }
+    })
+  );
+}
+
 export async function generateFichePdf({
   machine,
   prixChoisi,
@@ -24,6 +75,13 @@ export async function generateFichePdf({
   if (!page1 || !page2) {
     throw new Error("Les pages de la fiche ne sont pas trouvées dans le DOM");
   }
+
+  // 🆕 Préchargement des photos distantes (Firebase Storage) en base64
+  // pour contourner les restrictions CORS de html2canvas
+  console.log("[generateFichePdf] Préchargement des images distantes...");
+  await preloadImagesAsBase64(page1);
+  await preloadImagesAsBase64(page2);
+  console.log("[generateFichePdf] Préchargement terminé, génération du PDF...");
 
   // Création du PDF A4 portrait
   const pdf = new jsPDF({
@@ -38,7 +96,7 @@ export async function generateFichePdf({
 
   // PAGE 1
   const canvas1 = await html2canvas(page1, {
-    scale: 2, // qualité 2x pour avoir un PDF net
+    scale: 2,
     useCORS: true,
     logging: false,
     backgroundColor: "#ffffff",
@@ -57,7 +115,7 @@ export async function generateFichePdf({
   const imgData2 = canvas2.toDataURL("image/png");
   pdf.addImage(imgData2, "PNG", 0, 0, PAGE_WIDTH, PAGE_HEIGHT, undefined, "FAST");
 
-  // Nom du fichier : delta-vo_fiche-N2196DS_immat_2026-05-12.pdf
+  // Nom du fichier
   const today = new Date().toISOString().slice(0, 10);
   const ficheNum = machine.fiche_commerciale?.numero_fiche || "SANS-NUM";
   const filename = `delta-vo_fiche-${ficheNum}_${machine.immat}_${today}.pdf`;
@@ -65,7 +123,7 @@ export async function generateFichePdf({
   pdf.save(filename);
 }
 
-// Helper pour afficher une valeur ou rien (Q5 = A)
+// Helper pour afficher une valeur ou rien
 export function showOrSkip<T>(value: T | undefined | null, formatter?: (v: T) => string): string {
   if (value === undefined || value === null || value === "") return "";
   return formatter ? formatter(value) : String(value);

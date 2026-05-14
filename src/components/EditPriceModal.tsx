@@ -5,31 +5,31 @@ interface EditPriceModalProps {
   machine: Machine;
   userName: string;
   onClose: () => void;
-  onSave: (id: string, prixFr: number | undefined, prixExport: number | undefined) => void;
+  onSave: (id: string, prixFr: number | undefined, prixDealer: number | undefined) => void;
 }
 
 export default function EditPriceModal({ machine, userName, onClose, onSave }: EditPriceModalProps) {
   const [prixFr, setPrixFr] = useState<string>(
     machine.prix_fr !== undefined ? String(machine.prix_fr) : ""
   );
-  const [prixExport, setPrixExport] = useState<string>(
-    machine.prix_export !== undefined ? String(machine.prix_export) : ""
+  const [prixDealer, setPrixDealer] = useState<string>(
+    machine.prix_dealer !== undefined ? String(machine.prix_dealer) : ""
   );
 
   function handleSave() {
     const fr = prixFr.trim() ? parseInt(prixFr.replace(/\s/g, ""), 10) : undefined;
-    const exp = prixExport.trim() ? parseInt(prixExport.replace(/\s/g, ""), 10) : undefined;
+    const dealer = prixDealer.trim() ? parseInt(prixDealer.replace(/\s/g, ""), 10) : undefined;
 
     if (fr !== undefined && isNaN(fr)) {
       alert("Le prix FR doit être un nombre");
       return;
     }
-    if (exp !== undefined && isNaN(exp)) {
-      alert("Le prix Export doit être un nombre");
+    if (dealer !== undefined && isNaN(dealer)) {
+      alert("Le prix Dealer doit être un nombre");
       return;
     }
 
-    onSave(machine.id, fr, exp);
+    onSave(machine.id, fr, dealer);
     onClose();
   }
 
@@ -77,17 +77,17 @@ export default function EditPriceModal({ machine, userName, onClose, onSave }: E
             </div>
 
             <div className="price-field">
-              <label>Prix Export (en €)</label>
+              <label>Prix Dealer (en €)</label>
               <input
                 type="text"
                 inputMode="numeric"
                 placeholder="42 000"
-                value={prixExport}
-                onChange={(e) => setPrixExport(e.target.value)}
+                value={prixDealer}
+                onChange={(e) => setPrixDealer(e.target.value)}
               />
-              {machine.prix_export !== undefined && (
+              {machine.prix_dealer !== undefined && (
                 <div className="price-current">
-                  Actuel : {machine.prix_export.toLocaleString("fr-FR")} €
+                  Actuel : {machine.prix_dealer.toLocaleString("fr-FR")} €
                 </div>
               )}
             </div>

@@ -4383,3 +4383,285 @@ button {
 }
 
 /* ═══════════════════════════════════════════════════ */
+
+/* ═══════════════════════════════════════════════════
+   🟢 EXPERTISE RECUE — Badge & Bandeau (nacelle-expert)
+   Ajouté le 13 mai 2026
+   ═══════════════════════════════════════════════════ */
+
+/* La carte qui a reçu l'expertise : bordure verte vive en haut */
+.machine-card.expertise-recue {
+  border-top: 4px solid #22c55e;
+  position: relative;
+}
+
+/* Combinaison expertise + VO créée : on garde la bordure verte côté gauche aussi */
+.machine-card.expertise-recue.vo-created {
+  border-left: 4px solid #30a050;
+  border-top: 4px solid #22c55e;
+}
+
+/* Bandeau vert vif en haut de la carte */
+.expertise-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 18px;
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  color: #fff;
+  border-radius: 6px;
+  margin-bottom: 18px;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.25);
+  animation: expertiseBannerSlide 0.4s ease;
+}
+
+@keyframes expertiseBannerSlide {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.expertise-banner-icon {
+  font-size: 26px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.expertise-banner-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.expertise-banner-content strong {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.expertise-banner-sub {
+  font-size: 12px;
+  opacity: 0.95;
+}
+
+/* Badge à côté de l'immatriculation */
+.badge-expertise {
+  display: inline-block;
+  margin-left: 10px;
+  padding: 3px 10px;
+  background: #22c55e;
+  color: #fff;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  vertical-align: middle;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  box-shadow: 0 1px 3px rgba(34, 197, 94, 0.3);
+}
+
+/* ═══════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════
+   🗑️ ARCHIVAGE — Bouton & Toggle (admin)
+   Ajouté le 13 mai 2026 (v7)
+   ═══════════════════════════════════════════════════ */
+
+   .btn-archive {
+    background: transparent;
+    border: 1px solid #d0d4da;
+    color: #6a7488;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  
+  .btn-archive:hover {
+    background: #fff0f0;
+    border-color: #c8102e;
+    color: #c8102e;
+  }
+  
+  .machine-card.archived,
+  .disponible-card.archived,
+  .en-cours-card.archived,
+  .cloturee-card.archived {
+    opacity: 0.6;
+    background: #fafafa;
+    border-left: 4px solid #999 !important;
+  }
+  
+  .archived-banner {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: linear-gradient(135deg, #6a7488 0%, #4a5468 100%);
+    color: #fff;
+    border-radius: 6px;
+    margin-bottom: 14px;
+    font-size: 12px;
+  }
+  
+  .archived-banner-icon {
+    font-size: 18px;
+  }
+  
+  .archived-banner-content {
+    flex: 1;
+  }
+  
+  .archived-banner-content strong {
+    display: block;
+    font-size: 13px;
+    margin-bottom: 2px;
+  }
+  
+  .archived-banner-content small {
+    opacity: 0.85;
+    font-size: 11px;
+  }
+  
+  .btn-unarchive {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    color: #fff;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .btn-unarchive:hover {
+    background: rgba(255, 255, 255, 0.35);
+  }
+  
+  /* Toggle "Voir archivées" */
+  .toggle-archived {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: #f4f4f8;
+    border: 1px solid #d0d4da;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #4a5468;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .toggle-archived:hover {
+    background: #e8e9ee;
+  }
+  
+  .toggle-archived.active {
+    background: #1a2a6e;
+    color: #fff;
+    border-color: #1a2a6e;
+  }
+  
+  /* Modal confirmation suppression */
+  .confirm-delete-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.2s ease;
+  }
+  
+  .confirm-delete-modal {
+    background: #fff;
+    border-radius: 8px;
+    padding: 28px 32px;
+    max-width: 460px;
+    width: 90%;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+    animation: slideUp 0.25s ease;
+  }
+  
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  
+  .confirm-delete-title {
+    font-size: 20px;
+    font-weight: 900;
+    color: #1a2030;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .confirm-delete-text {
+    font-size: 14px;
+    color: #4a5468;
+    line-height: 1.6;
+    margin-bottom: 20px;
+  }
+  
+  .confirm-delete-text strong {
+    color: #1a2030;
+  }
+  
+  .confirm-delete-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+  }
+  
+  .btn-confirm-delete {
+    background: #c8102e;
+    color: #fff;
+    border: none;
+    padding: 10px 18px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .btn-confirm-delete:hover {
+    background: #a00d24;
+  }
+  
+  .btn-cancel-delete {
+    background: transparent;
+    border: 1px solid #d0d4da;
+    color: #4a5468;
+    padding: 10px 18px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  
+  .btn-cancel-delete:hover {
+    background: #f4f4f8;
+  }
+  
+  /* ═══════════════════════════════════════════════════ */

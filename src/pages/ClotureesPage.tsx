@@ -5,7 +5,7 @@ import {
   joursDepuisFacturation,
   getAnneeFacturation,
 } from "../types/machine";
-import { useMachines } from "../contexts/MachinesContext";
+import { useMachinesFiltered } from "../contexts/MachinesContext";
 import MarkPaidModal from "../components/MarkPaidModal";
 
 interface ClotureesPageProps {
@@ -27,7 +27,14 @@ type StatutPaiementFilter = "tous" | "payee" | "en_attente" | "retard";
 type MarcheFilter = "tous" | "fr" | "export";
 
 export default function ClotureesPage({ userRole, userName }: ClotureesPageProps) {
-  const { machines, marquerPayee } = useMachines();
+  // 🆕 Toggle "Voir archivées"
+  const [showArchived, setShowArchived] = useState(false);
+
+  const { machines, marquerPayee } = useMachinesFiltered(showArchived);
+
+  // Pour le compteur des archivées
+  const { machines: allMachinesUnfiltered } = useMachinesFiltered(true);
+
   const [search, setSearch] = useState("");
   const [filterAnnee, setFilterAnnee] = useState<number>(new Date().getFullYear());
   const [filterCommercial, setFilterCommercial] = useState("");
@@ -39,6 +46,7 @@ export default function ClotureesPage({ userRole, userName }: ClotureesPageProps
   const [sortDesc, setSortDesc] = useState(true);
   const [markingPaid, setMarkingPaid] = useState<Machine | null>(null);
 
+  const isAdmin = userRole === "admin";
   const canEdit = userRole === "secretaire" || userRole === "admin";
 
   // ⚠ IMPORTANT : on filtre uniquement les machines avec statut "cloturee"
@@ -46,6 +54,15 @@ export default function ClotureesPage({ userRole, userName }: ClotureesPageProps
   const allCloturees = useMemo(
     () => machines.filter((m) => m.statut === "cloturee"),
     [machines]
+  );
+
+  // Compteur des archivées clôturées (pour info)
+  const totalArchived = useMemo(
+    () =>
+      allMachinesUnfiltered.filter(
+        (m) => m.archived && m.statut === "cloturee"
+      ).length,
+    [allMachinesUnfiltered]
   );
 
   const anneesDispo = useMemo(() => {
@@ -256,6 +273,18 @@ export default function ClotureesPage({ userRole, userName }: ClotureesPageProps
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
+        {isAdmin && (
+          <button
+            className={`toggle-archived ${showArchived ? "active" : ""}`}
+            onClick={() => setShowArchived(!showArchived)}
+            title="Voir les machines archivées"
+          >
+            🗑️ {showArchived ? "Masquer archivées" : "Voir archivées"}
+            {totalArchived > 0 && !showArchived && (
+              <span style={{ marginLeft: 4, opacity: 0.7 }}>({totalArchived})</span>
+            )}
+          </button>
+        )}
       </div>
 
       <div className={`filters-wrap ${filtersOpen ? "open" : ""}`}>
@@ -375,6 +404,8 @@ export default function ClotureesPage({ userRole, userName }: ClotureesPageProps
         <div className="empty-state">
           {search || activeFiltersCount > 0
             ? "Aucune machine ne correspond à vos critères"
+            : showArchived
+            ? "Aucune machine archivée"
             : `Aucune machine clôturée en ${filterAnnee}`}
         </div>
       )}
@@ -403,8 +434,13 @@ function ClotureeRow({
   const jours = joursDepuisFacturation(machine.date_facturation);
 
   return (
-    <tr className={`row-${statut}`}>
-      <td className="cell-immat">{machine.immat}</td>
+    <tr className={`row-${statut} ${machine.archived ? "row-archived" : ""}`}>
+      <td className="cell-immat">
+        {machine.immat}
+        {machine.archived && (
+          <span style={{ marginLeft: 8, fontSize: 11, color: "#999" }}>🗑️ archivée</span>
+        )}
+      </td>
       <td>
         <div className="cell-type">{machine.type_nacelle}</div>
         <div className="cell-modele">{machine.modele_porteur}</div>
@@ -423,7 +459,7 @@ function ClotureeRow({
         <PaiementBadge statut={statut} jours={jours} dateReglement={machine.date_reglement} />
       </td>
       <td className="col-actions">
-        {statut !== "payee" && canEdit && (
+        {statut !== "payee" && canEdit && !machine.archived && (
           <button className="btn-mark-paid" onClick={() => onMarkPaid(machine)}>
             ✓ Marquer payée
           </button>

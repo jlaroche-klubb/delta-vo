@@ -154,7 +154,7 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
     <div className="page-encours">
       <div className="page-header">
         <div>
-          <h1>En cours</h1>
+        <h1>En cours de préparation</h1>
           <p className="subtitle">Machines vendues ou en LLD en attente de livraison</p>
         </div>
         <div className="page-stats">

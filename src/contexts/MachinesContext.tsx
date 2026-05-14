@@ -323,3 +323,11 @@ export function useMachines() {
   }
   return ctx;
 }
+
+export function useMachinesFiltered(showArchived: boolean = false) {
+  const ctx = useMachines();
+  const filteredMachines = showArchived
+    ? ctx.machines
+    : ctx.machines.filter((m) => !m.archived);
+  return { ...ctx, machines: filteredMachines };
+}

@@ -9,6 +9,7 @@ import ClotureesPage from "./pages/ClotureesPage";
 import StatsPage from "./pages/StatsPage";
 import Logo from "./components/Logo";
 import AdminPage from "./pages/AdminPage";
+import { getAccessiblePages } from "./utils/permissions";
 import "./App.css";
 
 const DEV_MODE = false;
@@ -69,12 +70,15 @@ function AppContent() {
     }
   };
 
-  // Liste des onglets dans l'ordre
-  const tabs: Page[] = ["restitutions", "disponibles", "encours", "cloturees"];
-  if (isAdmin) {
-  tabs.push("stats");
-  tabs.push("admin");
-}
+  // Liste des onglets basée sur les permissions
+  const tabs = getAccessiblePages(userRole) as Page[];
+
+  // Si la page actuelle n'est pas accessible, rediriger vers la première page accessible
+  useEffect(() => {
+    if (!tabs.includes(page) && tabs.length > 0) {
+      setPage(tabs[0]);
+    }
+  }, [userRole]);
 
   return (
     <div className="app">
@@ -89,7 +93,7 @@ function AppContent() {
           {tabs.map((t) => (
             <button
               key={t}
-              className={`nav-link ${t === "stats" ? "nav-link-admin" : ""} ${page === t ? "active" : ""}`}
+              className={`nav-link ${t === "stats" || t === "admin" ? "nav-link-admin" : ""} ${page === t ? "active" : ""}`}
               onClick={() => setPage(t)}
             >
               {pageLabel(t)}

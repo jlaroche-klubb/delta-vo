@@ -5,6 +5,11 @@ import MachineCard from "../components/MachineCard";
 import FiltersBar, { FilterState, EMPTY_FILTERS, applyFilters } from "../components/FiltersBar";
 import { exportMachinesToExcel } from "../utils/exportExcel";
 import { useAuth } from "../AuthContext";
+import {
+  canCreateRestitution,
+  canValidateRestitutionSteps,
+  canDeleteMachine
+} from "../utils/permissions";
 
 interface NewMachineForm {
   immat: string;
@@ -36,13 +41,15 @@ export default function RestitutionsPage() {
     toggleEtapeRestitution,
     setDateDemandeRecup,
     createMachineRestitution,
+    deleteMachine,
   } = useMachinesFiltered(showArchived);
 
   // Pour le compteur total des archivées (cache toujours, hors filtre)
   const { machines: allMachinesUnfiltered } = useMachinesFiltered(true);
 
   const { profile } = useAuth();
-  const isAdmin = !profile || profile.role === "admin";
+  const userRole = profile?.role || "atelier";
+  const isAdmin = userRole === "admin";
 
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
@@ -128,6 +135,19 @@ export default function RestitutionsPage() {
     setShowForm(false);
   }
 
+  function handleDeleteMachine(machineId: string) {
+    const machine = allMachines.find(m => m.id === machineId);
+    if (!machine) return;
+    
+    const confirmed = window.confirm(
+      `⚠️ ATTENTION : Supprimer définitivement la machine ${machine.immat} (${machine.type_nacelle}) ?\n\nCette action est IRRÉVERSIBLE !`
+    );
+    
+    if (confirmed) {
+      deleteMachine(machineId);
+    }
+  }
+
   function handleExport() {
     if (filtered.length === 0) {
       alert("Aucune machine à exporter avec les filtres actuels");
@@ -172,9 +192,11 @@ export default function RestitutionsPage() {
         <button className="btn-export" onClick={handleExport} title="Télécharger en Excel">
           ⬇ Export Excel
         </button>
-        <button className="btn-primary" onClick={() => setShowForm(true)}>
-          + Créer un retour
-        </button>
+        {canCreateRestitution(userRole) && (
+          <button className="btn-primary" onClick={() => setShowForm(true)}>
+            + Créer un retour
+          </button>
+        )}
         {isAdmin && (
           <button
             className={`toggle-archived ${showArchived ? "active" : ""}`}
@@ -307,6 +329,9 @@ export default function RestitutionsPage() {
               machine={m}
               onSetDate={setDate}
               onToggleField={toggleField}
+              canValidate={canValidateRestitutionSteps(userRole)}
+              canDelete={canDeleteMachine(userRole)}
+              onDelete={handleDeleteMachine}
             />
           ))
         )}

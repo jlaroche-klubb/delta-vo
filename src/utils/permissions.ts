@@ -152,3 +152,8 @@ export function getPermissionDeniedMessage(role: UserRole, action: string): stri
   
   return `Action non autorisée pour le rôle ${roleLabels[role]}: ${action}`;
 }
+// ==================== SUPPRESSION ====================
+
+export function canDeleteMachine(role: UserRole): boolean {
+  return role === "admin";
+}

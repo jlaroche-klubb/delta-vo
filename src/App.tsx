@@ -61,7 +61,7 @@ function AppContent() {
     switch (p) {
       case "restitutions": return "Restitutions";
       case "disponibles": return "Disponibles";
-      case "encours": return "Préparation";
+      case "encours": return "En cours de préparation";
       case "cloturees": return "Clôturées";
       case "stats": return "📊 Stats";
     }

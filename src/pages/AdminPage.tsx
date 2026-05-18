@@ -76,12 +76,7 @@ export default function AdminPage() {
     }
   }
 
-  async function approveUser(pending: PendingUser) {
-    const role = selectedRole[pending.id];
-    if (!role) return;
-
-    const confirmed = window.confirm(
-      `Approuver ${pending.prenom} ${pending.nom} comme ${ROLES.find(r => r.value === role)?.label} ?`
+     `Approuver ${pending.prenom} ${pending.nom} comme ${ROLES.find(r => r.value === role)?.label} ?`
     );
     if (!confirmed) return;
 
@@ -95,17 +90,6 @@ export default function AdminPage() {
         createdAt: pending.createdAt,
         approvedAt: new Date().toISOString(),
       });
-
-      // Delete from pending
-      await deleteDoc(doc(db, "pending_users", pending.id));
-
-      alert("✅ Utilisateur approuvé !");
-      loadData();
-    } catch (err: any) {
-      console.error("Erreur approbation:", err);
-      alert("❌ Erreur: " + err.message);
-    }
-  }
 
   async function deleteUser(userId: string, isPending: boolean) {
     const user = isPending 

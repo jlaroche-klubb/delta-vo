@@ -4,7 +4,7 @@ import { Machine } from "../types/machine";
 
 interface GenerateFicheOptions {
   machine: Machine;
-  prixChoisi: "fr" | "export";
+  prixChoisi: "fr" | "dealer";
   commercial: {
     nom: string;
     email: string;

@@ -10,6 +10,7 @@ interface DisponibleCardProps {
   onLld?: (machine: Machine) => void;
   onEditFiche?: (machine: Machine) => void;
   onGenerateFiche?: (machine: Machine) => void;
+  onViewExpertise?: (machine: Machine) => void;  // ← AJOUTÉ
 }
 
 export default function DisponibleCard({
@@ -22,6 +23,7 @@ export default function DisponibleCard({
   onLld,
   onEditFiche,
   onGenerateFiche,
+  onViewExpertise,  // ← AJOUTÉ
 }: DisponibleCardProps) {
   const age = machine.date_mise_stock ? calculAgeStock(machine.date_mise_stock) : 0;
   const ageInfo = getAgeStockColor(age, seuilRepricer);
@@ -141,6 +143,15 @@ export default function DisponibleCard({
               </span>
             </div>
           </div>
+          {/* ← BOUTON AJOUTÉ ICI */}
+          {onViewExpertise && (
+            <button 
+              className="btn-view-expertise"
+              onClick={() => onViewExpertise(machine)}
+            >
+              🔍 Voir expertise
+            </button>
+          )}
         </div>
       )}
 

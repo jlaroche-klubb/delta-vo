@@ -7,6 +7,7 @@ import DisponiblesPage from "./pages/DisponiblesPage";
 import EnCoursPage from "./pages/EnCoursPage";
 import ClotureesPage from "./pages/ClotureesPage";
 import StatsPage from "./pages/StatsPage";
+import Logo from "./components/Logo";
 import "./App.css";
 
 const DEV_MODE = true;
@@ -74,8 +75,7 @@ function AppContent() {
     <div className="app">
       <header className="app-header">
         <div className="brand">
-          <strong>DELTA VO</strong>
-          <span> · Nacelles d'occasion</span>
+          <Logo showSubtitle={true} />
           {DEV_MODE && <span className="dev-badge">DEV MODE</span>}
         </div>
 
@@ -122,7 +122,7 @@ function AppContent() {
           />
           <aside className="drawer">
             <div className="drawer-header">
-              <strong>DELTA VO</strong>
+              <Logo variant="compact" showSubtitle={false} />
               <button
                 className="drawer-close"
                 onClick={() => setMenuOpen(false)}

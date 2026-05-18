@@ -1,4 +1,5 @@
 import { useAuth } from "./AuthContext";
+import Logo from "./components/Logo";
 
 export default function LoginPage() {
   const { user, login, logout } = useAuth();
@@ -7,7 +8,9 @@ export default function LoginPage() {
     <div className="login-container">
       <div className="login-card">
         <div className="brand-bar"></div>
-        <h1>DELTA VO</h1>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
+          <Logo theme="light" showSubtitle={false} />
+        </div>
         <p className="subtitle">Gestion des nacelles d'occasion</p>
 
         {!user ? (

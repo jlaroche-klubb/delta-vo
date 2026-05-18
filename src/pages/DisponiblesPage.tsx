@@ -13,6 +13,7 @@ import LldModal from "../components/LldModal";
 import FicheCommercialeModal from "../components/FicheCommercialeModal";
 import PhoneSetupModal from "../components/PhoneSetupModal";
 import ChoixPrixModal from "../components/ChoixPrixModal";
+import ExpertiseModal from "../components/ExpertiseModal";
 import FicheVoTemplate from "../components/FicheVoTemplate";
 import DisponiblesFilters, {
   DispoFilterState,
@@ -54,6 +55,7 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
   const [importing, setImporting] = useState(false);
   const [lldMachine, setLldMachine] = useState<Machine | null>(null);
   const [ficheMachine, setFicheMachine] = useState<Machine | null>(null);
+  const [expertiseMachine, setExpertiseMachine] = useState<Machine | null>(null);
   const [phoneSetupOpen, setPhoneSetupOpen] = useState(false);
   const [pendingGenerate, setPendingGenerate] = useState<Machine | null>(null);
   const [choixPrixMachine, setChoixPrixMachine] = useState<Machine | null>(null);
@@ -356,6 +358,7 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
                 seuilRepricer={SEUIL_REPRICER}
                 isAdmin={isAdmin}
                 onEditPrice={setEditingMachine}
+                onViewExpertise={setExpertiseMachine}
               />
             ))}
           </div>
@@ -385,6 +388,7 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
                 onLld={setLldMachine}
                 onEditFiche={setFicheMachine}
                 onGenerateFiche={handleGenerateFiche}
+                onViewExpertise={setExpertiseMachine}
               />
             ))}
           </div>
@@ -413,6 +417,7 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
                 onLld={setLldMachine}
                 onEditFiche={setFicheMachine}
                 onGenerateFiche={handleGenerateFiche}
+                onViewExpertise={setExpertiseMachine}
               />
             ))}
           </div>
@@ -483,6 +488,13 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
           machine={choixPrixMachine}
           onClose={() => setChoixPrixMachine(null)}
           onConfirm={handleChoixPrixConfirm}
+        />
+      )}
+
+      {expertiseMachine && (
+        <ExpertiseModal
+          machine={expertiseMachine}
+          onClose={() => setExpertiseMachine(null)}
         />
       )}
 

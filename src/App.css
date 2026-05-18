@@ -16,6 +16,71 @@ button {
 }
 
 /* ═══════════════════════════════════════════════════
+   LOGO DELTA VO
+   ═══════════════════════════════════════════════════ */
+.delta-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.delta-logo.compact {
+  gap: 8px;
+}
+
+.logo-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.logo-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.logo-main {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  line-height: 1;
+}
+
+.logo-delta {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  color: #fff;
+}
+
+.logo-vo {
+  font-size: 18px;
+  font-weight: 700;
+  color: #C8102E;
+  letter-spacing: 2px;
+}
+
+.logo-subtitle {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  letter-spacing: 0.5px;
+}
+
+.delta-logo.compact .logo-delta {
+  font-size: 18px;
+}
+
+.delta-logo.compact .logo-vo {
+  font-size: 15px;
+}
+
+.delta-logo.compact .logo-subtitle {
+  font-size: 10px;
+}
+
+/* ═══════════════════════════════════════════════════
    LOGIN PAGE
    ═══════════════════════════════════════════════════ */
 .login-container {
@@ -114,6 +179,12 @@ button {
   align-items: center;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   flex-wrap: wrap;
+  gap: 12px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
   gap: 12px;
 }
 

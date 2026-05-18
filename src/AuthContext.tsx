@@ -33,29 +33,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             console.log("✅ Profil trouvé");
             setProfile(userDoc.data() as UserProfile);
           } else {
-            // Pas trouvé → cherche dans pending_users
+            // Pas trouvé dans users → chercher dans pending_users
             const pendingId = currentUser.email!.replace(/[@.]/g, "_");
             const pendingDoc = await getDoc(doc(db, "pending_users", pendingId));
-
+            
             if (pendingDoc.exists()) {
-              console.log("✨ Migration pending → users");
-              const pending = pendingDoc.data();
-              const newProfile: UserProfile = {
-                email: pending.email,
-                nom: pending.nom,
-                prenom: pending.prenom,
-                role: pending.role,
-                activatedAt: new Date().toISOString(),
-                createdAt: pending.createdAt,
-              };
-              await setDoc(doc(db, "users", currentUser.uid), newProfile);
-              await deleteDoc(doc(db, "pending_users", pendingId));
-              setProfile(newProfile);
-          } else {
+              // Pending user existe déjà
+              const pendingData = pendingDoc.data();
+              
+              if (pendingData.role) {
+                // A été approuvé → migrer vers users
+                console.log("✨ Migration pending → users");
+                const newProfile: UserProfile = {
+                  email: pendingData.email,
+                  nom: pendingData.nom,
+                  prenom: pendingData.prenom,
+                  role: pendingData.role,
+                  activatedAt: new Date().toISOString(),
+                  createdAt: pendingData.createdAt,
+                };
+                await setDoc(doc(db, "users", currentUser.uid), newProfile);
+                await deleteDoc(doc(db, "pending_users", pendingId));
+                setProfile(newProfile);
+              } else {
+                // En attente d'approbation
+                console.log("⏳ En attente d'approbation");
+                setProfile(null);
+              }
+            } else {
               // Nouveau utilisateur → créer dans pending_users
               console.log("🆕 Nouvel utilisateur, création pending");
               
-              // Extraire nom/prénom du displayName
               const displayName = currentUser.displayName || "";
               const [prenom = "", nom = ""] = displayName.split(" ");
               
@@ -66,12 +74,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 createdAt: new Date().toISOString(),
               };
               
-              // Sauvegarder dans pending_users
-              const pendingId = currentUser.email!.replace(/[@.]/g, "_");
               await setDoc(doc(db, "pending_users", pendingId), pendingProfile);
-              
               console.log("✅ Demande d'approbation créée");
-              setProfile(null); // Pas de profil → affichera message d'attente
+              setProfile(null);
             }
           }
         } catch (e) {

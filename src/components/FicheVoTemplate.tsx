@@ -21,12 +21,12 @@ export default function FicheVoTemplate({
   const prix = prixChoisi === "fr" ? machine.prix_fr : machine.prix_dealer;
   const prixLabel = prixChoisi === "fr" ? "PRIX HT" : "PRIX HT DEALER";
 
-  // === Photos détourées disponibles depuis nacelle-expert ===
-  const photos = machine.photos_detourees || [];
-  const photoPrincipale = photos[0]; // 1ère photo = page 1
-  const photo3qAvant = photos[1] || photos[0]; // page 2 - vue 3/4 avant
-  const photoArriere = photos[2] || photos[0]; // page 2 - vue arrière
-  const photoProfil = photos[3] || photos[0]; // page 2 - vue de profil
+  // === Photos commerciales ===
+  const photos = machine.photos_commerciales || {};
+  const photoPrincipale = photos.av_droit; // Photo principale
+  const photo3qAvant = photos.av_gauche || photos.av_droit;
+  const photoArriere = photos.ar_droit || photos.av_droit;
+  const photoProfil = photos.ar_gauche || photos.av_droit;
 
   return (
     <>

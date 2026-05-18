@@ -38,7 +38,9 @@ export default function MachineCard({ machine, onSetDate, onToggleField }: Machi
 
   const hasExpertise = !!machine.rapport_expertise;
   const expertiseRecue = !!(machine as any).expertise_recue;
-  const photosCount = (machine.photos_detourees as any)?.length || 0;
+  const photosCount = machine.photos_commerciales 
+  ? Object.values(machine.photos_commerciales).filter(p => p).length 
+  : 0;
   const agentExpert = (machine as any).agent_expert as string | undefined;
 
   const cardClasses = [

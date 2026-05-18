@@ -4847,3 +4847,230 @@ button {
 }
 
 /* ═══════════════════════════════════════════════════ */
+/* ==================== ADMIN PAGE ==================== */
+
+.admin-page {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.admin-section {
+  background: #fff;
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 30px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.section-header h2 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 8px 0;
+  font-size: 20px;
+  color: #1a2a6e;
+}
+
+.section-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 10px;
+  background: linear-gradient(135deg, #1a2a6e 0%, #0f1a3e 100%);
+  color: #fff;
+  border-radius: 14px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.section-desc {
+  margin: 0 0 20px 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.admin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.admin-card {
+  background: #f8f9fa;
+  border: 1px solid #e1e4e8;
+  border-radius: 6px;
+  padding: 16px;
+  transition: all 0.2s ease;
+}
+
+.admin-card:hover {
+  border-color: #1a2a6e;
+  box-shadow: 0 2px 8px rgba(26, 42, 110, 0.1);
+}
+
+.pending-card {
+  background: #fff9e6;
+  border-color: #ffd966;
+}
+
+.pending-card:hover {
+  border-color: #ffb700;
+}
+
+.admin-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.admin-user-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a2a6e;
+  margin-bottom: 4px;
+}
+
+.admin-user-email {
+  font-size: 13px;
+  color: #666;
+}
+
+.admin-user-date {
+  font-size: 13px;
+  color: #999;
+}
+
+.admin-user-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #1a2a6e 0%, #0f1a3e 100%);
+  color: #fff;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.admin-card-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.role-select {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.role-select:hover {
+  border-color: #1a2a6e;
+}
+
+.btn-approve {
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-approve:hover {
+  background: linear-gradient(135deg, #34b854 0%, #28a745 100%);
+  box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+  transform: translateY(-1px);
+}
+
+.btn-edit {
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-edit:hover {
+  background: linear-gradient(135deg, #0088ff 0%, #007bff 100%);
+  box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+  transform: translateY(-1px);
+}
+
+.btn-secondary {
+  padding: 8px 16px;
+  background: #6c757d;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  background: #5a6268;
+}
+
+.btn-delete {
+  padding: 8px 12px;
+  background: #dc3545;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-delete:hover {
+  background: #c82333;
+  box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+  transform: translateY(-1px);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #999;
+  font-size: 15px;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .admin-card-header {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .admin-card-actions {
+    flex-direction: column;
+  }
+  
+  .role-select {
+    width: 100%;
+  }
+  
+  .btn-approve,
+  .btn-edit,
+  .btn-secondary {
+    width: 100%;
+  }
+}

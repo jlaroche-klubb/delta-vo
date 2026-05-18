@@ -74,11 +74,11 @@ function AppContent() {
   const tabs = getAccessiblePages(userRole) as Page[];
 
   // Si la page actuelle n'est pas accessible, rediriger vers la première page accessible
-  useEffect(() => {
-    if (!tabs.includes(page) && tabs.length > 0) {
-      setPage(tabs[0]);
-    }
-  }, [userRole]);
+ useEffect(() => {
+  if (tabs.length > 0 && !tabs.includes(page)) {
+    setPage(tabs[0]);
+  }
+}, [tabs, page]); // ← Correction des dépendances
 
   return (
     <div className="app">

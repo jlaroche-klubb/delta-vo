@@ -10,7 +10,7 @@ import StatsPage from "./pages/StatsPage";
 import Logo from "./components/Logo";
 import "./App.css";
 
-const DEV_MODE = true;
+const DEV_MODE = false;
 const FAKE_PROFILE = {
   email: "jlaroche@klubb.com",
   nom: "Laroche",

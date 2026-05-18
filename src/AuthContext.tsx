@@ -51,9 +51,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               await setDoc(doc(db, "users", currentUser.uid), newProfile);
               await deleteDoc(doc(db, "pending_users", pendingId));
               setProfile(newProfile);
-            } else {
-              console.log("❌ Pas autorisé");
-              setProfile(null);
+          } else {
+              // Nouveau utilisateur → créer dans pending_users
+              console.log("🆕 Nouvel utilisateur, création pending");
+              
+              // Extraire nom/prénom du displayName
+              const displayName = currentUser.displayName || "";
+              const [prenom = "", nom = ""] = displayName.split(" ");
+              
+              const pendingProfile = {
+                email: currentUser.email!,
+                nom: nom || "Nom",
+                prenom: prenom || "Prénom",
+                createdAt: new Date().toISOString(),
+              };
+              
+              // Sauvegarder dans pending_users
+              const pendingId = currentUser.email!.replace(/[@.]/g, "_");
+              await setDoc(doc(db, "pending_users", pendingId), pendingProfile);
+              
+              console.log("✅ Demande d'approbation créée");
+              setProfile(null); // Pas de profil → affichera message d'attente
             }
           }
         } catch (e) {

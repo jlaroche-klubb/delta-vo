@@ -20,6 +20,7 @@ interface MachinesContextType {
   ) => void;
   setDateDemandeRecup: (machineId: string, date: string) => void;
   createMachineRestitution: (machine: Machine) => void;
+  deleteMachine: (machineId: string) => void;
 
   // Disponibles
   updatePrice: (
@@ -115,6 +116,10 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
 
   function createMachineRestitution(machine: Machine) {
     setMachines((prev) => [machine, ...prev]);
+  }
+
+  function deleteMachine(machineId: string) {
+    setMachines((prev) => prev.filter((m) => m.id !== machineId));
   }
 
   // ====== DISPONIBLES ======
@@ -301,6 +306,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       toggleEtapeRestitution,
       setDateDemandeRecup,
       createMachineRestitution,
+      deleteMachine,
       updatePrice,
       basculerEnLld,
       toggleEtapePrepa,

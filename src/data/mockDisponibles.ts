@@ -25,9 +25,9 @@ export const MOCK_DISPONIBLES: Machine[] = [
     rapport_expertise: {
       total_retenue_ht: 2450,
       degats: [
-        { categorie: "Carrosserie", description: "Rayure portière gauche", cout_estime: 450 },
-        { categorie: "Nacelle", description: "Garde-corps à repeindre", cout_estime: 800 },
-        { categorie: "Mécanique", description: "Remplacement filtre à air", cout_estime: 1200 },
+        { zone: "Carrosserie", description: "Rayure portière gauche", montant: 450 },
+        { zone: "Nacelle", description: "Garde-corps à repeindre", montant: 800 },
+        { zone: "Mécanique", description: "Remplacement filtre à air", montant: 1200 },
       ],
     },
     is_test: true,
@@ -55,8 +55,8 @@ export const MOCK_DISPONIBLES: Machine[] = [
     rapport_expertise: {
       total_retenue_ht: 850,
       degats: [
-        { categorie: "Intérieur", description: "Siège conducteur usé", cout_estime: 600 },
-        { categorie: "Électrique", description: "Gyrophare HS", cout_estime: 250 },
+        { zone: "Intérieur", description: "Siège conducteur usé", montant: 600 },
+        { zone: "Électrique", description: "Gyrophare HS", montant: 250 },
       ],
     },
     is_test: true,
@@ -91,8 +91,8 @@ export const MOCK_DISPONIBLES: Machine[] = [
     rapport_expertise: {
       total_retenue_ht: 1520,
       degats: [
-        { categorie: "Carrosserie", description: "Pare-choc avant enfoncé", cout_estime: 900 },
-        { categorie: "Nacelle", description: "Vérin stabilisateur fuyant", cout_estime: 620 },
+        { zone: "Carrosserie", description: "Pare-choc avant enfoncé", montant: 900 },
+        { zone: "Nacelle", description: "Vérin stabilisateur fuyant", montant: 620 },
       ],
     },
     is_test: true,
@@ -125,10 +125,10 @@ export const MOCK_DISPONIBLES: Machine[] = [
     rapport_expertise: {
       total_retenue_ht: 3250,
       degats: [
-        { categorie: "Carrosserie", description: "Hayon arrière cabossé", cout_estime: 750 },
-        { categorie: "Nacelle", description: "Plancher nacelle troué", cout_estime: 1100 },
-        { categorie: "Mécanique", description: "Échappement percé", cout_estime: 850 },
-        { categorie: "Électrique", description: "Feux de recul cassés", cout_estime: 550 },
+        { zone: "Carrosserie", description: "Hayon arrière cabossé", montant: 750 },
+        { zone: "Nacelle", description: "Plancher nacelle troué", montant: 1100 },
+        { zone: "Mécanique", description: "Échappement percé", montant: 850 },
+        { zone: "Électrique", description: "Feux de recul cassés", montant: 550 },
       ],
     },
     is_test: true,
@@ -161,8 +161,8 @@ export const MOCK_DISPONIBLES: Machine[] = [
     rapport_expertise: {
       total_retenue_ht: 680,
       degats: [
-        { categorie: "Carrosserie", description: "Rétroviseur droit cassé", cout_estime: 380 },
-        { categorie: "Intérieur", description: "Tapis cabine manquant", cout_estime: 300 },
+        { zone: "Carrosserie", description: "Rétroviseur droit cassé", montant: 380 },
+        { zone: "Intérieur", description: "Tapis cabine manquant", montant: 300 },
       ],
     },
     is_test: true,
@@ -197,11 +197,11 @@ export const MOCK_DISPONIBLES: Machine[] = [
     rapport_expertise: {
       total_retenue_ht: 4180,
       degats: [
-        { categorie: "Carrosserie", description: "Aile avant gauche enfoncée", cout_estime: 1200 },
-        { categorie: "Nacelle", description: "Flexible hydraulique à changer", cout_estime: 980 },
-        { categorie: "Mécanique", description: "Plaquettes de frein usées", cout_estime: 850 },
-        { categorie: "Électrique", description: "Batterie faible", cout_estime: 650 },
-        { categorie: "Intérieur", description: "Tableau de bord fissuré", cout_estime: 500 },
+        { zone: "Carrosserie", description: "Aile avant gauche enfoncée", montant: 1200 },
+        { zone: "Nacelle", description: "Flexible hydraulique à changer", montant: 980 },
+        { zone: "Mécanique", description: "Plaquettes de frein usées", montant: 850 },
+        { zone: "Électrique", description: "Batterie faible", montant: 650 },
+        { zone: "Intérieur", description: "Tableau de bord fissuré", montant: 500 },
       ],
     },
     is_test: true,
@@ -234,10 +234,10 @@ export const MOCK_DISPONIBLES: Machine[] = [
     rapport_expertise: {
       total_retenue_ht: 5420,
       degats: [
-        { categorie: "Carrosserie", description: "Peinture très abîmée (complète)", cout_estime: 2500 },
-        { categorie: "Nacelle", description: "Pompe hydraulique à réviser", cout_estime: 1800 },
-        { categorie: "Mécanique", description: "Embrayage à remplacer", cout_estime: 920 },
-        { categorie: "Intérieur", description: "Sièges déchirés", cout_estime: 200 },
+        { zone: "Carrosserie", description: "Peinture très abîmée (complète)", montant: 2500 },
+        { zone: "Nacelle", description: "Pompe hydraulique à réviser", montant: 1800 },
+        { zone: "Mécanique", description: "Embrayage à remplacer", montant: 920 },
+        { zone: "Intérieur", description: "Sièges déchirés", montant: 200 },
       ],
     },
     is_test: true,
@@ -270,9 +270,9 @@ export const MOCK_DISPONIBLES: Machine[] = [
     rapport_expertise: {
       total_retenue_ht: 1950,
       degats: [
-        { categorie: "Carrosserie", description: "Capot rayé", cout_estime: 650 },
-        { categorie: "Nacelle", description: "Commandes à réviser", cout_estime: 800 },
-        { categorie: "Électrique", description: "Feu stop gauche HS", cout_estime: 500 },
+        { zone: "Carrosserie", description: "Capot rayé", montant: 650 },
+        { zone: "Nacelle", description: "Commandes à réviser", montant: 800 },
+        { zone: "Électrique", description: "Feu stop gauche HS", montant: 500 },
       ],
     },
     is_test: true,

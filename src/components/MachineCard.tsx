@@ -12,9 +12,19 @@ interface MachineCardProps {
     id: string,
     field: "recuperation_ok" | "expertise_ok" | "facture_ok" | "facture_reglee_ok"
   ) => void;
+  canValidate?: boolean;
+  canDelete?: boolean;
+  onDelete?: (id: string) => void;
 }
 
-export default function MachineCard({ machine, onSetDate, onToggleField }: MachineCardProps) {
+export default function MachineCard({ 
+  machine, 
+  onSetDate, 
+  onToggleField,
+  canValidate = true,
+  canDelete = false,
+  onDelete 
+}: MachineCardProps) {
   const [showExpertise, setShowExpertise] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
@@ -125,7 +135,16 @@ export default function MachineCard({ machine, onSetDate, onToggleField }: Machi
             <MetaItem label="Client" value={machine.client_precedent} />
             <MetaItem label="Retour" value={formatDate(machine.date_retour)} />
             <MetaItem label="Contrat" value={machine.contrat} />
-            {isAdmin && !machine.archived && (
+            {canDelete && !machine.archived && (
+              <button
+                className="btn-delete-machine"
+                onClick={() => onDelete?.(machine.id)}
+                title="Supprimer définitivement"
+              >
+                🗑️
+              </button>
+            )}
+            {isAdmin && !machine.archived && !canDelete && (
               <button
                 className="btn-archive"
                 onClick={() => setShowConfirmDelete(true)}
@@ -187,12 +206,14 @@ export default function MachineCard({ machine, onSetDate, onToggleField }: Machi
                     className="stepper-date"
                     value={machine.date_demande_recuperation}
                     onChange={(e) => onSetDate(machine.id, e.target.value)}
+                    disabled={!canValidate}
                   />
                 ) : activeStep === 1 ? (
                   <input
                     type="date"
                     className="stepper-date stepper-date-empty"
                     onChange={(e) => onSetDate(machine.id, e.target.value)}
+                    disabled={!canValidate}
                   />
                 ) : null
               }
@@ -204,10 +225,11 @@ export default function MachineCard({ machine, onSetDate, onToggleField }: Machi
               label="Récupération"
               state={step2Done ? "done" : activeStep === 2 ? "active" : "todo"}
               onClick={
-                activeStep === 2 || step2Done
+                canValidate && (activeStep === 2 || step2Done)
                   ? () => onToggleField(machine.id, "recuperation_ok")
                   : undefined
               }
+              disabled={!canValidate}
             />
             <Connector active={step2Done} />
 
@@ -216,10 +238,11 @@ export default function MachineCard({ machine, onSetDate, onToggleField }: Machi
               label="Expertise"
               state={step3Done ? "done" : activeStep === 3 ? "active" : "todo"}
               onClick={
-                activeStep === 3 || step3Done
+                canValidate && (activeStep === 3 || step3Done)
                   ? () => onToggleField(machine.id, "expertise_ok")
                   : undefined
               }
+              disabled={!canValidate}
             />
             <Connector active={step3Done} />
 
@@ -228,10 +251,11 @@ export default function MachineCard({ machine, onSetDate, onToggleField }: Machi
               label="Facture"
               state={step4Done ? "done" : activeStep === 4 ? "active" : "todo"}
               onClick={
-                activeStep === 4 || step4Done
+                canValidate && (activeStep === 4 || step4Done)
                   ? () => onToggleField(machine.id, "facture_ok")
                   : undefined
               }
+              disabled={!canValidate}
             />
             <Connector active={step4Done} />
 
@@ -240,10 +264,11 @@ export default function MachineCard({ machine, onSetDate, onToggleField }: Machi
               label="Réglée"
               state={step5Done ? "done" : activeStep === 5 ? "active" : "todo"}
               onClick={
-                activeStep === 5 || step5Done
+                canValidate && (activeStep === 5 || step5Done)
                   ? () => onToggleField(machine.id, "facture_reglee_ok")
                   : undefined
               }
+              disabled={!canValidate}
             />
           </div>
         )}
@@ -288,19 +313,21 @@ function Step({
   state,
   onClick,
   customContent,
+  disabled = false,
 }: {
   number: number;
   label: string;
   state: "done" | "active" | "todo";
   onClick?: () => void;
   customContent?: React.ReactNode;
+  disabled?: boolean;
 }) {
   return (
     <div className={`step step-${state}`}>
       <button
         className="step-circle"
         onClick={onClick}
-        disabled={state === "todo"}
+        disabled={disabled || state === "todo"}
         type="button"
       >
         {state === "done" ? "✓" : number}

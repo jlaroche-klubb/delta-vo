@@ -13,7 +13,7 @@ export interface DegatExpertise {
   zone: string;
   description: string;
   montant: number;
-  sur_devis: boolean;
+  sur_devis?: boolean;
 }
 
 export interface RapportExpertise {

@@ -4803,6 +4803,33 @@ button {
   font-size: 13px;
   font-style: italic;
 }
+.btn-view-expertise {
+  margin-top: 10px;
+  width: 100%;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #1a2a6e 0%, #0f1a3e 100%);
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn-view-expertise:hover {
+  background: linear-gradient(135deg, #2a3a8e 0%, #1a2a5e 100%);
+  box-shadow: 0 2px 8px rgba(26, 42, 110, 0.2);
+  transform: translateY(-1px);
+}
+
+.btn-view-expertise:active {
+  transform: translateY(0);
+}
 
 /* Responsive */
 @media (max-width: 768px) {

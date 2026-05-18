@@ -76,20 +76,29 @@ export default function AdminPage() {
     }
   }
 
-     `Approuver ${pending.prenom} ${pending.nom} comme ${ROLES.find(r => r.value === role)?.label} ?`
+  async function approveUser(pending: PendingUser) {
+    const role = selectedRole[pending.id];
+    if (!role) return;
+
+    const confirmed = window.confirm(
+      `Approuver ${pending.prenom} ${pending.nom} comme ${ROLES.find(r => r.value === role)?.label} ?`
     );
     if (!confirmed) return;
 
     try {
-      // Create user document (will be picked up on first login)
-      await setDoc(doc(db, "users", pending.id), {
-        email: pending.email,
-        nom: pending.nom,
-        prenom: pending.prenom,
+      // Update pending_users with the role (so it can be migrated on next login)
+      await updateDoc(doc(db, "pending_users", pending.id), {
         role: role,
-        createdAt: pending.createdAt,
         approvedAt: new Date().toISOString(),
       });
+
+      alert("✅ Utilisateur approuvé ! Il pourra se connecter à sa prochaine connexion.");
+      loadData();
+    } catch (err: any) {
+      console.error("Erreur approbation:", err);
+      alert("❌ Erreur: " + err.message);
+    }
+  }
 
   async function deleteUser(userId: string, isPending: boolean) {
     const user = isPending 

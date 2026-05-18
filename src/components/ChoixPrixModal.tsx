@@ -11,7 +11,7 @@ export default function ChoixPrixModal({ machine, onClose, onConfirm }: ChoixPri
   const [choix, setChoix] = useState<"fr" | "dealer">("fr");
 
   const hasPrixFr = machine.prix_fr !== undefined;
-  const hasPrixExport = machine.prix_dealer !== undefined;
+  const hasPrixDealer = machine.prix_dealer !== undefined;
 
   function handleConfirm() {
     onConfirm(choix);

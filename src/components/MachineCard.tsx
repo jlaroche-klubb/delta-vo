@@ -18,7 +18,7 @@ export default function MachineCard({ machine, onSetDate, onToggleField }: Machi
   const [showExpertise, setShowExpertise] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
 
-  const { archiveMachine, unarchiveMachine } = useMachines();
+  // const { archiveMachine, unarchiveMachine } = useMachines();
   const { profile } = useAuth();
   // En DEV_MODE (profile null) → tout le monde est admin pour pouvoir tester
   const isAdmin = !profile || profile.role === "admin";
@@ -56,7 +56,7 @@ export default function MachineCard({ machine, onSetDate, onToggleField }: Machi
       const userName = profile
         ? `${profile.prenom || ""} ${profile.nom || ""}`.trim() || profile.email
         : "Admin (DEV)";
-      archiveMachine(machine.id, userName);
+     // archiveMachine(machine.id, userName);
       setShowConfirmDelete(false);
     }
 
@@ -79,7 +79,7 @@ export default function MachineCard({ machine, onSetDate, onToggleField }: Machi
             {isAdmin && (
               <button
                 className="btn-unarchive"
-                onClick={() => unarchiveMachine(machine.id)}
+               // onClick={() => unarchiveMachine(machine.id)}
               >
                 ↩ Restaurer
               </button>

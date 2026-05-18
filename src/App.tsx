@@ -8,6 +8,7 @@ import EnCoursPage from "./pages/EnCoursPage";
 import ClotureesPage from "./pages/ClotureesPage";
 import StatsPage from "./pages/StatsPage";
 import Logo from "./components/Logo";
+import AdminPage from "./pages/AdminPage";
 import "./App.css";
 
 const DEV_MODE = false;
@@ -19,7 +20,7 @@ const FAKE_PROFILE = {
   createdAt: new Date().toISOString(),
 };
 
-type Page = "restitutions" | "disponibles" | "encours" | "cloturees" | "stats";
+type Page = "restitutions" | "disponibles" | "encours" | "cloturees" | "stats" | "admin";
 
 function AppContent() {
   const { user, profile, loading, logout } = useAuth();
@@ -64,12 +65,16 @@ function AppContent() {
       case "encours": return "En cours de préparation";
       case "cloturees": return "Clôturées";
       case "stats": return "📊 Stats";
+      case "admin": return "⚙️ Admin";
     }
   };
 
   // Liste des onglets dans l'ordre
   const tabs: Page[] = ["restitutions", "disponibles", "encours", "cloturees"];
-  if (isAdmin) tabs.push("stats");
+  if (isAdmin) {
+  tabs.push("stats");
+  tabs.push("admin");
+}
 
   return (
     <div className="app">
@@ -170,6 +175,7 @@ function AppContent() {
           <ClotureesPage userRole={userRole} userName={userName} />
         )}
         {page === "stats" && isAdmin && <StatsPage />}
+        {page === "admin" && isAdmin && <AdminPage />}
       </main>
     </div>
   );

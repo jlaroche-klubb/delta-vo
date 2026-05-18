@@ -38,8 +38,8 @@ export default function ExpertiseModal({ machine, onClose }: ExpertiseModalProps
             <InfoCell label="Client" value={machine.client_precedent} />
             <InfoCell label="N° Contrat" value={machine.contrat} />
             <InfoCell label="Date retour" value={formatDate(machine.date_retour)} />
-            <InfoCell label="Date expertise" value={formatDate(rapport.date_expertise)} />
-            <InfoCell label="Agent expert" value={rapport.agent} />
+            <InfoCell label="Date expertise" value={formatDate(rapport.date_expertise || "")} />
+            <InfoCell label="Agent expert" value={rapport.agent || "—"} />
             {rapport.duree_location_jours && (
               <InfoCell
                 label="Durée location"
@@ -55,12 +55,12 @@ export default function ExpertiseModal({ machine, onClose }: ExpertiseModalProps
           <div className="info-grid">
             <InfoCell
               label="Heures nacelle"
-              value={`${rapport.heures_nacelle.toLocaleString("fr-FR")} h`}
+              value={`${(rapport.heures_nacelle || 0).toLocaleString("fr-FR")} h`}
               highlight
             />
             <InfoCell
               label="Km porteur"
-              value={`${rapport.km_porteur.toLocaleString("fr-FR")} km`}
+              value={`${(rapport.km_porteur || 0).toLocaleString("fr-FR")} km`}
               highlight
             />
             <InfoCell

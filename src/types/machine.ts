@@ -115,6 +115,11 @@ export interface Machine {
   is_test?: boolean;
   createdAt: string;
   updatedAt?: string;
+
+  // === CHAMPS SYNCHRONISATION NACELLE-EXPERT ===
+  expertise_recue?: boolean;            // Flag: expertise importée depuis nacelle-expert
+  date_expertise_recue?: string;        // Date de réception de l'expertise
+  agent_expert?: string;                // Nom de l'agent qui a fait l'expertise
 }
 
 export function calculAgeStock(dateStock: string): number {
@@ -129,92 +134,103 @@ export function getAgeStockColor(jours: number, seuilRepricer: number = 60): {
   bg: string;
   label: string;
 } {
-  if (jours <= 30) return { color: "#208040", bg: "rgba(48,160,80,0.1)", label: "Nouveau stock" };
-  if (jours <= seuilRepricer) return { color: "#9a8a2a", bg: "rgba(154,138,42,0.1)", label: "En vente" };
-  if (jours <= seuilRepricer + 30) return { color: "#c58300", bg: "rgba(197,131,0,0.1)", label: "À repricer" };
-  return { color: "#c8102e", bg: "rgba(200,16,46,0.1)", label: "Stock long" };
+  if (jours <= 30) {
+    return { color: "text-green-700", bg: "bg-green-100", label: "Frais" };
+  } else if (jours <= seuilRepricer) {
+    return { color: "text-yellow-700", bg: "bg-yellow-100", label: "Bon" };
+  } else if (jours <= 90) {
+    return { color: "text-orange-700", bg: "bg-orange-100", label: "À repricer" };
+  } else {
+    return { color: "text-red-700", bg: "bg-red-100", label: "Urgent" };
+  }
 }
 
-export const ETAPES_PREPA_DEFAULT: { id: string; label: string }[] = [
-  { id: "nettoyage", label: "Nettoyage complet (intérieur + extérieur)" },
-  { id: "reparations", label: "Réparations identifiées dans l'expertise" },
-  { id: "ct", label: "Contrôle technique (CT)" },
-  { id: "vgp", label: "Contrôle nacelle (VGP)" },
-  { id: "marquage", label: "Marquage / habillage commercial" },
-  { id: "verif", label: "Vérification finale" },
+const ETAPES_PREPA_NORMALE = [
+  "Lavage complet",
+  "Peinture si nécessaire",
+  "Contrôle technique + CT CACES",
+  "Pneumatique (rechapé OK)",
+  "Préparation complète (mécanique + électrique)",
 ];
 
-export function creerEtapesPrepa(): EtapePrepa[] {
-  return ETAPES_PREPA_DEFAULT.map((e) => ({
-    id: e.id,
-    label: e.label,
+const ETAPES_PREPA_EN_ETAT = [
+  "Lavage rapide",
+  "Contrôle technique + CT CACES",
+  "Pneumatique (si besoin)",
+];
+
+export function creerEtapesPrepa(typePrepa: TypePrepa): EtapePrepa[] {
+  const labels = typePrepa === "normale" ? ETAPES_PREPA_NORMALE : ETAPES_PREPA_EN_ETAT;
+  return labels.map((label, idx) => ({
+    id: `etape-${idx + 1}`,
+    label,
     done: false,
   }));
 }
 
-export function prepaTerminee(etapes: EtapePrepa[] | undefined): boolean {
-  if (!etapes || etapes.length === 0) return false;
-  return etapes.every((e) => e.done);
+export interface FiltreDisponibles {
+  searchText: string;
+  section: "attente_prix" | "repricer" | "normal" | "tous";
+  marche: "tous" | "fr" | "dealer";
+  modele: string;
+  ageMin: number;
+  ageMax: number;
 }
 
-export function isLivraisonEnRetard(dateLivraison: string | undefined): boolean {
-  if (!dateLivraison) return false;
-  const aujourdhui = new Date().toISOString().slice(0, 10);
-  return dateLivraison < aujourdhui;
-}
+export function filtrerDisponibles(
+  machines: Machine[],
+  filtre: FiltreDisponibles,
+  seuilRepricer: number = 60
+): Machine[] {
+  let result = machines.filter((m) => m.statut === "disponible");
 
-export function isMiseDispoEnRetard(dateMiseDispo: string | undefined): boolean {
-  if (!dateMiseDispo) return false;
-  const aujourdhui = new Date().toISOString().slice(0, 10);
-  return dateMiseDispo < aujourdhui;
-}
+  if (filtre.searchText.trim()) {
+    const text = filtre.searchText.toLowerCase();
+    result = result.filter(
+      (m) =>
+        m.immat.toLowerCase().includes(text) ||
+        m.modele_porteur.toLowerCase().includes(text) ||
+        m.type_nacelle.toLowerCase().includes(text)
+    );
+  }
 
-export const SEUIL_RETARD_PAIEMENT_DEFAULT = 30;
+  if (filtre.section !== "tous") {
+    result = result.filter((m) => {
+      const age = calculAgeStock(m.date_mise_stock || "");
+      if (filtre.section === "attente_prix") {
+        return !m.prix_fr && !m.prix_dealer;
+      }
+      if (filtre.section === "repricer") {
+        return (m.prix_fr || m.prix_dealer) && age > seuilRepricer;
+      }
+      if (filtre.section === "normal") {
+        return (m.prix_fr || m.prix_dealer) && age <= seuilRepricer;
+      }
+      return true;
+    });
+  }
 
-export function getStatutPaiement(
-  machine: Machine,
-  seuilRetard: number = SEUIL_RETARD_PAIEMENT_DEFAULT
-): StatutPaiement {
-  if (machine.date_reglement) return "payee";
-  if (!machine.date_facturation) return "en_attente";
-  const facture = new Date(machine.date_facturation);
-  const today = new Date();
-  const joursDepuis = Math.floor((today.getTime() - facture.getTime()) / (1000 * 60 * 60 * 24));
-  if (joursDepuis > seuilRetard) return "retard";
-  return "en_attente";
-}
+  if (filtre.marche !== "tous") {
+    result = result.filter((m) => m.marche === filtre.marche);
+  }
 
-export function joursDepuisFacturation(dateFacturation: string | undefined): number {
-  if (!dateFacturation) return 0;
-  const facture = new Date(dateFacturation);
-  const today = new Date();
-  return Math.floor((today.getTime() - facture.getTime()) / (1000 * 60 * 60 * 24));
-}
+  if (filtre.modele) {
+    result = result.filter((m) => m.modele_porteur === filtre.modele);
+  }
 
-export function getAnneeFacturation(machine: Machine): number {
-  if (!machine.date_facturation) return 0;
-  return new Date(machine.date_facturation).getFullYear();
-}
+  if (filtre.ageMin !== undefined) {
+    result = result.filter((m) => {
+      const age = calculAgeStock(m.date_mise_stock || "");
+      return age >= filtre.ageMin;
+    });
+  }
 
-export function isFicheComplete(machine: Machine): boolean {
-  const fc = machine.fiche_commerciale;
-  if (!fc) return false;
-  return !!(
-    fc.hauteur_travail_m &&
-    fc.deport_travail_m &&
-    fc.nb_personnes_panier &&
-    fc.puissance_porteur
-  );
-}
+  if (filtre.ageMax !== undefined) {
+    result = result.filter((m) => {
+      const age = calculAgeStock(m.date_mise_stock || "");
+      return age <= filtre.ageMax;
+    });
+  }
 
-export function getNextFicheNumber(machines: Machine[], startFrom: number = 2196): string {
-  const existingNumbers = machines
-    .map((m) => m.fiche_commerciale?.numero_fiche)
-    .filter((n): n is string => !!n && /^\d+DS$/.test(n))
-    .map((n) => parseInt(n.replace("DS", ""), 10))
-    .filter((n) => !isNaN(n));
-
-  const maxUsed = existingNumbers.length > 0 ? Math.max(...existingNumbers) : startFrom - 1;
-  const next = Math.max(maxUsed + 1, startFrom);
-  return `${next}DS`;
+  return result;
 }

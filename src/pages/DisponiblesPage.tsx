@@ -23,6 +23,12 @@ import DisponiblesFilters, {
 import { exportPricingToExcel } from "../utils/exportPricing";
 import { importPricingFromExcel, ImportResult } from "../utils/importPricing";
 import { generateFichePdf } from "../utils/generateFichePdf";
+import { exportListePrix } from "../utils/exportListePrix";
+import {
+  canExportExcelPricing,
+  canImportExcelPricing,
+  canExportListePrix,
+} from "../utils/permissions";
 
 const SEUIL_REPRICER = 60;
 const PHONE_KEY = "delta-vo-user-phone";
@@ -132,6 +138,14 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
 
   function handleExportPricing() {
     exportPricingToExcel({ machines, seuilRepricer: SEUIL_REPRICER });
+  }
+
+  function handleExportListePrix() {
+    if (filtered.length === 0) {
+      alert("Aucune machine à exporter avec les filtres actuels");
+      return;
+    }
+    exportListePrix(filtered, userRole as any);
   }
 
   function handleImportClick() {
@@ -296,17 +310,37 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <button
-          className="btn-pricing"
-          onClick={handleExportPricing}
-          disabled={totalPricing === 0}
-        >
-          📋 Export Pricing
-          {totalPricing > 0 && <span className="pricing-count">{totalPricing}</span>}
-        </button>
-        <button className="btn-import" onClick={handleImportClick} disabled={importing}>
-          {importing ? "⏳ Import..." : "📤 Importer pricing"}
-        </button>
+        
+        {/* Export pricing pour PDG (admin + secrétaire) */}
+        {canExportExcelPricing(userRole as any) && (
+          <button
+            className="btn-pricing"
+            onClick={handleExportPricing}
+            disabled={totalPricing === 0}
+            title="Export technique pour modification PDG"
+          >
+            📊 Export Pricing PDG
+            {totalPricing > 0 && <span className="pricing-count">{totalPricing}</span>}
+          </button>
+        )}
+
+        {/* Export liste prix commerciale (tous sauf chef/atelier) */}
+        {canExportListePrix(userRole as any) && (
+          <button
+            className="btn-export-liste"
+            onClick={handleExportListePrix}
+            title="Liste de prix pour envoi clients"
+          >
+            📄 Export Liste Prix
+          </button>
+        )}
+
+        {canImportExcelPricing(userRole as any) && (
+          <button className="btn-import" onClick={handleImportClick} disabled={importing}>
+            {importing ? "⏳ Import..." : "📤 Importer pricing"}
+          </button>
+        )}
+
         {isAdmin && (
           <button
             className={`toggle-archived ${showArchived ? "active" : ""}`}

@@ -37,7 +37,6 @@ export interface EtapePrepa {
   done_at?: string;
 }
 
-// ====== NOUVEAU v5 : Infos commerciales pour fiche VO ======
 export interface FicheCommerciale {
   numero_fiche?: string;
   date_creation_fiche?: string;
@@ -117,10 +116,12 @@ export interface Machine {
   updatedAt?: string;
 
   // === CHAMPS SYNCHRONISATION NACELLE-EXPERT ===
-  expertise_recue?: boolean;            // Flag: expertise importée depuis nacelle-expert
-  date_expertise_recue?: string;        // Date de réception de l'expertise
-  agent_expert?: string;                // Nom de l'agent qui a fait l'expertise
+  expertise_recue?: boolean;
+  date_expertise_recue?: string;
+  agent_expert?: string;
 }
+
+// ========== FONCTIONS HELPER ==========
 
 export function calculAgeStock(dateStock: string): number {
   if (!dateStock) return 0;
@@ -159,7 +160,7 @@ const ETAPES_PREPA_EN_ETAT = [
   "Pneumatique (si besoin)",
 ];
 
-export function creerEtapesPrepa(typePrepa: TypePrepa): EtapePrepa[] {
+export function creerEtapesPrepa(typePrepa: TypePrepa = "normale"): EtapePrepa[] {
   const labels = typePrepa === "normale" ? ETAPES_PREPA_NORMALE : ETAPES_PREPA_EN_ETAT;
   return labels.map((label, idx) => ({
     id: `etape-${idx + 1}`,
@@ -167,6 +168,8 @@ export function creerEtapesPrepa(typePrepa: TypePrepa): EtapePrepa[] {
     done: false,
   }));
 }
+
+// ========== FONCTIONS POUR DISPONIBLES ==========
 
 export interface FiltreDisponibles {
   searchText: string;
@@ -233,4 +236,77 @@ export function filtrerDisponibles(
   }
 
   return result;
+}
+
+export function isFicheComplete(machine: Machine): boolean {
+  const f = machine.fiche_commerciale;
+  if (!f) return false;
+  return !!(
+    f.hauteur_travail_m &&
+    f.deport_travail_m &&
+    f.nb_personnes_panier &&
+    f.puissance_porteur
+  );
+}
+
+export function getNextFicheNumber(machines: Machine[]): string {
+  const currentYear = new Date().getFullYear();
+  const fiches = machines
+    .filter((m) => m.fiche_commerciale?.numero_fiche)
+    .map((m) => m.fiche_commerciale!.numero_fiche!);
+
+  const thisYearFiches = fiches.filter((num) => num.startsWith(`${currentYear}-`));
+  if (thisYearFiches.length === 0) {
+    return `${currentYear}-001`;
+  }
+
+  const maxNum = Math.max(
+    ...thisYearFiches.map((num) => parseInt(num.split("-")[1], 10))
+  );
+  const next = maxNum + 1;
+  return `${currentYear}-${next.toString().padStart(3, "0")}`;
+}
+
+// ========== FONCTIONS POUR EN COURS ==========
+
+export function prepaTerminee(machine: Machine): boolean {
+  if (!machine.etapes_prepa || machine.etapes_prepa.length === 0) return false;
+  return machine.etapes_prepa.every((e) => e.done);
+}
+
+export function isLivraisonEnRetard(machine: Machine): boolean {
+  if (machine.type_sortie !== "vente" || !machine.date_livraison_prevue) return false;
+  if (!prepaTerminee(machine)) return false;
+  const today = new Date().toISOString().slice(0, 10);
+  return machine.date_livraison_prevue < today;
+}
+
+export function isMiseDispoEnRetard(machine: Machine): boolean {
+  if (machine.type_sortie !== "lld" || !machine.date_mise_dispo_lld) return false;
+  if (!prepaTerminee(machine)) return false;
+  const today = new Date().toISOString().slice(0, 10);
+  return machine.date_mise_dispo_lld < today;
+}
+
+// ========== FONCTIONS POUR CLÔTURÉES ==========
+
+export function getStatutPaiement(machine: Machine): StatutPaiement {
+  if (machine.date_reglement) return "payee";
+  if (!machine.date_facturation) return "en_attente";
+
+  const jours = joursDepuisFacturation(machine);
+  if (jours > 60) return "retard";
+  return "en_attente";
+}
+
+export function joursDepuisFacturation(machine: Machine): number {
+  if (!machine.date_facturation) return 0;
+  const now = new Date();
+  const facturation = new Date(machine.date_facturation);
+  return Math.floor((now.getTime() - facturation.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+export function getAnneeFacturation(machine: Machine): string {
+  if (!machine.date_facturation) return "";
+  return machine.date_facturation.slice(0, 4);
 }

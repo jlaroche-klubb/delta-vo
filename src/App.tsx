@@ -9,7 +9,7 @@ import ClotureesPage from "./pages/ClotureesPage";
 import StatsPage from "./pages/StatsPage";
 import Logo from "./components/Logo";
 import AdminPage from "./pages/AdminPage";
-import { getAccessiblePages } from "./utils/permissions";
+import { useNacelleExpertSync } from "./hooks/useNacelleExpertSync";
 import "./App.css";
 
 const DEV_MODE = false;
@@ -27,6 +27,9 @@ function AppContent() {
   const { user, profile, loading, logout } = useAuth();
   const [page, setPage] = useState<Page>("restitutions");
   const [menuOpen, setMenuOpen] = useState(false);
+
+  // ✅ ACTIVER LA SYNCHRONISATION NACELLE-EXPERT → DELTA VO
+  useNacelleExpertSync();
 
   // Fermer le menu mobile quand on change de page
   useEffect(() => {
@@ -70,10 +73,13 @@ function AppContent() {
     }
   };
 
-  // Liste des onglets basée sur les permissions
-  const tabs = getAccessiblePages(userRole) as Page[];
+  // Liste des onglets dans l'ordre
+  const tabs: Page[] = ["restitutions", "disponibles", "encours", "cloturees"];
+  if (isAdmin) {
+  tabs.push("stats");
+  tabs.push("admin");
+}
 
- 
   return (
     <div className="app">
       <header className="app-header">
@@ -87,7 +93,7 @@ function AppContent() {
           {tabs.map((t) => (
             <button
               key={t}
-              className={`nav-link ${t === "stats" || t === "admin" ? "nav-link-admin" : ""} ${page === t ? "active" : ""}`}
+              className={`nav-link ${t === "stats" ? "nav-link-admin" : ""} ${page === t ? "active" : ""}`}
               onClick={() => setPage(t)}
             >
               {pageLabel(t)}

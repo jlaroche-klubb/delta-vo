@@ -1,42 +1,43 @@
-import { useEffect } from "react";
-import { collection, query, where, onSnapshot, Timestamp } from "firebase/firestore";
-import { dbNacelleExpert } from "../firebase";
-import { useMachines } from "../contexts/MachinesContext";
+import { useEffect } from 'react';
+import { collection, query, where, onSnapshot, Timestamp } from 'firebase/firestore';
+import { dbNacelleExpert } from '../firebase';
+import { useMachines } from '../contexts/MachinesContext';
 
-/**
- * Hook pour synchroniser les expertises de nacelle-expert vers delta-vo
- * Écoute les nouvelles expertises créées dans les dernières 24h
- */
 export function useNacelleExpertSync() {
   const { syncExpertiseFromNacelleExpert } = useMachines();
 
   useEffect(() => {
-    // Date limite : 24h avant maintenant
+    console.log('✅ Synchronisation nacelle-expert → delta-vo activée');
+
+    // Calculer la date d'il y a 24h
     const yesterday = new Date();
     yesterday.setHours(yesterday.getHours() - 24);
     const yesterdayTimestamp = Timestamp.fromDate(yesterday);
 
-    // Query pour écouter les expertises récentes
-    const expertisesRef = collection(dbNacelleExpert, "expertises");
-    const q = query(
-      expertisesRef,
-      where("createdAt", ">=", yesterdayTimestamp)
+    // Écouter les dossiers créés dans les dernières 24h
+    const dossiersRef = collection(dbNacelleExpert, 'dossiers');
+    const recentDossiersQuery = query(
+      dossiersRef,
+      where('createdAt', '>=', yesterdayTimestamp)
     );
 
-    console.log("✅ Synchronisation nacelle-expert → delta-vo activée");
+    const unsubscribe = onSnapshot(
+      recentDossiersQuery,
+      (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          if (change.type === 'added') {
+            const dossier = change.doc.data();
+            console.log('🔄 Nouveau dossier détecté:', dossier.immat);
 
-    // Listener en temps réel
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      snapshot.docChanges().forEach((change) => {
-        if (change.type === "added") {
-          const expertise = change.doc.data();
-          console.log("🔄 Nouvelle expertise détectée:", expertise.immatriculation);
-          
-          // Synchroniser vers delta-vo
-          syncExpertiseFromNacelleExpert(expertise as any);
-        }
-      });
-    });
+            // Synchroniser vers Delta VO
+            syncExpertiseFromNacelleExpert(dossier as any);
+          }
+        });
+      },
+      (error) => {
+        console.error('❌ Erreur sync nacelle-expert:', error);
+      }
+    );
 
     return () => unsubscribe();
   }, [syncExpertiseFromNacelleExpert]);

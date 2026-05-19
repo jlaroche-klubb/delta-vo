@@ -20,7 +20,6 @@ interface MachinesContextType {
   ) => void;
   setDateDemandeRecup: (machineId: string, date: string) => void;
   createMachineRestitution: (machine: Machine) => void;
-  deleteMachine: (machineId: string) => void;
 
   // Disponibles
   updatePrice: (
@@ -54,6 +53,23 @@ interface MachinesContextType {
   // Fiche commerciale (NOUVEAU v5)
   updateFicheCommerciale: (machineId: string, fiche: FicheCommerciale) => void;
   attribuerNumeroFiche: (machineId: string, numero: string) => void;
+
+  // Synchronisation nacelle-expert
+  syncExpertiseFromNacelleExpert: (expertiseData: {
+    immat: string;
+    modele_porteur: string;
+    type_nacelle: string;
+    annee_circulation?: string;
+    heures_nacelle?: number;
+    km_porteur?: number;
+    rapport_expertise?: any;
+    photos_commerciales?: any;
+    agent_expert?: string;
+    date_expertise: string;
+  }) => void;
+
+  // Admin
+  deleteMachine: (machineId: string) => void;
 }
 
 const MachinesContext = createContext<MachinesContextType | undefined>(undefined);
@@ -116,10 +132,6 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
 
   function createMachineRestitution(machine: Machine) {
     setMachines((prev) => [machine, ...prev]);
-  }
-
-  function deleteMachine(machineId: string) {
-    setMachines((prev) => prev.filter((m) => m.id !== machineId));
   }
 
   // ====== DISPONIBLES ======
@@ -300,13 +312,97 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     );
   }
 
+  function syncExpertiseFromNacelleExpert(expertiseData: {
+    immat: string;
+    modele_porteur: string;
+    type_nacelle: string;
+    annee_circulation?: string;
+    heures_nacelle?: number;
+    km_porteur?: number;
+    rapport_expertise?: any;
+    photos_commerciales?: any;
+    agent_expert?: string;
+    date_expertise: string;
+  }) {
+    setMachines((prev) => {
+      const existingIndex = prev.findIndex(
+        (m) => 
+          m.immat.toUpperCase() === expertiseData.immat.toUpperCase() &&
+          m.statut === "restitution"
+      );
+
+      if (existingIndex !== -1) {
+        const updated = [...prev];
+        const existing = updated[existingIndex];
+        
+        console.log(`✅ Restitution ${expertiseData.immat} trouvée → Mise à jour`);
+        
+        updated[existingIndex] = {
+          ...existing,
+          heures_nacelle: expertiseData.heures_nacelle ?? existing.heures_nacelle,
+          km_porteur: expertiseData.km_porteur ?? existing.km_porteur,
+          rapport_expertise: expertiseData.rapport_expertise ?? existing.rapport_expertise,
+          photos_commerciales: expertiseData.photos_commerciales ?? existing.photos_commerciales,
+          agent_expert: expertiseData.agent_expert ?? existing.agent_expert,
+          recuperation_ok: true,
+          expertise_ok: true,
+          expertise_recue: true,
+          date_expertise_recue: expertiseData.date_expertise,
+          updatedAt: new Date().toISOString(),
+        };
+        
+        if (updated[existingIndex].recuperation_ok && updated[existingIndex].expertise_ok) {
+          updated[existingIndex].fiche_vo_creee = true;
+          updated[existingIndex].date_mise_stock = new Date().toISOString().slice(0, 10);
+          updated[existingIndex].statut = "disponible";
+        }
+        
+        return updated;
+      } else {
+        console.log(`➕ Restitution ${expertiseData.immat} créée automatiquement depuis expertise`);
+        
+        const newMachine: Machine = {
+          id: "M" + Date.now().toString().slice(-6),
+          immat: expertiseData.immat.toUpperCase(),
+          modele_porteur: expertiseData.modele_porteur,
+          type_nacelle: expertiseData.type_nacelle,
+          annee_circulation: expertiseData.annee_circulation || "",
+          heures_nacelle: expertiseData.heures_nacelle,
+          km_porteur: expertiseData.km_porteur,
+          rapport_expertise: expertiseData.rapport_expertise,
+          photos_commerciales: expertiseData.photos_commerciales,
+          agent_expert: expertiseData.agent_expert,
+          date_retour: expertiseData.date_expertise,
+          client_precedent: "Import nacelle-expert",
+          contrat: "",
+          statut: "disponible",
+          recuperation_ok: true,
+          expertise_ok: true,
+          facture_ok: false,
+          facture_reglee_ok: false,
+          fiche_vo_creee: true,
+          date_mise_stock: new Date().toISOString().slice(0, 10),
+          expertise_recue: true,
+          date_expertise_recue: expertiseData.date_expertise,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        
+        return [newMachine, ...prev];
+      }
+    });
+  }
+
+  function deleteMachine(machineId: string) {
+    setMachines((prev) => prev.filter((m) => m.id !== machineId));
+  }
+
   const value = useMemo(
     () => ({
       machines,
       toggleEtapeRestitution,
       setDateDemandeRecup,
       createMachineRestitution,
-      deleteMachine,
       updatePrice,
       basculerEnLld,
       toggleEtapePrepa,
@@ -315,6 +411,8 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       marquerPayee,
       updateFicheCommerciale,
       attribuerNumeroFiche,
+      syncExpertiseFromNacelleExpert,
+      deleteMachine,
     }),
     [machines]
   );

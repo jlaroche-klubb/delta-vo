@@ -45,6 +45,10 @@ export function canViewExpertiseReport(role: UserRole): boolean {
   return ["admin", "secretaire", "vendeur_fr", "chef", "atelier"].includes(role);
 }
 
+export function canExportRestitutions(role: UserRole): boolean {
+  return ["admin", "secretaire"].includes(role);
+}
+
 // ==================== DISPONIBLES ====================
 
 export function canViewAllMachines(role: UserRole): boolean {
@@ -124,10 +128,6 @@ export function canEditExpertise(role: UserRole): boolean {
 export function canDeleteMachine(role: UserRole): boolean {
   return role === "admin";
 }
-export function canExportRestitutions(role: UserRole): boolean {
-  return ["admin", "secretaire"].includes(role);
-}
-
 
 // ==================== HELPERS ====================
 

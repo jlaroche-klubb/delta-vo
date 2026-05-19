@@ -268,7 +268,6 @@ export function getNextFicheNumber(machines: Machine[]): string {
 }
 
 // ========== FONCTIONS POUR EN COURS ==========
-// ATTENTION: Signatures basées sur les appels réels dans EnCoursCard.tsx
 
 export function prepaTerminee(etapesPrepa: EtapePrepa[] | undefined): boolean {
   if (!etapesPrepa || etapesPrepa.length === 0) return false;
@@ -293,19 +292,19 @@ export function getStatutPaiement(machine: Machine): StatutPaiement {
   if (machine.date_reglement) return "payee";
   if (!machine.date_facturation) return "en_attente";
 
-  const jours = joursDepuisFacturation(machine);
+  const jours = joursDepuisFacturation(machine.date_facturation);
   if (jours > 60) return "retard";
   return "en_attente";
 }
 
-export function joursDepuisFacturation(machine: Machine): number {
-  if (!machine.date_facturation) return 0;
+export function joursDepuisFacturation(dateFacturation: string | undefined): number {
+  if (!dateFacturation) return 0;
   const now = new Date();
-  const facturation = new Date(machine.date_facturation);
+  const facturation = new Date(dateFacturation);
   return Math.floor((now.getTime() - facturation.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-export function getAnneeFacturation(machine: Machine): string {
-  if (!machine.date_facturation) return "";
-  return machine.date_facturation.slice(0, 4);
+export function getAnneeFacturation(machine: Machine): number {
+  if (!machine.date_facturation) return 0;
+  return parseInt(machine.date_facturation.slice(0, 4), 10);
 }

@@ -124,6 +124,10 @@ export function canEditExpertise(role: UserRole): boolean {
 export function canDeleteMachine(role: UserRole): boolean {
   return role === "admin";
 }
+export function canExportRestitutions(role: UserRole): boolean {
+  return ["admin", "secretaire"].includes(role);
+}
+
 
 // ==================== HELPERS ====================
 

@@ -75,6 +75,14 @@ export function canImportExcelPricing(role: UserRole): boolean {
   return role === "admin";
 }
 
+/**
+ * Export liste de prix commerciale (pour envoyer aux clients)
+ * Accessible à tous sauf chef et atelier
+ */
+export function canExportListePrix(role: UserRole): boolean {
+  return ["admin", "secretaire", "vendeur_fr", "dealer"].includes(role);
+}
+
 export function canCreateLLD(role: UserRole): boolean {
   return ["admin", "secretaire"].includes(role);
 }
@@ -109,6 +117,12 @@ export function canViewExpertiseDetail(role: UserRole): boolean {
 
 export function canEditExpertise(role: UserRole): boolean {
   return ["admin", "chef"].includes(role);
+}
+
+// ==================== SUPPRESSION ====================
+
+export function canDeleteMachine(role: UserRole): boolean {
+  return role === "admin";
 }
 
 // ==================== HELPERS ====================
@@ -151,9 +165,4 @@ export function getPermissionDeniedMessage(role: UserRole, action: string): stri
   };
   
   return `Action non autorisée pour le rôle ${roleLabels[role]}: ${action}`;
-}
-// ==================== SUPPRESSION ====================
-
-export function canDeleteMachine(role: UserRole): boolean {
-  return role === "admin";
 }

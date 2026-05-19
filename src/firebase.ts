@@ -1,36 +1,42 @@
-import { initializeApp, getApps } from "firebase/app";
-import { getAuth, GoogleAuthProvider } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import { initializeApp, getApps } from 'firebase/app';
+import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore';
 
-// ========== CONFIG DELTA VO (principal) ==========
-const firebaseConfigDeltaVO = {
-  apiKey: "TODO_REMPLACE_MOI_DELTA_VO",
+// ========================================
+// CONFIGURATION DELTA VO (projet principal)
+// ========================================
+const firebaseConfig = {
+  apiKey: "AIzaSyD9BhTym5Rjm-UK2-F2ES4PV5NUjxJR8HY",
   authDomain: "delta-vo.firebaseapp.com",
   projectId: "delta-vo",
-  storageBucket: "delta-vo.appspot.com",
-  messagingSenderId: "TODO_REMPLACE_MOI",
-  appId: "TODO_REMPLACE_MOI"
+  storageBucket: "delta-vo.firebasestorage.app",
+  messagingSenderId: "44936008146",
+  appId: "1:44936008146:web:420cef581cae468764380b"
 };
 
-// ========== CONFIG NACELLE EXPERT (sync) ==========
+// ========================================
+// CONFIGURATION NACELLE EXPERT (projet sync)
+// ========================================
 const firebaseConfigNacelleExpert = {
-  apiKey: "TODO_REMPLACE_MOI_NACELLE_EXPERT",
+  apiKey: "AIzaSyCmo1rTFoy1KnUc1rh_QVMtutwLguKnGb8",
   authDomain: "nacelle-expert.firebaseapp.com",
   projectId: "nacelle-expert",
-  storageBucket: "nacelle-expert.appspot.com",
-  messagingSenderId: "TODO_REMPLACE_MOI",
-  appId: "TODO_REMPLACE_MOI"
+  storageBucket: "nacelle-expert.firebasestorage.app",
+  messagingSenderId: "839235044652",
+  appId: "1:839235044652:web:ad99f43eae0527239b1889"
 };
 
-// ========== INITIALISATION DELTA VO ==========
-const appDeltaVO = getApps().find(app => app.name === '[DEFAULT]')
-  || initializeApp(firebaseConfigDeltaVO);
-
-export const auth = getAuth(appDeltaVO);
-export const db = getFirestore(appDeltaVO);
+// ========================================
+// INITIALISATION DELTA VO (app par défaut)
+// ========================================
+const app = initializeApp(firebaseConfig);
+export const auth = getAuth(app);
+export const db = getFirestore(app);
 export const googleProvider = new GoogleAuthProvider();
 
-// ========== INITIALISATION NACELLE EXPERT ==========
+// ========================================
+// INITIALISATION NACELLE EXPERT (app nommée)
+// ========================================
 const appNacelleExpert = getApps().find(app => app.name === 'nacelle-expert')
   || initializeApp(firebaseConfigNacelleExpert, 'nacelle-expert');
 

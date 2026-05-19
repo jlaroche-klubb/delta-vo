@@ -268,45 +268,57 @@ export function getNextFicheNumber(machines: Machine[]): string {
 }
 
 // ========== FONCTIONS POUR EN COURS ==========
+// ATTENTION: Ces fonctions prennent des paramètres simples, PAS Machine !
 
-export function prepaTerminee(machine: Machine): boolean {
-  if (!machine.etapes_prepa || machine.etapes_prepa.length === 0) return false;
-  return machine.etapes_prepa.every((e) => e.done);
+export function prepaTerminee(etapesPrepa: EtapePrepa[] | undefined): boolean {
+  if (!etapesPrepa || etapesPrepa.length === 0) return false;
+  return etapesPrepa.every((e) => e.done);
 }
 
-export function isLivraisonEnRetard(machine: Machine): boolean {
-  if (machine.type_sortie !== "vente" || !machine.date_livraison_prevue) return false;
-  if (!prepaTerminee(machine)) return false;
+export function isLivraisonEnRetard(
+  typeSortie: string | undefined,
+  dateLivraisonPrevue: string | undefined,
+  etapesPrepa: EtapePrepa[] | undefined
+): boolean {
+  if (typeSortie !== "vente" || !dateLivraisonPrevue) return false;
+  if (!prepaTerminee(etapesPrepa)) return false;
   const today = new Date().toISOString().slice(0, 10);
-  return machine.date_livraison_prevue < today;
+  return dateLivraisonPrevue < today;
 }
 
-export function isMiseDispoEnRetard(machine: Machine): boolean {
-  if (machine.type_sortie !== "lld" || !machine.date_mise_dispo_lld) return false;
-  if (!prepaTerminee(machine)) return false;
+export function isMiseDispoEnRetard(
+  typeSortie: string | undefined,
+  dateMiseDispo: string | undefined,
+  etapesPrepa: EtapePrepa[] | undefined
+): boolean {
+  if (typeSortie !== "lld" || !dateMiseDispo) return false;
+  if (!prepaTerminee(etapesPrepa)) return false;
   const today = new Date().toISOString().slice(0, 10);
-  return machine.date_mise_dispo_lld < today;
+  return dateMiseDispo < today;
 }
 
 // ========== FONCTIONS POUR CLÔTURÉES ==========
 
-export function getStatutPaiement(machine: Machine): StatutPaiement {
-  if (machine.date_reglement) return "payee";
-  if (!machine.date_facturation) return "en_attente";
+export function getStatutPaiement(
+  dateReglement: string | undefined,
+  dateFacturation: string | undefined
+): StatutPaiement {
+  if (dateReglement) return "payee";
+  if (!dateFacturation) return "en_attente";
 
-  const jours = joursDepuisFacturation(machine);
+  const jours = joursDepuisFacturation(dateFacturation);
   if (jours > 60) return "retard";
   return "en_attente";
 }
 
-export function joursDepuisFacturation(machine: Machine): number {
-  if (!machine.date_facturation) return 0;
+export function joursDepuisFacturation(dateFacturation: string): number {
+  if (!dateFacturation) return 0;
   const now = new Date();
-  const facturation = new Date(machine.date_facturation);
+  const facturation = new Date(dateFacturation);
   return Math.floor((now.getTime() - facturation.getTime()) / (1000 * 60 * 60 * 24));
 }
 
-export function getAnneeFacturation(machine: Machine): string {
-  if (!machine.date_facturation) return "";
-  return machine.date_facturation.slice(0, 4);
+export function getAnneeFacturation(dateFacturation: string | undefined): string {
+  if (!dateFacturation) return "";
+  return dateFacturation.slice(0, 4);
 }

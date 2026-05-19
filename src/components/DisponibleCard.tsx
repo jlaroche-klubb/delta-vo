@@ -6,6 +6,8 @@ interface DisponibleCardProps {
   isAdmin?: boolean;
   canLld?: boolean;
   canFiche?: boolean;
+  canViewPrixFR?: boolean;
+  canViewPrixExport?: boolean;
   onEditPrice?: (machine: Machine) => void;
   onLld?: (machine: Machine) => void;
   onEditFiche?: (machine: Machine) => void;
@@ -19,6 +21,8 @@ export default function DisponibleCard({
   isAdmin = false,
   canLld = false,
   canFiche = false,
+  canViewPrixFR = true,
+  canViewPrixExport = true,
   onEditPrice,
   onLld,
   onEditFiche,
@@ -158,23 +162,27 @@ export default function DisponibleCard({
       <div className="dispo-prices">
         {hasPrice ? (
           <>
-            <div className="price-block">
-              <div className="price-label">Prix FR</div>
-              <div className="price-value">
-                {machine.prix_fr !== undefined
-                  ? machine.prix_fr.toLocaleString("fr-FR") + " €"
-                  : "—"}
+            {canViewPrixFR && (
+              <div className="price-block">
+                <div className="price-label">Prix FR</div>
+                <div className="price-value">
+                  {machine.prix_fr !== undefined
+                    ? machine.prix_fr.toLocaleString("fr-FR") + " €"
+                    : "—"}
+                </div>
               </div>
-            </div>
-            <div className="price-divider"></div>
-            <div className="price-block">
-              <div className="price-label">Prix Dealer</div>
-              <div className="price-value price-dealer">
-                {machine.prix_dealer !== undefined
-                  ? machine.prix_dealer.toLocaleString("fr-FR") + " €"
-                  : "—"}
+            )}
+            {canViewPrixFR && canViewPrixExport && <div className="price-divider"></div>}
+            {canViewPrixExport && (
+              <div className="price-block">
+                <div className="price-label">Prix Dealer</div>
+                <div className="price-value price-dealer">
+                  {machine.prix_dealer !== undefined
+                    ? machine.prix_dealer.toLocaleString("fr-FR") + " €"
+                    : "—"}
+                </div>
               </div>
-            </div>
+            )}
           </>
         ) : (
           <div className="price-pending">

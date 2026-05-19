@@ -33,7 +33,7 @@ export function useNacelleExpertSync() {
           console.log("🔄 Nouvelle expertise détectée:", expertise.immatriculation);
           
           // Synchroniser vers delta-vo
-          syncExpertiseFromNacelleExpert(expertise);
+          syncExpertiseFromNacelleExpert(expertise as any);
         }
       });
     });

@@ -16,6 +16,7 @@ import EnCoursFilters, {
   EMPTY_ENCOURS_FILTERS,
   applyEnCoursFilters,
 } from "../components/EnCoursFilters";
+import { canEditEtapesPreparation } from "../utils/permissions";
 
 interface EnCoursPageProps {
   userRole: string;
@@ -30,7 +31,7 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
   const [configMachine, setConfigMachine] = useState<Machine | null>(null);
   const [factureMachine, setFactureMachine] = useState<Machine | null>(null);
 
-  const canEditPrepa = userRole === "atelier" || userRole === "admin";
+  const canEditPrepa = canEditEtapesPreparation(userRole as any);
   const canConfigure = userRole === "secretaire" || userRole === "admin";
   const canFacturer = userRole === "secretaire" || userRole === "admin";
 

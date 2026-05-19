@@ -8,7 +8,8 @@ import { useAuth } from "../AuthContext";
 import {
   canCreateRestitution,
   canValidateRestitutionSteps,
-  canDeleteMachine
+  canDeleteMachine,
+  canExportRestitutions
 } from "../utils/permissions";
 
 interface NewMachineForm {
@@ -189,11 +190,11 @@ export default function RestitutionsPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-       {canExportRestitutions(userRole) && (
-  <button className="btn-export" onClick={handleExport} title="Télécharger en Excel">
-    ⬇ Export Excel
-  </button>
-)}
+        {canExportRestitutions(userRole) && (
+          <button className="btn-export" onClick={handleExport} title="Télécharger en Excel">
+            ⬇ Export Excel
+          </button>
+        )}
         {canCreateRestitution(userRole) && (
           <button className="btn-primary" onClick={() => setShowForm(true)}>
             + Créer un retour

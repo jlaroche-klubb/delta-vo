@@ -45,11 +45,6 @@ export function exportListePrix(machines: Machine[], userRole: UserRole) {
       row["Prix Export HT (€)"] = m.prix_dealer;
     }
 
-    // VNC indicatif (si disponible)
-    if (m.vnc !== undefined) {
-      row["VNC indicatif (€)"] = m.vnc;
-    }
-
     // Date mise en stock
     if (m.date_mise_stock) {
       row["Disponible depuis"] = m.date_mise_stock;
@@ -73,7 +68,6 @@ export function exportListePrix(machines: Machine[], userRole: UserRole) {
 
   if (showPrixFR) colWidths.push({ wch: 15 }); // Prix FR
   if (showPrixExport) colWidths.push({ wch: 15 }); // Prix Export
-  colWidths.push({ wch: 15 }); // VNC
   colWidths.push({ wch: 15 }); // Dispo depuis
 
   ws["!cols"] = colWidths;

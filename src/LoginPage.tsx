@@ -1,38 +1,42 @@
-import { useAuth } from "./AuthContext";
-import Logo from "./components/Logo";
+/* ========================================
+   AJOUT LOGIN PAGE - À ajouter dans App.css après les styles .login-card
+   ======================================== */
 
-export default function LoginPage() {
-  const { user, login, logout } = useAuth();
+.login-logo-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 24px;
+}
 
-  return (
-    <div className="login-container">
-      <div className="login-card">
-        <div className="brand-bar"></div>
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
-          <Logo theme="light" showSubtitle={false} />
-        </div>
-        <p className="subtitle">Gestion des nacelles d'occasion</p>
+/* Force le bon affichage du logo sur la page de login */
+.login-card .delta-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 
-        {!user ? (
-          <>
-            <button className="btn-google" onClick={login}>
-              🔐 Se connecter avec Google
-            </button>
-            <p className="hint">Connexion réservée aux utilisateurs autorisés</p>
-          </>
-        ) : (
-          <div className="not-authorized">
-            <p>✉️ {user.email}</p>
-            <p className="warning">
-              ⚠️ Votre compte n'est pas encore autorisé.<br />
-              Contactez l'administrateur.
-            </p>
-            <button className="btn-secondary" onClick={logout}>
-              Se déconnecter
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
+.login-card .logo-main {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.login-card .logo-delta {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 4px;
+  color: #1A2A6E;
+}
+
+.login-card .logo-vo {
+  font-size: 20px;
+  font-weight: 700;
+  color: #C8102E;
+  letter-spacing: 2px;
+}
+
+.login-card .logo-subtitle {
+  font-size: 12px;
+  color: rgba(26, 42, 110, 0.6);
+  letter-spacing: 0.5px;
 }

@@ -268,29 +268,26 @@ export function getNextFicheNumber(machines: Machine[]): string {
 }
 
 // ========== FONCTIONS POUR EN COURS ==========
-// Ces fonctions prennent Machine en paramètre
+// ATTENTION: Signatures basées sur les appels réels dans EnCoursCard.tsx
 
-export function prepaTerminee(machine: Machine): boolean {
-  if (!machine.etapes_prepa || machine.etapes_prepa.length === 0) return false;
-  return machine.etapes_prepa.every((e) => e.done);
+export function prepaTerminee(etapesPrepa: EtapePrepa[] | undefined): boolean {
+  if (!etapesPrepa || etapesPrepa.length === 0) return false;
+  return etapesPrepa.every((e) => e.done);
 }
 
-export function isLivraisonEnRetard(machine: Machine): boolean {
-  if (machine.type_sortie !== "vente" || !machine.date_livraison_prevue) return false;
-  if (!prepaTerminee(machine)) return false;
+export function isLivraisonEnRetard(dateLivraisonPrevue: string | undefined): boolean {
+  if (!dateLivraisonPrevue) return false;
   const today = new Date().toISOString().slice(0, 10);
-  return machine.date_livraison_prevue < today;
+  return dateLivraisonPrevue < today;
 }
 
-export function isMiseDispoEnRetard(machine: Machine): boolean {
-  if (machine.type_sortie !== "lld" || !machine.date_mise_dispo_lld) return false;
-  if (!prepaTerminee(machine)) return false;
+export function isMiseDispoEnRetard(dateMiseDispo: string | undefined): boolean {
+  if (!dateMiseDispo) return false;
   const today = new Date().toISOString().slice(0, 10);
-  return machine.date_mise_dispo_lld < today;
+  return dateMiseDispo < today;
 }
 
 // ========== FONCTIONS POUR CLÔTURÉES ==========
-// Ces fonctions prennent Machine en paramètre
 
 export function getStatutPaiement(machine: Machine): StatutPaiement {
   if (machine.date_reglement) return "payee";

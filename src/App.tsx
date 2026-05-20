@@ -9,6 +9,7 @@ import ClotureesPage from "./pages/ClotureesPage";
 import StatsPage from "./pages/StatsPage";
 import Logo from "./components/Logo";
 import AdminPage from "./pages/AdminPage";
+import { SyncTestPage } from "./pages/SyncTestPage"; // ← 1️⃣ AJOUTER CET IMPORT
 import { useNacelleExpertSync } from "./hooks/useNacelleExpertSync";
 import "./App.css";
 
@@ -21,7 +22,8 @@ const FAKE_PROFILE = {
   createdAt: new Date().toISOString(),
 };
 
-type Page = "restitutions" | "disponibles" | "encours" | "cloturees" | "stats" | "admin";
+// ← 2️⃣ AJOUTER "synctest" AU TYPE
+type Page = "restitutions" | "disponibles" | "encours" | "cloturees" | "stats" | "admin" | "synctest";
 
 function AppContent() {
   const { user, profile, loading, logout } = useAuth();
@@ -62,6 +64,7 @@ function AppContent() {
   const userRole = activeProfile!.role;
   const isAdmin = userRole === "admin";
 
+  // ← 3️⃣ AJOUTER LE LABEL POUR SYNCTEST
   const pageLabel = (p: Page): string => {
     switch (p) {
       case "restitutions": return "Restitutions";
@@ -70,15 +73,17 @@ function AppContent() {
       case "cloturees": return "Clôturées";
       case "stats": return "📊 Stats";
       case "admin": return "⚙️ Admin";
+      case "synctest": return "🧪 Test Sync"; // ← NOUVEAU
     }
   };
 
   // Liste des onglets dans l'ordre
   const tabs: Page[] = ["restitutions", "disponibles", "encours", "cloturees"];
   if (isAdmin) {
-  tabs.push("stats");
-  tabs.push("admin");
-}
+    tabs.push("stats");
+    tabs.push("admin");
+    tabs.push("synctest"); // ← 4️⃣ AJOUTER SYNCTEST (uniquement pour admin)
+  }
 
   return (
     <div className="app">
@@ -93,7 +98,7 @@ function AppContent() {
           {tabs.map((t) => (
             <button
               key={t}
-              className={`nav-link ${t === "stats" ? "nav-link-admin" : ""} ${page === t ? "active" : ""}`}
+              className={`nav-link ${t === "stats" || t === "synctest" ? "nav-link-admin" : ""} ${page === t ? "active" : ""}`}
               onClick={() => setPage(t)}
             >
               {pageLabel(t)}
@@ -180,6 +185,8 @@ function AppContent() {
         )}
         {page === "stats" && isAdmin && <StatsPage />}
         {page === "admin" && isAdmin && <AdminPage />}
+        {/* ← 5️⃣ AJOUTER LE RENDU DE LA PAGE SYNCTEST */}
+        {page === "synctest" && isAdmin && <SyncTestPage />}
       </main>
     </div>
   );

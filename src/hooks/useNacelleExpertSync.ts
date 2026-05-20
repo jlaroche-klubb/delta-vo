@@ -1,84 +1,208 @@
-import { useEffect } from 'react';
-import { collection, query, where, onSnapshot, updateDoc, doc, setDoc } from 'firebase/firestore';
-import { dbNacelleExpert, db } from '../firebase';
+import { useState, useEffect } from 'react';
+import { collection, query, where, getDocs, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { db } from '../config/firebase';
 
-const genId = () => Math.random().toString(36).slice(2, 9).toUpperCase();
+interface NacelleExpertDossier {
+  immat: string;
+  info?: {
+    immat?: string;
+    type_nacelle?: string;
+    modele?: string;  // ✅ CORRIGÉ: utilise 'modele' au lieu de 'modele_porteur'
+    annee_fab?: string;
+    client?: string;
+    contrat?: string;
+    email?: string;
+    date?: string;
+    heures?: string;
+    km_porteur?: string;
+    agent?: string;
+  };
+  depart?: {
+    zones?: any[];
+    photos?: string[];
+    date?: string;
+    heures?: string;
+    km_porteur?: string;
+    agent?: string;
+  };
+  retour?: {
+    zones?: any[];
+    photos?: string[];
+    degats?: string[];
+    note?: string;
+    date?: string;
+    heures?: string;
+    km_porteur?: string;
+    agent?: string;
+    commercialPhotos?: string[];
+  };
+  synced_to_delta_vo?: boolean;
+  createdAt?: any;
+  createdBy?: string;
+}
+
+interface MachineVO {
+  immat: string;
+  modele: string;
+  type_nacelle: string;
+  annee_fab: string;
+  heures: string;
+  km_porteur: string;
+  
+  // Données du dossier nacelle-expert
+  dossier_nacelle_expert?: {
+    client: string;
+    contrat: string;
+    email: string;
+    date_depart: string;
+    date_retour: string;
+    agent_depart: string;
+    agent_retour: string;
+    zones_depart: any[];
+    zones_retour: any[];
+    photos_depart: string[];
+    photos_retour: string[];
+    photos_commerciales: string[];
+    degats: string[];
+    note_expert: string;
+  };
+  
+  // Données de disponibilité
+  statut: 'disponible' | 'en_vente' | 'vendue' | 'indisponible';
+  prix_vente?: number;
+  prix_vente_override?: number; // Prix fixé par admin
+  date_ajout: any;
+  date_modification: any;
+  createdBy?: string;
+}
 
 export function useNacelleExpertSync() {
-  useEffect(() => {
-    console.log('🔄 Hook synchronisation Delta VO activé');
-    
-    // Écouter les dossiers avec synced_to_delta_vo === false
-    const dossiersRef = collection(dbNacelleExpert, 'dossiers');
-    const q = query(dossiersRef, where('synced_to_delta_vo', '==', false));
-    
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
-      console.log(`📦 ${snapshot.size} dossier(s) à synchroniser`);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [syncedCount, setSyncedCount] = useState(0);
+
+  const syncDossiers = async () => {
+    setIsLoading(true);
+    setError(null);
+    setSyncedCount(0);
+
+    try {
+      console.log('🔄 Démarrage de la synchronisation Nacelle-Expert → Delta VO');
       
-      snapshot.docChanges().forEach(async (change) => {
-        if (change.type === 'added' || change.type === 'modified') {
-          const dossier = change.doc.data();
-          const immat = change.doc.id;
+      // 1. Récupérer les dossiers non synchronisés
+      const dossiersQuery = query(
+        collection(db, 'dossiers'),
+        where('synced_to_delta_vo', '==', false)
+      );
+      
+      const dossiersSnapshot = await getDocs(dossiersQuery);
+      console.log(`📋 ${dossiersSnapshot.size} dossiers à synchroniser`);
+
+      if (dossiersSnapshot.empty) {
+        console.log('✅ Aucun dossier à synchroniser');
+        setIsLoading(false);
+        return;
+      }
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      // 2. Pour chaque dossier, créer/mettre à jour la fiche VO
+      for (const dossierDoc of dossiersSnapshot.docs) {
+        const dossier = dossierDoc.data() as NacelleExpertDossier;
+        
+        try {
+          console.log(`\n📦 Traitement du dossier: ${dossier.immat}`);
           
-          console.log(`🔄 Nouveau dossier détecté: ${immat}`);
-          
-          // Vérifier que le dossier a les champs requis
-          if (!dossier.immat || !dossier.info?.modele_porteur || !dossier.info?.type_nacelle) {
-            console.log(`⚠️ Dossier ${immat} incomplet - ignoré`);
-            return;
+          // Validation des données essentielles
+          if (!dossier.info?.immat) {
+            console.warn(`⚠️ Dossier sans immatriculation, ignoré`);
+            continue;
           }
+
+          // ✅ CORRIGÉ: Utilise 'modele' au lieu de 'modele_porteur'
+          if (!dossier.info?.modele) {
+            console.warn(`⚠️ Dossier ${dossier.immat} sans modèle, ignoré`);
+            continue;
+          }
+
+          // 3. Créer la fiche VO dans la collection machines_vo
+          const machineVORef = doc(db, 'machines_vo', dossier.immat);
           
-          // Si le dossier a un retour, on le synchronise
-          if (dossier.retour) {
-            console.log(`✅ Synchronisation du dossier ${immat}`);
+          const machineVOData: MachineVO = {
+            // Données de base
+            immat: dossier.info.immat,
+            modele: dossier.info.modele || '',  // ✅ CORRIGÉ: utilise 'modele'
+            type_nacelle: dossier.info.type_nacelle || '',
+            annee_fab: dossier.info.annee_fab || '',
+            heures: dossier.retour?.heures || dossier.depart?.heures || '',
+            km_porteur: dossier.retour?.km_porteur || dossier.depart?.km_porteur || '',
             
-            try {
-              // 1️⃣ Créer la fiche VO dans Delta VO
-              const ficheVO = {
-                id: genId(),
-                immat: dossier.immat,
-                info: {
-                  type_nacelle: dossier.info?.type_nacelle || '',
-                  modele_porteur: dossier.info?.modele_porteur || '',
-                  annee_fab: dossier.info?.annee_fab || '',
-                  client: dossier.info?.client || '',
-                  date_expertise: dossier.retour?.date || new Date().toISOString().slice(0, 10),
-                  heures_nacelle: dossier.retour?.heures || '',
-                  km_porteur: dossier.retour?.km_porteur || '',
-                  agent_expert: dossier.retour?.agent || ''
-                },
-                photos_commerciales: dossier.retour?.commercialPhotos || {},
-                statut: 'en_attente_tarification',
-                createdAt: new Date().toISOString(),
-                source: 'nacelle-expert'
-              };
-              
-              await setDoc(doc(db, 'machines_vo', dossier.immat), ficheVO);
-              console.log(`✅ Fiche VO créée: ${dossier.immat}`);
-              
-              // 2️⃣ Marquer comme synchronisé dans nacelle-expert
-              const dossierRef = doc(dbNacelleExpert, 'dossiers', immat);
-              await updateDoc(dossierRef, {
-                synced_to_delta_vo: true,
-                synced_at: new Date().toISOString()
-              });
-              
-              console.log(`✓ Dossier ${immat} marqué comme synchronisé`);
-            } catch (error) {
-              console.error(`❌ Erreur sync ${immat}:`, error);
-            }
-          } else {
-            console.log(`⏸️ Dossier ${immat} sans retour - ignoré`);
-          }
+            // Données du dossier nacelle-expert
+            dossier_nacelle_expert: {
+              client: dossier.info.client || '',
+              contrat: dossier.info.contrat || '',
+              email: dossier.info.email || '',
+              date_depart: dossier.depart?.date || '',
+              date_retour: dossier.retour?.date || '',
+              agent_depart: dossier.depart?.agent || '',
+              agent_retour: dossier.retour?.agent || '',
+              zones_depart: dossier.depart?.zones || [],
+              zones_retour: dossier.retour?.zones || [],
+              photos_depart: dossier.depart?.photos || [],
+              photos_retour: dossier.retour?.photos || [],
+              photos_commerciales: dossier.retour?.commercialPhotos || [],
+              degats: dossier.retour?.degats || [],
+              note_expert: dossier.retour?.note || '',
+            },
+            
+            // Statut initial
+            statut: 'disponible',
+            date_ajout: new Date(),
+            date_modification: new Date(),
+            createdBy: dossier.createdBy,
+          };
+
+          console.log(`💾 Création de la fiche VO pour ${dossier.immat}`);
+          await setDoc(machineVORef, machineVOData);
+          console.log(`✅ Fiche VO créée avec succès`);
+
+          // 4. Marquer le dossier comme synchronisé
+          const dossierRef = doc(db, 'dossiers', dossierDoc.id);
+          await updateDoc(dossierRef, {
+            synced_to_delta_vo: true
+          });
+          console.log(`✅ Dossier marqué comme synchronisé`);
+
+          successCount++;
+        } catch (err) {
+          console.error(`❌ Erreur lors de la synchronisation de ${dossier.immat}:`, err);
+          errorCount++;
         }
-      });
-    }, (error) => {
-      console.error('❌ Erreur listener:', error);
-    });
-    
-    return () => {
-      console.log('🛑 Hook synchronisation désactivé');
-      unsubscribe();
-    };
-  }, []); // ✅ Pas de dépendance car le hook est autonome
+      }
+
+      console.log(`\n🎉 Synchronisation terminée:`);
+      console.log(`  ✅ Succès: ${successCount}`);
+      console.log(`  ❌ Erreurs: ${errorCount}`);
+
+      setSyncedCount(successCount);
+      
+      if (errorCount > 0) {
+        setError(`${errorCount} dossier(s) n'ont pas pu être synchronisés`);
+      }
+
+    } catch (err) {
+      console.error('❌ Erreur générale lors de la synchronisation:', err);
+      setError(err instanceof Error ? err.message : 'Erreur inconnue');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return {
+    syncDossiers,
+    isLoading,
+    error,
+    syncedCount,
+  };
 }

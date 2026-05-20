@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNacelleExpertSync } from '../hooks/useNacelleExpertSync';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db } from '../firebase'; // ← CORRIGÉ: chemin vers firebase.ts à la racine de src
 
 export function SyncTestPage() {
   const { syncDossiers, isLoading, error, syncedCount } = useNacelleExpertSync();

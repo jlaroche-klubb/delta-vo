@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, doc, updateDoc, setDoc } from 'firebase/firestore';
-import { db } from '../config/firebase';
+import { db } from '../firebase'; // ← CORRIGÉ: chemin vers firebase.ts à la racine de src
 
 interface NacelleExpertDossier {
   immat: string;

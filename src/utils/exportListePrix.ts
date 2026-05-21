@@ -67,7 +67,7 @@ export function exportListePrix(machines: Machine[], userRole: UserRole) {
   ];
 
   if (showPrixFR) colWidths.push({ wch: 15 }); // Prix FR
-  if (showPrixDealer) colWidths.push({ wch: 15 }); // Prix Dealer
+  if (showprixDealer) colWidths.push({ wch: 15 }); // Prix Dealer
   colWidths.push({ wch: 15 }); // Dispo depuis
 
   ws["!cols"] = colWidths;

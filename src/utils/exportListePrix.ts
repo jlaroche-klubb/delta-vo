@@ -4,7 +4,7 @@ import { UserRole } from "../types";
 
 /**
  * Export de la liste de prix commerciale
- * Filtre les prix selon le rôle (vendeur FR = prix FR, dealer = prix Export)
+ * Filtre les prix selon le rôle (vendeur FR = prix FR, dealer = Prix Dealer)
  */
 export function exportListePrix(machines: Machine[], userRole: UserRole) {
   const now = new Date();
@@ -24,7 +24,7 @@ export function exportListePrix(machines: Machine[], userRole: UserRole) {
 
   // Déterminer quels prix afficher selon le rôle
   const showPrixFR = ["admin", "secretaire", "vendeur_fr"].includes(userRole);
-  const showPrixExport = ["admin", "secretaire", "dealer"].includes(userRole);
+  const showprixDealer= ["admin", "secretaire", "dealer"].includes(userRole);
 
   // Préparer les données
   const rows = machinesAvecPrix.map((m) => {
@@ -41,8 +41,8 @@ export function exportListePrix(machines: Machine[], userRole: UserRole) {
     if (showPrixFR && m.prix_fr !== undefined) {
       row["Prix France HT (€)"] = m.prix_fr;
     }
-    if (showPrixExport && m.prix_dealer !== undefined) {
-      row["Prix Export HT (€)"] = m.prix_dealer;
+    if (showprixDealer&& m.prix_dealer !== undefined) {
+      row["Prix Dealer HT (€)"] = m.prix_dealer;
     }
 
     // Date mise en stock
@@ -67,7 +67,7 @@ export function exportListePrix(machines: Machine[], userRole: UserRole) {
   ];
 
   if (showPrixFR) colWidths.push({ wch: 15 }); // Prix FR
-  if (showPrixExport) colWidths.push({ wch: 15 }); // Prix Export
+  if (showPrixExport) colWidths.push({ wch: 15 }); // Prix Dealer
   colWidths.push({ wch: 15 }); // Dispo depuis
 
   ws["!cols"] = colWidths;

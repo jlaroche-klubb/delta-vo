@@ -91,12 +91,6 @@ export default function FicheCommercialeModal({
         </div>
 
         <div className="fiche-body">
-          <div className="fiche-info-banner">
-            ℹ️ Ces informations apparaîtront sur la fiche commerciale PDF envoyée aux clients.
-            <br />
-            <em>Plus tard, ces champs seront automatiquement récupérés depuis nacelle-expert.</em>
-          </div>
-
           {/* Section caractéristiques nacelle */}
           <div className="fiche-section">
             <h3 className="fiche-section-title">🔧 Caractéristiques nacelle</h3>

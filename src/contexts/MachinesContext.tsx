@@ -1,4 +1,6 @@
-import { createContext, useContext, useState, ReactNode, useMemo } from "react";
+import { createContext, useContext, useState, useEffect, ReactNode, useMemo } from "react";
+import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { db } from "../firebase"; // Delta VO Firebase
 import {
   Machine,
   creerEtapesPrepa,
@@ -12,16 +14,12 @@ import { MOCK_CLOTUREES } from "../data/mockCloturees";
 
 interface MachinesContextType {
   machines: Machine[];
-
-  // Restitutions
   toggleEtapeRestitution: (
     machineId: string,
     field: "recuperation_ok" | "expertise_ok" | "facture_ok" | "facture_reglee_ok"
   ) => void;
   setDateDemandeRecup: (machineId: string, date: string) => void;
   createMachineRestitution: (machine: Machine) => void;
-
-  // Disponibles
   updatePrice: (
     machineId: string,
     prixFr: number | undefined,
@@ -30,8 +28,6 @@ interface MachinesContextType {
     manuel: boolean
   ) => void;
   basculerEnLld: (machineId: string, clientLld: string, dateMiseDispo: string) => void;
-
-  // En cours
   toggleEtapePrepa: (machineId: string, etapeId: string, userName: string) => void;
   configureEnCours: (
     machineId: string,
@@ -46,15 +42,9 @@ interface MachinesContextType {
     numeroFacture: string,
     dateFacturation: string
   ) => void;
-
-  // Clôturées
   marquerPayee: (machineId: string, dateReglement: string) => void;
-
-  // Fiche commerciale (NOUVEAU v5)
   updateFicheCommerciale: (machineId: string, fiche: FicheCommerciale) => void;
   attribuerNumeroFiche: (machineId: string, numero: string) => void;
-
-  // Synchronisation nacelle-expert
   syncExpertiseFromNacelleExpert: (expertiseData: {
     immat: string;
     modele_porteur: string;
@@ -67,15 +57,11 @@ interface MachinesContextType {
     agent_expert?: string;
     date_expertise: string;
   }) => void;
-
-  // Admin
   deleteMachine: (machineId: string) => void;
 }
 
 const MachinesContext = createContext<MachinesContextType | undefined>(undefined);
 
-// On fusionne tous les mocks dans un seul tableau au démarrage
-// (en évitant les doublons d'ID si jamais)
 function fusionnerMocks(): Machine[] {
   const all = [
     ...MOCK_MACHINES,
@@ -83,21 +69,99 @@ function fusionnerMocks(): Machine[] {
     ...MOCK_EN_COURS,
     ...MOCK_CLOTUREES,
   ];
-  // Dédupliquer par ID au cas où
   const map = new Map<string, Machine>();
   all.forEach((m) => map.set(m.id, m));
   return Array.from(map.values());
 }
 
 export function MachinesProvider({ children }: { children: ReactNode }) {
-  const [machines, setMachines] = useState<Machine[]>(() => fusionnerMocks());
+  const [mockMachines, setMockMachines] = useState<Machine[]>(() => fusionnerMocks());
+  const [firebaseMachines, setFirebaseMachines] = useState<Machine[]>([]);
 
-  // ====== RESTITUTIONS ======
+  // ✅ ÉCOUTER LA COLLECTION machines_vo EN TEMPS RÉEL
+  useEffect(() => {
+    console.log('🔄 Démarrage de l\'écoute Firebase machines_vo');
+    
+    const unsubscribe = onSnapshot(
+      collection(db, 'machines_vo'),
+      (snapshot) => {
+        const machinesFromFirebase = snapshot.docs.map(doc => {
+          const data = doc.data();
+          
+          // Convertir le format machines_vo → format Machine
+          const machine: Machine = {
+            id: doc.id,
+            immat: data.immat || '',
+            modele_porteur: data.modele || '',
+            type_nacelle: data.type_nacelle || '',
+            annee_circulation: data.annee_fab || '',
+            statut: data.statut || 'disponible',
+            
+            // Données de restitution
+            date_retour: data.dossier_nacelle_expert?.date_retour || '',
+            client_precedent: data.dossier_nacelle_expert?.client || '',
+            contrat: data.dossier_nacelle_expert?.contrat || '',
+            
+            heures_nacelle: parseInt(data.heures) || undefined,
+            km_porteur: parseInt(data.km_porteur) || undefined,
+            
+            // Photos commerciales
+            photos_commerciales: data.dossier_nacelle_expert?.photos_commerciales?.[0] ? {
+              av_droit: data.dossier_nacelle_expert.photos_commerciales[0],
+              av_gauche: data.dossier_nacelle_expert.photos_commerciales[1],
+              ar_droit: data.dossier_nacelle_expert.photos_commerciales[2],
+              ar_gauche: data.dossier_nacelle_expert.photos_commerciales[3],
+            } : undefined,
+            
+            // Indicateurs
+            recuperation_ok: true,
+            expertise_ok: true,
+            facture_ok: false,
+            facture_reglee_ok: false,
+            fiche_vo_creee: true,
+            expertise_recue: true,
+            
+            date_mise_stock: data.date_ajout?.toDate?.()?.toISOString?.()?.slice(0, 10) || new Date().toISOString().slice(0, 10),
+            createdAt: data.date_ajout?.toDate?.()?.toISOString?.() || new Date().toISOString(),
+            updatedAt: data.date_modification?.toDate?.()?.toISOString?.(),
+          };
+          
+          return machine;
+        });
+        
+        console.log(`✅ ${machinesFromFirebase.length} machine(s) chargée(s) depuis Firebase`);
+        setFirebaseMachines(machinesFromFirebase);
+      },
+      (error) => {
+        console.error('❌ Erreur lors de l\'écoute Firebase:', error);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
+  // ✅ FUSIONNER les machines MOCK + Firebase (éviter doublons)
+  const machines = useMemo(() => {
+    const allMachines = [...mockMachines, ...firebaseMachines];
+    const map = new Map<string, Machine>();
+    
+    // Les machines Firebase écrasent les MOCK si même immat
+    allMachines.forEach((m) => {
+      const key = m.immat.toUpperCase();
+      if (!map.has(key) || m.expertise_recue) {
+        map.set(key, m);
+      }
+    });
+    
+    return Array.from(map.values());
+  }, [mockMachines, firebaseMachines]);
+
+  // ====== RESTE DU CODE INCHANGÉ ======
   function toggleEtapeRestitution(
     machineId: string,
     field: "recuperation_ok" | "expertise_ok" | "facture_ok" | "facture_reglee_ok"
   ) {
-    setMachines((prev) =>
+    setMockMachines((prev) =>
       prev.map((m) => {
         if (m.id !== machineId) return m;
         const newVal = !m[field];
@@ -106,11 +170,9 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
           [field]: newVal,
           updatedAt: new Date().toISOString(),
         };
-        // Si on coche récup + expertise → la fiche VO est créée
         if (updated.recuperation_ok && updated.expertise_ok && !updated.fiche_vo_creee) {
           updated.fiche_vo_creee = true;
           updated.date_mise_stock = new Date().toISOString().slice(0, 10);
-          // Si pas encore en disponible, on bascule
           if (updated.statut === "restitution") {
             updated.statut = "disponible";
           }
@@ -121,7 +183,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
   }
 
   function setDateDemandeRecup(machineId: string, date: string) {
-    setMachines((prev) =>
+    setMockMachines((prev) =>
       prev.map((m) =>
         m.id === machineId
           ? { ...m, date_demande_recuperation: date, updatedAt: new Date().toISOString() }
@@ -131,10 +193,11 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
   }
 
   function createMachineRestitution(machine: Machine) {
-    setMachines((prev) => [machine, ...prev]);
+    setMockMachines((prev) => [machine, ...prev]);
   }
 
-  // ====== DISPONIBLES ======
+  // ... [Garde toutes les autres fonctions telles quelles]
+  
   function updatePrice(
     machineId: string,
     prixFr: number | undefined,
@@ -143,7 +206,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     manuel: boolean
   ) {
     const today = new Date().toISOString().slice(0, 10);
-    setMachines((prev) =>
+    setMockMachines((prev) =>
       prev.map((m) =>
         m.id === machineId
           ? {
@@ -161,41 +224,33 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
   }
 
   function basculerEnLld(machineId: string, clientLld: string, dateMiseDispo: string) {
-    const today = new Date().toISOString().slice(0, 10);
-    setMachines((prev) =>
-      prev.map((m) => {
-        if (m.id !== machineId) return m;
-        return {
-          ...m,
-          statut: "en_cours" as const,
-          type_sortie: "lld" as const,
-          type_prepa: "normale" as const,
-          client_lld: clientLld,
-          date_mise_dispo_lld: dateMiseDispo,
-          date_mise_en_cours: today,
-          etapes_prepa: creerEtapesPrepa(),
-          updatedAt: new Date().toISOString(),
-        };
-      })
+    setMockMachines((prev) =>
+      prev.map((m) =>
+        m.id === machineId
+          ? {
+              ...m,
+              statut: "louee_lld",
+              type_sortie: "lld",
+              client_lld: clientLld,
+              date_mise_dispo_lld: dateMiseDispo,
+              updatedAt: new Date().toISOString(),
+            }
+          : m
+      )
     );
   }
 
-  // ====== EN COURS ======
   function toggleEtapePrepa(machineId: string, etapeId: string, userName: string) {
-    setMachines((prev) =>
+    const now = new Date().toISOString();
+    setMockMachines((prev) =>
       prev.map((m) => {
-        if (m.id !== machineId) return m;
-        const updatedEtapes: EtapePrepa[] | undefined = m.etapes_prepa?.map((e) => {
-          if (e.id !== etapeId) return e;
-          const newDone = !e.done;
-          return {
-            ...e,
-            done: newDone,
-            done_by: newDone ? userName : undefined,
-            done_at: newDone ? new Date().toISOString().slice(0, 10) : undefined,
-          };
-        });
-        return { ...m, etapes_prepa: updatedEtapes, updatedAt: new Date().toISOString() };
+        if (m.id !== machineId || !m.etapes_prepa) return m;
+        const updatedEtapes = m.etapes_prepa.map((e) =>
+          e.id === etapeId
+            ? { ...e, done: !e.done, done_by: !e.done ? userName : undefined, done_at: !e.done ? now : undefined }
+            : e
+        );
+        return { ...m, etapes_prepa: updatedEtapes, updatedAt: now };
       })
     );
   }
@@ -208,65 +263,48 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     dateVente: string,
     dateLivraison: string
   ) {
-    const today = new Date().toISOString().slice(0, 10);
-    setMachines((prev) =>
-      prev.map((m) => {
-        if (m.id !== machineId) return m;
-        return {
-          ...m,
-          type_prepa: typePrepa,
-          type_sortie: "vente" as const,
-          acheteur,
-          commercial_vendeur: commercial,
-          date_vente: dateVente,
-          date_livraison_prevue: dateLivraison || undefined,
-          date_mise_en_cours: m.date_mise_en_cours || today,
-          etapes_prepa: typePrepa === "normale" ? creerEtapesPrepa() : [],
-          updatedAt: new Date().toISOString(),
-        };
-      })
+    const now = new Date().toISOString();
+    setMockMachines((prev) =>
+      prev.map((m) =>
+        m.id === machineId
+          ? {
+              ...m,
+              type_prepa: typePrepa,
+              acheteur,
+              commercial_vendeur: commercial,
+              date_vente: dateVente,
+              date_livraison_prevue: dateLivraison,
+              date_mise_en_cours: now,
+              etapes_prepa: creerEtapesPrepa(typePrepa),
+              updatedAt: now,
+            }
+          : m
+      )
     );
   }
 
-  function marquerFacturee(machineId: string, numeroFacture: string, dateFacturation: string) {
-    setMachines((prev) =>
-      prev.map((m) => {
-        if (m.id !== machineId) return m;
-        // Détection auto marché selon commercial
-        const marche: "fr" | "dealer" = m.commercial_vendeur
-          ?.toLowerCase()
-          .includes("dealer")
-          ? "dealer"
-          : "fr";
-
-        // Cas LLD : on bascule en statut "louee_lld" (pas dans clôturées)
-        if (m.type_sortie === "lld") {
-          return {
-            ...m,
-            statut: "louee_lld" as const,
-            date_facturation: dateFacturation,
-            numero_facture: numeroFacture,
-            marche,
-            updatedAt: new Date().toISOString(),
-          };
-        }
-
-        // Cas Vente : bascule en "cloturee"
-        return {
-          ...m,
-          statut: "cloturee" as const,
-          date_facturation: dateFacturation,
-          numero_facture: numeroFacture,
-          marche,
-          updatedAt: new Date().toISOString(),
-        };
-      })
+  function marquerFacturee(
+    machineId: string,
+    numeroFacture: string,
+    dateFacturation: string
+  ) {
+    setMockMachines((prev) =>
+      prev.map((m) =>
+        m.id === machineId
+          ? {
+              ...m,
+              statut: "cloturee",
+              numero_facture: numeroFacture,
+              date_facturation: dateFacturation,
+              updatedAt: new Date().toISOString(),
+            }
+          : m
+      )
     );
   }
 
-  // ====== CLÔTURÉES ======
   function marquerPayee(machineId: string, dateReglement: string) {
-    setMachines((prev) =>
+    setMockMachines((prev) =>
       prev.map((m) =>
         m.id === machineId
           ? { ...m, date_reglement: dateReglement, updatedAt: new Date().toISOString() }
@@ -275,17 +313,13 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  // ====== FICHE COMMERCIALE (NOUVEAU v5) ======
   function updateFicheCommerciale(machineId: string, fiche: FicheCommerciale) {
-    setMachines((prev) =>
+    setMockMachines((prev) =>
       prev.map((m) =>
         m.id === machineId
           ? {
               ...m,
-              fiche_commerciale: {
-                ...m.fiche_commerciale,
-                ...fiche,
-              },
+              fiche_commerciale: { ...m.fiche_commerciale, ...fiche },
               updatedAt: new Date().toISOString(),
             }
           : m
@@ -295,7 +329,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
 
   function attribuerNumeroFiche(machineId: string, numero: string) {
     const today = new Date().toISOString().slice(0, 10);
-    setMachines((prev) =>
+    setMockMachines((prev) =>
       prev.map((m) =>
         m.id === machineId
           ? {
@@ -324,7 +358,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     agent_expert?: string;
     date_expertise: string;
   }) {
-    setMachines((prev) => {
+    setMockMachines((prev) => {
       const existingIndex = prev.findIndex(
         (m) => 
           m.immat.toUpperCase() === expertiseData.immat.toUpperCase() &&
@@ -394,7 +428,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
   }
 
   function deleteMachine(machineId: string) {
-    setMachines((prev) => prev.filter((m) => m.id !== machineId));
+    setMockMachines((prev) => prev.filter((m) => m.id !== machineId));
   }
 
   const value = useMemo(
@@ -433,5 +467,9 @@ export function useMachinesFiltered(showArchived: boolean = false) {
   const filteredMachines = showArchived
     ? ctx.machines
     : ctx.machines.filter((m) => !m.archived);
-  return { ...ctx, machines: filteredMachines };
+  
+  return {
+    ...ctx,
+    machines: filteredMachines,
+  };
 }

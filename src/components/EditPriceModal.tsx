@@ -53,8 +53,7 @@ export default function EditPriceModal({ machine, userName, onClose, onSave }: E
 
         <div className="edit-price-body">
           <div className="warning-banner">
-            ⚠️ Modification manuelle hors workflow Excel.
-            <br />
+            ⚠️ Modification manuelle hors workflow Excel.<br />
             Tracée dans l'historique avec ton nom : <strong>{userName}</strong>
           </div>
 

@@ -7,7 +7,7 @@ interface DisponibleCardProps {
   canLld?: boolean;
   canFiche?: boolean;
   canViewPrixFR?: boolean;
-  canViewPrixExport?: boolean;
+  canViewprixDealer?: boolean;
   onEditPrice?: (machine: Machine) => void;
   onLld?: (machine: Machine) => void;
   onEditFiche?: (machine: Machine) => void;
@@ -22,7 +22,7 @@ export default function DisponibleCard({
   canLld = false,
   canFiche = false,
   canViewPrixFR = true,
-  canViewPrixExport = true,
+  canViewprixDealer = true,
   onEditPrice,
   onLld,
   onEditFiche,
@@ -172,8 +172,8 @@ export default function DisponibleCard({
                 </div>
               </div>
             )}
-            {canViewPrixFR && canViewPrixExport && <div className="price-divider"></div>}
-            {canViewPrixExport && (
+            {canViewPrixFR && canViewprixDealer && <div className="price-divider"></div>}
+            {canViewprixDealer && (
               <div className="price-block">
                 <div className="price-label">Prix Dealer</div>
                 <div className="price-value price-dealer">

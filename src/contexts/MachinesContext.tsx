@@ -1,10 +1,9 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useMemo } from "react";
-import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { collection, onSnapshot, doc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase"; // Delta VO Firebase
 import {
   Machine,
   creerEtapesPrepa,
-  EtapePrepa,
   FicheCommerciale,
 } from "../types/machine";
 import { MOCK_MACHINES } from "../data/mockMachines";
@@ -121,6 +120,13 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             fiche_vo_creee: true,
             expertise_recue: true,
             
+            // ✅ AJOUT : Lire les prix depuis Firebase
+            prix_fr: data.prix_fr,
+            prix_dealer: data.prix_dealer,
+            prix_modifie_le: data.prix_modifie_le,
+            prix_modifie_par: data.prix_modifie_par,
+            prix_modifie_manuellement: data.prix_modifie_manuellement,
+            
             date_mise_stock: data.date_ajout?.toDate?.()?.toISOString?.()?.slice(0, 10) || new Date().toISOString().slice(0, 10),
             createdAt: data.date_ajout?.toDate?.()?.toISOString?.() || new Date().toISOString(),
             updatedAt: data.date_modification?.toDate?.()?.toISOString?.(),
@@ -156,7 +162,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     return Array.from(map.values());
   }, [mockMachines, firebaseMachines]);
 
-  // ====== RESTE DU CODE INCHANGÉ ======
+  // ====== RESTE DU CODE ======
   function toggleEtapeRestitution(
     machineId: string,
     field: "recuperation_ok" | "expertise_ok" | "facture_ok" | "facture_reglee_ok"
@@ -196,9 +202,8 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     setMockMachines((prev) => [machine, ...prev]);
   }
 
-  // ... [Garde toutes les autres fonctions telles quelles]
-  
-  function updatePrice(
+  // ✅ ✅ ✅ CORRECTION CRITIQUE : updatePrice sauve maintenant dans Firebase
+  async function updatePrice(
     machineId: string,
     prixFr: number | undefined,
     prixDealer: number | undefined,
@@ -206,21 +211,48 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     manuel: boolean
   ) {
     const today = new Date().toISOString().slice(0, 10);
-    setMockMachines((prev) =>
-      prev.map((m) =>
-        m.id === machineId
-          ? {
-              ...m,
-              prix_fr: prixFr,
-              prix_dealer: prixDealer,
-              prix_modifie_le: today,
-              prix_modifie_par: userName,
-              prix_modifie_manuellement: manuel,
-              updatedAt: new Date().toISOString(),
-            }
-          : m
-      )
-    );
+    
+    // Vérifier si la machine vient de Firebase
+    const isFirebaseMachine = firebaseMachines.some((m) => m.id === machineId);
+    
+    if (isFirebaseMachine) {
+      // ✅ SAUVEGARDER DANS FIRESTORE
+      try {
+        console.log(`💾 Sauvegarde des prix dans Firebase pour ${machineId}...`);
+        const machineRef = doc(db, 'machines_vo', machineId);
+        await updateDoc(machineRef, {
+          prix_fr: prixFr ?? null,
+          prix_dealer: prixDealer ?? null,
+          prix_modifie_le: today,
+          prix_modifie_par: userName,
+          prix_modifie_manuellement: manuel,
+          date_modification: new Date(),
+        });
+        console.log(`✅ Prix sauvegardés dans Firebase : FR=${prixFr}, Dealer=${prixDealer}`);
+      } catch (error) {
+        console.error('❌ Erreur sauvegarde Firebase :', error);
+        alert('Erreur lors de la sauvegarde du prix : ' + (error as Error).message);
+      }
+    } else {
+      // ✅ SAUVEGARDER DANS LES MOCKS (anciens comportement)
+      console.log(`💾 Sauvegarde des prix dans les MOCKS pour ${machineId}...`);
+      setMockMachines((prev) =>
+        prev.map((m) =>
+          m.id === machineId
+            ? {
+                ...m,
+                prix_fr: prixFr,
+                prix_dealer: prixDealer,
+                prix_modifie_le: today,
+                prix_modifie_par: userName,
+                prix_modifie_manuellement: manuel,
+                updatedAt: new Date().toISOString(),
+              }
+            : m
+        )
+      );
+      console.log(`✅ Prix sauvegardés dans MOCKS : FR=${prixFr}, Dealer=${prixDealer}`);
+    }
   }
 
   function basculerEnLld(machineId: string, clientLld: string, dateMiseDispo: string) {

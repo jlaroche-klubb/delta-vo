@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { collection, query, where, getDocs, doc, updateDoc, setDoc } from 'firebase/firestore';
-import { db, dbNacelleExpert } from '../firebase'; // ← Importer les 2 bases
+import { db, dbNacelleExpert } from '../firebase';
 
 interface NacelleExpertDossier {
   immat: string;
   info?: {
     immat?: string;
     type_nacelle?: string;
-    modele?: string;  // ✅ CORRIGÉ: utilise 'modele' au lieu de 'modele_porteur'
+    modele?: string;
     annee_fab?: string;
     client?: string;
     contrat?: string;
@@ -67,10 +67,14 @@ interface MachineVO {
     note_expert: string;
   };
   
-  // Données de disponibilité
-  statut: 'disponible' | 'en_vente' | 'vendue' | 'indisponible';
-  prix_vente?: number;
-  prix_vente_override?: number; // Prix fixé par admin
+  // ✅ CORRECTION: Statut initial "restitution" avec phases
+  statut: 'restitution';
+  recuperation_ok: boolean;
+  expertise_ok: boolean;
+  facture_ok: boolean;
+  facture_reglee_ok: boolean;
+  fiche_vo_creee: boolean;
+  
   date_ajout: any;
   date_modification: any;
   createdBy?: string;
@@ -89,9 +93,9 @@ export function useNacelleExpertSync() {
     try {
       console.log('🔄 Démarrage de la synchronisation Nacelle-Expert → Delta VO');
       
-      // ✅ CORRECTION CRITIQUE: Chercher dans dbNacelleExpert au lieu de db
+      // ✅ Chercher dans Nacelle-Expert
       const dossiersQuery = query(
-        collection(dbNacelleExpert, 'dossiers'),  // ← CORRIGÉ ICI
+        collection(dbNacelleExpert, 'dossiers'),
         where('synced_to_delta_vo', '==', false)
       );
       
@@ -107,32 +111,29 @@ export function useNacelleExpertSync() {
       let successCount = 0;
       let errorCount = 0;
 
-      // 2. Pour chaque dossier, créer/mettre à jour la fiche VO
       for (const dossierDoc of dossiersSnapshot.docs) {
         const dossier = dossierDoc.data() as NacelleExpertDossier;
         
         try {
           console.log(`\n📦 Traitement du dossier: ${dossier.immat}`);
           
-          // Validation des données essentielles
           if (!dossier.info?.immat) {
             console.warn(`⚠️ Dossier sans immatriculation, ignoré`);
             continue;
           }
 
-          // ✅ CORRIGÉ: Utilise 'modele' au lieu de 'modele_porteur'
           if (!dossier.info?.modele) {
             console.warn(`⚠️ Dossier ${dossier.immat} sans modèle, ignoré`);
             continue;
           }
 
-          // 3. Créer la fiche VO dans Delta VO (db)
+          // Créer la fiche VO dans Delta VO
           const machineVORef = doc(db, 'machines_vo', dossier.immat);
           
           const machineVOData: MachineVO = {
             // Données de base
             immat: dossier.info.immat,
-            modele: dossier.info.modele || '',  // ✅ CORRIGÉ: utilise 'modele'
+            modele: dossier.info.modele || '',
             type_nacelle: dossier.info.type_nacelle || '',
             annee_fab: dossier.info.annee_fab || '',
             heures: dossier.retour?.heures || dossier.depart?.heures || '',
@@ -156,19 +157,25 @@ export function useNacelleExpertSync() {
               note_expert: dossier.retour?.note || '',
             },
             
-            // Statut initial
-            statut: 'disponible',
+            // ✅ CORRECTION: Statut "restitution" avec phase "expertise"
+            statut: 'restitution',
+            recuperation_ok: true,   // ✅ Déjà récupérée (expertise faite)
+            expertise_ok: true,       // ✅ Expertise faite dans Nacelle-Expert
+            facture_ok: false,        // ⏳ Reste à faire
+            facture_reglee_ok: false, // ⏳ Reste à faire
+            fiche_vo_creee: false,    // ⏳ À créer manuellement
+            
             date_ajout: new Date(),
             date_modification: new Date(),
             createdBy: dossier.createdBy,
           };
 
-          console.log(`💾 Création de la fiche VO pour ${dossier.immat}`);
+          console.log(`💾 Création de la fiche en restitution (expertise OK) pour ${dossier.immat}`);
           await setDoc(machineVORef, machineVOData);
-          console.log(`✅ Fiche VO créée avec succès`);
+          console.log(`✅ Fiche créée avec succès`);
 
-          // 4. Marquer le dossier comme synchronisé dans Nacelle-Expert
-          const dossierRef = doc(dbNacelleExpert, 'dossiers', dossierDoc.id);  // ← UTILISER dbNacelleExpert
+          // Marquer comme synchronisé dans Nacelle-Expert
+          const dossierRef = doc(dbNacelleExpert, 'dossiers', dossierDoc.id);
           await updateDoc(dossierRef, {
             synced_to_delta_vo: true
           });

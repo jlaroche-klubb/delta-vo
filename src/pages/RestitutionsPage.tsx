@@ -60,7 +60,10 @@ export default function RestitutionsPage() {
 
   // === Filtrage par statut restitution puis search + filtres avancés ===
   const restitutionMachines = useMemo(
-    () => allMachines.filter((m) => m.statut === "restitution"),
+    () => allMachines.filter((m) => 
+      m.statut === "restitution" || 
+      (m.expertise_recue && !m.facture_reglee_ok)
+    ),
     [allMachines]
   );
 
@@ -68,7 +71,7 @@ export default function RestitutionsPage() {
   const totalArchived = useMemo(
     () =>
       allMachinesUnfiltered.filter(
-        (m) => m.archived && m.statut === "restitution"
+        (m) => m.archived && (m.statut === "restitution" || (m.expertise_recue && !m.facture_reglee_ok))
       ).length,
     [allMachinesUnfiltered]
   );

@@ -195,11 +195,11 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       (field === "facture_ok" ? newVal : machine.facture_ok) &&
       (field === "facture_reglee_ok" ? newVal : machine.facture_reglee_ok);
     
-    // ✅ Marquer fiche_vo_creee dès expertise OK (visible dans Disponibles via filtre)
-    // Ne PAS basculer en "disponible" - garder "restitution" pour suivi facturation
-    if (machine.expertise_ok && !machine.fiche_vo_creee) {
+    if (wouldBeAllOk && !machine.fiche_vo_creee && machine.statut === "restitution") {
       updates.fiche_vo_creee = true;
       updates.date_mise_stock = new Date().toISOString().slice(0, 10);
+      updates.statut = "disponible";
+      console.log(`✅ Machine ${machine.immat} basculée en disponible`);
     }
     
     // ✅ Si machine Firebase → mettre à jour Firestore
@@ -368,32 +368,60 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  function updateFicheCommerciale(machineId: string, fiche: FicheCommerciale) {
-    setMockMachines((prev) =>
-      prev.map((m) =>
-        m.id === machineId
-          ? { ...m, fiche_commerciale: fiche, updatedAt: new Date().toISOString() }
-          : m
-      )
-    );
+  async function updateFicheCommerciale(machineId: string, fiche: FicheCommerciale) {
+    if (isFirebaseMachine(machineId)) {
+      try {
+        await updateDoc(doc(db, "machines_vo", machineId), {
+          fiche_commerciale: fiche,
+          updatedAt: new Date().toISOString(),
+        });
+        console.log(`✅ Fiche commerciale mise à jour dans Firebase`);
+      } catch (err) {
+        console.error("❌ Erreur Firebase fiche:", err);
+      }
+    } else {
+      setMockMachines((prev) =>
+        prev.map((m) =>
+          m.id === machineId
+            ? { ...m, fiche_commerciale: fiche, updatedAt: new Date().toISOString() }
+            : m
+        )
+      );
+    }
   }
 
-  function attribuerNumeroFiche(machineId: string, numero: string) {
-    setMockMachines((prev) =>
-      prev.map((m) =>
-        m.id === machineId
-          ? {
-              ...m,
-              fiche_commerciale: {
-                ...(m.fiche_commerciale || {}),
-                numero_fiche: numero,
-                date_creation_fiche: new Date().toISOString().slice(0, 10),
-              },
-              updatedAt: new Date().toISOString(),
-            }
-          : m
-      )
-    );
+  async function attribuerNumeroFiche(machineId: string, numero: string) {
+    const machine = machines.find(m => m.id === machineId);
+    if (!machine) return;
+    
+    const updatedFiche = {
+      ...(machine.fiche_commerciale || {}),
+      numero_fiche: numero,
+      date_creation_fiche: new Date().toISOString().slice(0, 10),
+    };
+    
+    if (isFirebaseMachine(machineId)) {
+      try {
+        await updateDoc(doc(db, "machines_vo", machineId), {
+          fiche_commerciale: updatedFiche,
+          updatedAt: new Date().toISOString(),
+        });
+      } catch (err) {
+        console.error("❌ Erreur Firebase numéro fiche:", err);
+      }
+    } else {
+      setMockMachines((prev) =>
+        prev.map((m) =>
+          m.id === machineId
+            ? {
+                ...m,
+                fiche_commerciale: updatedFiche,
+                updatedAt: new Date().toISOString(),
+              }
+            : m
+        )
+      );
+    }
   }
 
   function syncExpertiseFromNacelleExpert(expertiseData: {
@@ -468,8 +496,18 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     });
   }
 
-  function deleteMachine(machineId: string) {
-    setMockMachines((prev) => prev.filter((m) => m.id !== machineId));
+  async function deleteMachine(machineId: string) {
+    if (isFirebaseMachine(machineId)) {
+      try {
+        const { deleteDoc } = await import("firebase/firestore");
+        await deleteDoc(doc(db, "machines_vo", machineId));
+        console.log(`✅ Machine supprimée de Firebase`);
+      } catch (err) {
+        console.error("❌ Erreur suppression Firebase:", err);
+      }
+    } else {
+      setMockMachines((prev) => prev.filter((m) => m.id !== machineId));
+    }
   }
 
   const value = useMemo(

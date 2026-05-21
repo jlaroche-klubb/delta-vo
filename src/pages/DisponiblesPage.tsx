@@ -80,7 +80,7 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
     userRole === "chef";
 
   const baseDispo = useMemo(
-    () => machines.filter((m) => m.statut === "disponible"),
+    () => machines.filter((m) => m.statut === "disponible" || (m.statut === "restitution" && m.expertise_ok)),
     [machines]
   );
 
@@ -88,7 +88,7 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
   const totalArchived = useMemo(
     () =>
       allMachinesUnfiltered.filter(
-        (m) => m.archived && m.statut === "disponible"
+        (m) => m.archived && (m.statut === "disponible" || (m.statut === "restitution" && m.expertise_ok))
       ).length,
     [allMachinesUnfiltered]
   );

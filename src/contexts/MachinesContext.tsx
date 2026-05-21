@@ -195,11 +195,11 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       (field === "facture_ok" ? newVal : machine.facture_ok) &&
       (field === "facture_reglee_ok" ? newVal : machine.facture_reglee_ok);
     
-    if (wouldBeAllOk && !machine.fiche_vo_creee && machine.statut === "restitution") {
+    // ✅ Marquer fiche_vo_creee dès expertise OK (visible dans Disponibles via filtre)
+    // Ne PAS basculer en "disponible" - garder "restitution" pour suivi facturation
+    if (machine.expertise_ok && !machine.fiche_vo_creee) {
       updates.fiche_vo_creee = true;
       updates.date_mise_stock = new Date().toISOString().slice(0, 10);
-      updates.statut = "disponible";
-      console.log(`✅ Machine ${machine.immat} basculée en disponible`);
     }
     
     // ✅ Si machine Firebase → mettre à jour Firestore

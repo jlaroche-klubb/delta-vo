@@ -67,7 +67,7 @@ export function exportListePrix(machines: Machine[], userRole: UserRole) {
   ];
 
   if (showPrixFR) colWidths.push({ wch: 15 }); // Prix FR
-  if (showPrixExport) colWidths.push({ wch: 15 }); // Prix Dealer
+  if (showPrixDealer) colWidths.push({ wch: 15 }); // Prix Dealer
   colWidths.push({ wch: 15 }); // Dispo depuis
 
   ws["!cols"] = colWidths;
@@ -78,7 +78,7 @@ export function exportListePrix(machines: Machine[], userRole: UserRole) {
   // Nom du fichier selon le rôle
   let fileName = `DeltaVO_ListePrix_${dateStr}`;
   if (userRole === "vendeur_fr") fileName += "_FR";
-  if (userRole === "dealer") fileName += "_Export";
+  if (userRole === "dealer") fileName += "_Dealer";
   fileName += ".xlsx";
 
   XLSX.writeFile(wb, fileName);

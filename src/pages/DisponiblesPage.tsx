@@ -28,6 +28,7 @@ import {
   canExportExcelPricing,
   canImportExcelPricing,
   canExportListePrix,
+  canDeleteMachine,
 } from "../utils/permissions";
 
 const SEUIL_REPRICER = 60;
@@ -48,6 +49,7 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
     basculerEnLld,
     updateFicheCommerciale,
     attribuerNumeroFiche,
+    deleteMachine,
   } = useMachinesFiltered(showArchived);
 
   // Pour le compteur des archivées
@@ -158,6 +160,19 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
 
   function handleSaveFiche(machineId: string, fiche: FicheCommerciale) {
     updateFicheCommerciale(machineId, fiche);
+  }
+
+  function handleDeleteMachine(machineId: string) {
+    const machine = machines.find(m => m.id === machineId);
+    if (!machine) return;
+    
+    const confirmed = window.confirm(
+      `⚠️ ATTENTION : Supprimer définitivement la machine ${machine.immat} (${machine.type_nacelle}) ?\n\nCette action est IRRÉVERSIBLE !`
+    );
+    
+    if (confirmed) {
+      deleteMachine(machineId);
+    }
   }
 
   // ====== GÉNÉRATION FICHE VO ======
@@ -393,6 +408,8 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
                 isAdmin={isAdmin}
                 onEditPrice={setEditingMachine}
                 onViewExpertise={setExpertiseMachine}
+                canDelete={canDeleteMachine(userRole as any)}
+                onDelete={handleDeleteMachine}
               />
             ))}
           </div>
@@ -423,6 +440,8 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
                 onEditFiche={setFicheMachine}
                 onGenerateFiche={handleGenerateFiche}
                 onViewExpertise={setExpertiseMachine}
+                canDelete={canDeleteMachine(userRole as any)}
+                onDelete={handleDeleteMachine}
               />
             ))}
           </div>
@@ -452,6 +471,8 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
                 onEditFiche={setFicheMachine}
                 onGenerateFiche={handleGenerateFiche}
                 onViewExpertise={setExpertiseMachine}
+                canDelete={canDeleteMachine(userRole as any)}
+                onDelete={handleDeleteMachine}
               />
             ))}
           </div>

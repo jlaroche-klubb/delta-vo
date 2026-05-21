@@ -12,7 +12,9 @@ interface DisponibleCardProps {
   onLld?: (machine: Machine) => void;
   onEditFiche?: (machine: Machine) => void;
   onGenerateFiche?: (machine: Machine) => void;
-  onViewExpertise?: (machine: Machine) => void;  // ← AJOUTÉ
+  onViewExpertise?: (machine: Machine) => void;
+  canDelete?: boolean;
+  onDelete?: (id: string) => void;
 }
 
 export default function DisponibleCard({
@@ -27,7 +29,9 @@ export default function DisponibleCard({
   onLld,
   onEditFiche,
   onGenerateFiche,
-  onViewExpertise,  // ← AJOUTÉ
+  onViewExpertise,
+  canDelete = false,
+  onDelete,
 }: DisponibleCardProps) {
   const age = machine.date_mise_stock ? calculAgeStock(machine.date_mise_stock) : 0;
   const ageInfo = getAgeStockColor(age, seuilRepricer);
@@ -94,6 +98,16 @@ export default function DisponibleCard({
                 title="Basculer cette machine en location longue durée"
               >
                 🔁 Mise en location
+              </button>
+            )}
+            {canDelete && onDelete && (
+              <button
+                className="btn-delete-machine"
+                onClick={() => onDelete(machine.id)}
+                title="Supprimer définitivement cette machine"
+                style={{ background: "#dc3545", color: "white", border: "none", padding: "6px 12px", borderRadius: "4px", cursor: "pointer" }}
+              >
+                🗑️ Supprimer
               </button>
             )}
           </div>

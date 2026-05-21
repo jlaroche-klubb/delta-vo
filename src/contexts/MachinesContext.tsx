@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useMemo } from "react";
 import { collection, onSnapshot, doc, updateDoc } from "firebase/firestore";
-import { db } from "../firebase"; // Delta VO Firebase
+import { db } from "../firebase";
 import {
   Machine,
   creerEtapesPrepa,
@@ -84,19 +84,25 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onSnapshot(
       collection(db, 'machines_vo'),
       (snapshot) => {
-        const machinesFromFirebase = snapshot.docs.map(doc => {
-          const data = doc.data();
+        const machinesFromFirebase = snapshot.docs.map(d => {
+          const data = d.data();
           
-          // Convertir le format machines_vo → format Machine
+          // ✅ Respecter le statut depuis Firebase (par défaut "restitution")
+          const statutFirebase = data.statut || 'restitution';
+          
+          // ✅ fiche_vo_creee dépend du statut
+          const ficheVoCreee = statutFirebase === 'disponible' 
+            ? (data.fiche_vo_creee ?? true)
+            : (data.fiche_vo_creee ?? false);
+          
           const machine: Machine = {
-            id: doc.id,
+            id: d.id,
             immat: data.immat || '',
             modele_porteur: data.modele || '',
             type_nacelle: data.type_nacelle || '',
             annee_circulation: data.annee_fab || '',
-            statut: data.statut || 'disponible',
+            statut: statutFirebase,
             
-            // Données de restitution
             date_retour: data.dossier_nacelle_expert?.date_retour || '',
             client_precedent: data.dossier_nacelle_expert?.client || '',
             contrat: data.dossier_nacelle_expert?.contrat || '',
@@ -104,7 +110,6 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             heures_nacelle: parseInt(data.heures) || undefined,
             km_porteur: parseInt(data.km_porteur) || undefined,
             
-            // Photos commerciales
             photos_commerciales: data.dossier_nacelle_expert?.photos_commerciales?.[0] ? {
               av_droit: data.dossier_nacelle_expert.photos_commerciales[0],
               av_gauche: data.dossier_nacelle_expert.photos_commerciales[1],
@@ -112,22 +117,23 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
               ar_gauche: data.dossier_nacelle_expert.photos_commerciales[3],
             } : undefined,
             
-            // Indicateurs
-            recuperation_ok: true,
-            expertise_ok: true,
-            facture_ok: false,
-            facture_reglee_ok: false,
-            fiche_vo_creee: true,
+            // ✅ Indicateurs depuis Firebase
+            recuperation_ok: data.recuperation_ok ?? true,
+            expertise_ok: data.expertise_ok ?? true,
+            facture_ok: data.facture_ok ?? false,
+            facture_reglee_ok: data.facture_reglee_ok ?? false,
+            fiche_vo_creee: ficheVoCreee,
             expertise_recue: true,
             
-            // ✅ AJOUT : Lire les prix depuis Firebase
+            // ✅ date_mise_stock UNIQUEMENT si "disponible"
+            date_mise_stock: statutFirebase === 'disponible'
+              ? (data.date_ajout?.toDate?.()?.toISOString?.()?.slice(0, 10) || new Date().toISOString().slice(0, 10))
+              : undefined,
+              
+            // ✅ Conserver les prix si présents
             prix_fr: data.prix_fr,
             prix_dealer: data.prix_dealer,
-            prix_modifie_le: data.prix_modifie_le,
-            prix_modifie_par: data.prix_modifie_par,
-            prix_modifie_manuellement: data.prix_modifie_manuellement,
-            
-            date_mise_stock: data.date_ajout?.toDate?.()?.toISOString?.()?.slice(0, 10) || new Date().toISOString().slice(0, 10),
+              
             createdAt: data.date_ajout?.toDate?.()?.toISOString?.() || new Date().toISOString(),
             updatedAt: data.date_modification?.toDate?.()?.toISOString?.(),
           };
@@ -146,12 +152,11 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  // ✅ FUSIONNER les machines MOCK + Firebase (éviter doublons)
+  // ✅ FUSIONNER MOCK + Firebase
   const machines = useMemo(() => {
     const allMachines = [...mockMachines, ...firebaseMachines];
     const map = new Map<string, Machine>();
     
-    // Les machines Firebase écrasent les MOCK si même immat
     allMachines.forEach((m) => {
       const key = m.immat.toUpperCase();
       if (!map.has(key) || m.expertise_recue) {
@@ -162,47 +167,83 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     return Array.from(map.values());
   }, [mockMachines, firebaseMachines]);
 
-  // ====== RESTE DU CODE ======
-  function toggleEtapeRestitution(
+  // Helper : vérifie si une machine vient de Firebase
+  function isFirebaseMachine(machineId: string): boolean {
+    return firebaseMachines.some(m => m.id === machineId);
+  }
+
+  // ====== FONCTIONS DE MODIFICATION ======
+  
+  async function toggleEtapeRestitution(
     machineId: string,
     field: "recuperation_ok" | "expertise_ok" | "facture_ok" | "facture_reglee_ok"
   ) {
-    setMockMachines((prev) =>
-      prev.map((m) => {
-        if (m.id !== machineId) return m;
-        const newVal = !m[field];
-        const updated = {
-          ...m,
-          [field]: newVal,
-          updatedAt: new Date().toISOString(),
-        };
-        if (updated.recuperation_ok && updated.expertise_ok && !updated.fiche_vo_creee) {
-          updated.fiche_vo_creee = true;
-          updated.date_mise_stock = new Date().toISOString().slice(0, 10);
-          if (updated.statut === "restitution") {
-            updated.statut = "disponible";
-          }
-        }
-        return updated;
-      })
-    );
+    // Trouver la machine (peut être Firebase ou Mock)
+    const machine = machines.find(m => m.id === machineId);
+    if (!machine) return;
+    
+    const newVal = !machine[field];
+    const updates: any = {
+      [field]: newVal,
+      updatedAt: new Date().toISOString(),
+    };
+    
+    // ✅ Si les 4 étapes sont OK → bascule en "disponible"
+    const wouldBeAllOk = 
+      (field === "recuperation_ok" ? newVal : machine.recuperation_ok) &&
+      (field === "expertise_ok" ? newVal : machine.expertise_ok) &&
+      (field === "facture_ok" ? newVal : machine.facture_ok) &&
+      (field === "facture_reglee_ok" ? newVal : machine.facture_reglee_ok);
+    
+    if (wouldBeAllOk && !machine.fiche_vo_creee && machine.statut === "restitution") {
+      updates.fiche_vo_creee = true;
+      updates.date_mise_stock = new Date().toISOString().slice(0, 10);
+      updates.statut = "disponible";
+      console.log(`✅ Machine ${machine.immat} basculée en disponible`);
+    }
+    
+    // ✅ Si machine Firebase → mettre à jour Firestore
+    if (isFirebaseMachine(machineId)) {
+      try {
+        const machineRef = doc(db, 'machines_vo', machineId);
+        await updateDoc(machineRef, updates);
+        console.log(`✅ Firebase mis à jour pour ${machine.immat}`);
+      } catch (err) {
+        console.error(`❌ Erreur Firebase update:`, err);
+      }
+    } else {
+      // Machine mock → mettre à jour state local
+      setMockMachines((prev) =>
+        prev.map((m) => (m.id === machineId ? { ...m, ...updates } : m))
+      );
+    }
   }
 
-  function setDateDemandeRecup(machineId: string, date: string) {
-    setMockMachines((prev) =>
-      prev.map((m) =>
-        m.id === machineId
-          ? { ...m, date_demande_recuperation: date, updatedAt: new Date().toISOString() }
-          : m
-      )
-    );
+  async function setDateDemandeRecup(machineId: string, date: string) {
+    if (isFirebaseMachine(machineId)) {
+      try {
+        await updateDoc(doc(db, 'machines_vo', machineId), {
+          date_demande_recuperation: date,
+          updatedAt: new Date().toISOString(),
+        });
+      } catch (err) {
+        console.error('❌ Erreur:', err);
+      }
+    } else {
+      setMockMachines((prev) =>
+        prev.map((m) =>
+          m.id === machineId
+            ? { ...m, date_demande_recuperation: date, updatedAt: new Date().toISOString() }
+            : m
+        )
+      );
+    }
   }
 
   function createMachineRestitution(machine: Machine) {
     setMockMachines((prev) => [machine, ...prev]);
   }
-
-  // ✅ ✅ ✅ CORRECTION CRITIQUE : updatePrice sauve maintenant dans Firebase
+  
   async function updatePrice(
     machineId: string,
     prixFr: number | undefined,
@@ -211,47 +252,29 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     manuel: boolean
   ) {
     const today = new Date().toISOString().slice(0, 10);
+    const updates = {
+      prix_fr: prixFr ?? null,
+      prix_dealer: prixDealer ?? null,
+      prix_modifie_le: today,
+      prix_modifie_par: userName,
+      prix_modifie_manuellement: manuel,
+      updatedAt: new Date().toISOString(),
+    };
     
-    // Vérifier si la machine vient de Firebase
-    const isFirebaseMachine = firebaseMachines.some((m) => m.id === machineId);
-    
-    if (isFirebaseMachine) {
-      // ✅ SAUVEGARDER DANS FIRESTORE
+    if (isFirebaseMachine(machineId)) {
       try {
-        console.log(`💾 Sauvegarde des prix dans Firebase pour ${machineId}...`);
-        const machineRef = doc(db, 'machines_vo', machineId);
-        await updateDoc(machineRef, {
-          prix_fr: prixFr ?? null,
-          prix_dealer: prixDealer ?? null,
-          prix_modifie_le: today,
-          prix_modifie_par: userName,
-          prix_modifie_manuellement: manuel,
-          date_modification: new Date(),
-        });
-        console.log(`✅ Prix sauvegardés dans Firebase : FR=${prixFr}, Dealer=${prixDealer}`);
-      } catch (error) {
-        console.error('❌ Erreur sauvegarde Firebase :', error);
-        alert('Erreur lors de la sauvegarde du prix : ' + (error as Error).message);
+        await updateDoc(doc(db, 'machines_vo', machineId), updates);
+      } catch (err) {
+        console.error('❌ Erreur update prix Firebase:', err);
       }
     } else {
-      // ✅ SAUVEGARDER DANS LES MOCKS (anciens comportement)
-      console.log(`💾 Sauvegarde des prix dans les MOCKS pour ${machineId}...`);
       setMockMachines((prev) =>
         prev.map((m) =>
           m.id === machineId
-            ? {
-                ...m,
-                prix_fr: prixFr,
-                prix_dealer: prixDealer,
-                prix_modifie_le: today,
-                prix_modifie_par: userName,
-                prix_modifie_manuellement: manuel,
-                updatedAt: new Date().toISOString(),
-              }
+            ? { ...m, prix_fr: prixFr, prix_dealer: prixDealer, prix_modifie_le: today, prix_modifie_par: userName, prix_modifie_manuellement: manuel, updatedAt: new Date().toISOString() }
             : m
         )
       );
-      console.log(`✅ Prix sauvegardés dans MOCKS : FR=${prixFr}, Dealer=${prixDealer}`);
     }
   }
 
@@ -325,9 +348,9 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
         m.id === machineId
           ? {
               ...m,
-              statut: "cloturee",
               numero_facture: numeroFacture,
               date_facturation: dateFacturation,
+              statut: "cloturee",
               updatedAt: new Date().toISOString(),
             }
           : m
@@ -349,27 +372,22 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     setMockMachines((prev) =>
       prev.map((m) =>
         m.id === machineId
-          ? {
-              ...m,
-              fiche_commerciale: { ...m.fiche_commerciale, ...fiche },
-              updatedAt: new Date().toISOString(),
-            }
+          ? { ...m, fiche_commerciale: fiche, updatedAt: new Date().toISOString() }
           : m
       )
     );
   }
 
   function attribuerNumeroFiche(machineId: string, numero: string) {
-    const today = new Date().toISOString().slice(0, 10);
     setMockMachines((prev) =>
       prev.map((m) =>
         m.id === machineId
           ? {
               ...m,
               fiche_commerciale: {
-                ...m.fiche_commerciale,
+                ...(m.fiche_commerciale || {}),
                 numero_fiche: numero,
-                date_creation_fiche: today,
+                date_creation_fiche: new Date().toISOString().slice(0, 10),
               },
               updatedAt: new Date().toISOString(),
             }
@@ -392,16 +410,13 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
   }) {
     setMockMachines((prev) => {
       const existingIndex = prev.findIndex(
-        (m) => 
-          m.immat.toUpperCase() === expertiseData.immat.toUpperCase() &&
-          m.statut === "restitution"
+        (m) => m.immat.toUpperCase() === expertiseData.immat.toUpperCase()
       );
-
+      
       if (existingIndex !== -1) {
+        console.log(`🔄 MAJ expertise pour ${expertiseData.immat}`);
         const updated = [...prev];
         const existing = updated[existingIndex];
-        
-        console.log(`✅ Restitution ${expertiseData.immat} trouvée → Mise à jour`);
         
         updated[existingIndex] = {
           ...existing,
@@ -417,15 +432,10 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
           updatedAt: new Date().toISOString(),
         };
         
-        if (updated[existingIndex].recuperation_ok && updated[existingIndex].expertise_ok) {
-          updated[existingIndex].fiche_vo_creee = true;
-          updated[existingIndex].date_mise_stock = new Date().toISOString().slice(0, 10);
-          updated[existingIndex].statut = "disponible";
-        }
-        
+        // ✅ Machine reste en "restitution" pour suivre la facturation
         return updated;
       } else {
-        console.log(`➕ Restitution ${expertiseData.immat} créée automatiquement depuis expertise`);
+        console.log(`➕ Restitution ${expertiseData.immat} créée`);
         
         const newMachine: Machine = {
           id: "M" + Date.now().toString().slice(-6),
@@ -441,13 +451,12 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
           date_retour: expertiseData.date_expertise,
           client_precedent: "Import nacelle-expert",
           contrat: "",
-          statut: "disponible",
+          statut: "restitution",
           recuperation_ok: true,
           expertise_ok: true,
           facture_ok: false,
           facture_reglee_ok: false,
-          fiche_vo_creee: true,
-          date_mise_stock: new Date().toISOString().slice(0, 10),
+          fiche_vo_creee: false,
           expertise_recue: true,
           date_expertise_recue: expertiseData.date_expertise,
           createdAt: new Date().toISOString(),

@@ -62,7 +62,7 @@ interface MachineVO {
     zones_retour: any[];
     photos_depart: string[];
     photos_retour: string[];
-    photos_commerciales: string[];
+    photos_commerciales: any;  // Peut être objet {av_droit: {url}, ...} ou tableau (legacy)
     degats: string[];
     note_expert: string;
   };
@@ -152,7 +152,7 @@ export function useNacelleExpertSync() {
               zones_retour: dossier.retour?.zones || [],
               photos_depart: dossier.depart?.photos || [],
               photos_retour: dossier.retour?.photos || [],
-              photos_commerciales: dossier.retour?.commercialPhotos || null,
+              photos_commerciales: dossier.retour?.commercialPhotos || {},
               degats: dossier.retour?.degats || [],
               note_expert: dossier.retour?.note || '',
             },
@@ -212,4 +212,4 @@ export function useNacelleExpertSync() {
     error,
     syncedCount,
   };
-}s
+}

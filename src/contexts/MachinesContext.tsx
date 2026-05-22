@@ -110,12 +110,34 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             heures_nacelle: parseInt(data.heures) || undefined,
             km_porteur: parseInt(data.km_porteur) || undefined,
             
-            photos_commerciales: data.dossier_nacelle_expert?.photos_commerciales?.[0] ? {
-              av_droit: data.dossier_nacelle_expert.photos_commerciales[0],
-              av_gauche: data.dossier_nacelle_expert.photos_commerciales[1],
-              ar_droit: data.dossier_nacelle_expert.photos_commerciales[2],
-              ar_gauche: data.dossier_nacelle_expert.photos_commerciales[3],
-            } : undefined,
+            // ✅ CORRECTION : commercialPhotos est un OBJET avec {av_droit: {url, type}, ...}
+            // pas un tableau. On extrait les URLs.
+            photos_commerciales: (() => {
+              const cp = data.dossier_nacelle_expert?.photos_commerciales;
+              if (!cp) return undefined;
+              
+              // Si c'est un objet (nouveau format Nacelle-Expert)
+              if (typeof cp === 'object' && !Array.isArray(cp)) {
+                const result: any = {};
+                if (cp.av_droit?.url) result.av_droit = cp.av_droit.url;
+                if (cp.av_gauche?.url) result.av_gauche = cp.av_gauche.url;
+                if (cp.ar_droit?.url) result.ar_droit = cp.ar_droit.url;
+                if (cp.ar_gauche?.url) result.ar_gauche = cp.ar_gauche.url;
+                return Object.keys(result).length > 0 ? result : undefined;
+              }
+              
+              // Si c'est un tableau (ancien format, retrocompatibilité)
+              if (Array.isArray(cp) && cp[0]) {
+                return {
+                  av_droit: cp[0],
+                  av_gauche: cp[1],
+                  ar_droit: cp[2],
+                  ar_gauche: cp[3],
+                };
+              }
+              
+              return undefined;
+            })(),
             
             // ✅ Indicateurs depuis Firebase
             recuperation_ok: data.recuperation_ok ?? true,
@@ -133,16 +155,6 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             // ✅ Conserver les prix si présents
             prix_fr: data.prix_fr,
             prix_dealer: data.prix_dealer,
-            prix_modifie_le: data.prix_modifie_le,
-            prix_modifie_par: data.prix_modifie_par,
-            prix_modifie_manuellement: data.prix_modifie_manuellement,
-            
-            // ✅ Conserver la fiche commerciale si présente
-            fiche_commerciale: data.fiche_commerciale,
-            
-            // ✅ Conserver le rapport d'expertise
-            rapport_expertise: data.rapport_expertise || data.dossier_nacelle_expert?.rapport_expertise,
-            agent_expertise: data.agent_expertise || data.dossier_nacelle_expert?.agent_retour,
               
             createdAt: data.date_ajout?.toDate?.()?.toISOString?.() || new Date().toISOString(),
             updatedAt: data.date_modification?.toDate?.()?.toISOString?.(),
@@ -180,25 +192,6 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
   // Helper : vérifie si une machine vient de Firebase
   function isFirebaseMachine(machineId: string): boolean {
     return firebaseMachines.some(m => m.id === machineId);
-  }
-
-  // Helper : nettoie récursivement les valeurs undefined (Firebase ne les accepte pas)
-  function cleanUndefined(obj: any): any {
-    if (obj === null || obj === undefined) return null;
-    if (Array.isArray(obj)) return obj.map(cleanUndefined).filter(v => v !== null);
-    if (typeof obj === 'object') {
-      const cleaned: any = {};
-      Object.keys(obj).forEach(key => {
-        if (obj[key] !== undefined) {
-          const cleanedValue = cleanUndefined(obj[key]);
-          if (cleanedValue !== null) {
-            cleaned[key] = cleanedValue;
-          }
-        }
-      });
-      return cleaned;
-    }
-    return obj;
   }
 
   // ====== FONCTIONS DE MODIFICATION ======
@@ -400,16 +393,13 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
   async function updateFicheCommerciale(machineId: string, fiche: FicheCommerciale) {
     if (isFirebaseMachine(machineId)) {
       try {
-        // ✅ Nettoyer les undefined avant d'envoyer à Firebase
-        const cleanFiche = cleanUndefined(fiche);
         await updateDoc(doc(db, "machines_vo", machineId), {
-          fiche_commerciale: cleanFiche,
+          fiche_commerciale: fiche,
           updatedAt: new Date().toISOString(),
         });
-        console.log(`✅ Fiche commerciale mise à jour dans Firebase`, cleanFiche);
+        console.log(`✅ Fiche commerciale mise à jour dans Firebase`);
       } catch (err) {
         console.error("❌ Erreur Firebase fiche:", err);
-        alert("Erreur lors de la sauvegarde de la fiche : " + (err as Error).message);
       }
     } else {
       setMockMachines((prev) =>

@@ -152,7 +152,7 @@ export function useNacelleExpertSync() {
               zones_retour: dossier.retour?.zones || [],
               photos_depart: dossier.depart?.photos || [],
               photos_retour: dossier.retour?.photos || [],
-              photos_commerciales: dossier.retour?.commercialPhotos || [],
+              photos_commerciales: dossier.retour?.commercialPhotos || null,
               degats: dossier.retour?.degats || [],
               note_expert: dossier.retour?.note || '',
             },
@@ -212,4 +212,4 @@ export function useNacelleExpertSync() {
     error,
     syncedCount,
   };
-}
+}s

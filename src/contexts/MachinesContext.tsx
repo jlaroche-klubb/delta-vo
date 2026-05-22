@@ -182,6 +182,25 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     return firebaseMachines.some(m => m.id === machineId);
   }
 
+  // Helper : nettoie récursivement les valeurs undefined (Firebase ne les accepte pas)
+  function cleanUndefined(obj: any): any {
+    if (obj === null || obj === undefined) return null;
+    if (Array.isArray(obj)) return obj.map(cleanUndefined).filter(v => v !== null);
+    if (typeof obj === 'object') {
+      const cleaned: any = {};
+      Object.keys(obj).forEach(key => {
+        if (obj[key] !== undefined) {
+          const cleanedValue = cleanUndefined(obj[key]);
+          if (cleanedValue !== null) {
+            cleaned[key] = cleanedValue;
+          }
+        }
+      });
+      return cleaned;
+    }
+    return obj;
+  }
+
   // ====== FONCTIONS DE MODIFICATION ======
   
   async function toggleEtapeRestitution(
@@ -381,13 +400,16 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
   async function updateFicheCommerciale(machineId: string, fiche: FicheCommerciale) {
     if (isFirebaseMachine(machineId)) {
       try {
+        // ✅ Nettoyer les undefined avant d'envoyer à Firebase
+        const cleanFiche = cleanUndefined(fiche);
         await updateDoc(doc(db, "machines_vo", machineId), {
-          fiche_commerciale: fiche,
+          fiche_commerciale: cleanFiche,
           updatedAt: new Date().toISOString(),
         });
-        console.log(`✅ Fiche commerciale mise à jour dans Firebase`);
+        console.log(`✅ Fiche commerciale mise à jour dans Firebase`, cleanFiche);
       } catch (err) {
         console.error("❌ Erreur Firebase fiche:", err);
+        alert("Erreur lors de la sauvegarde de la fiche : " + (err as Error).message);
       }
     } else {
       setMockMachines((prev) =>

@@ -60,15 +60,32 @@ export default function FicheCommercialeModal({
       return;
     }
 
-    onSave(machine.id, {
+    // ✅ Construire l'objet sans undefined (Firebase n'accepte pas undefined)
+    const ficheData: any = {
       ...existing,
       hauteur_travail_m: h,
       deport_travail_m: d,
       nb_personnes_panier: nbPersonnes,
       puissance_porteur: puissance.trim(),
       options: options.filter((o) => o.trim() !== ""),
-      amenagement_interieur: amenagement.trim() || undefined,
+    };
+    
+    // Ajouter amenagement_interieur uniquement s'il est rempli
+    const amenagementValue = amenagement.trim();
+    if (amenagementValue) {
+      ficheData.amenagement_interieur = amenagementValue;
+    } else {
+      delete ficheData.amenagement_interieur;
+    }
+    
+    // Nettoyer toutes les valeurs undefined avant l'envoi
+    Object.keys(ficheData).forEach(key => {
+      if (ficheData[key] === undefined) {
+        delete ficheData[key];
+      }
     });
+    
+    onSave(machine.id, ficheData);
     onClose();
   }
 

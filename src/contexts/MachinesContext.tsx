@@ -155,6 +155,16 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             // ✅ Conserver les prix si présents
             prix_fr: data.prix_fr,
             prix_dealer: data.prix_dealer,
+            prix_modifie_le: data.prix_modifie_le,
+            prix_modifie_par: data.prix_modifie_par,
+            prix_modifie_manuellement: data.prix_modifie_manuellement,
+            
+            // ✅ Conserver la fiche commerciale depuis Firebase
+            fiche_commerciale: data.fiche_commerciale,
+            
+            // ✅ Conserver le rapport d'expertise
+            rapport_expertise: data.rapport_expertise || data.dossier_nacelle_expert?.rapport_expertise,
+            agent_expert: data.agent_expert || data.dossier_nacelle_expert?.agent_retour,
               
             createdAt: data.date_ajout?.toDate?.()?.toISOString?.() || new Date().toISOString(),
             updatedAt: data.date_modification?.toDate?.()?.toISOString?.(),

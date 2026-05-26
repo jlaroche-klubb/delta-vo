@@ -215,10 +215,17 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
   }
 
   async function doGeneratePdf(machine: Machine, prixChoisi: "fr" | "dealer") {
+    console.log("🎯 [PDF] Début génération pour", machine.immat, "prix:", prixChoisi);
+    console.log("🎯 [PDF] Fiche commerciale:", machine.fiche_commerciale);
+    console.log("🎯 [PDF] Photos commerciales:", machine.photos_commerciales);
+    
     let numero = machine.fiche_commerciale?.numero_fiche;
     if (!numero) {
       numero = getNextFicheNumber(machines);
       attribuerNumeroFiche(machine.id, numero);
+      console.log("🎯 [PDF] Nouveau numéro attribué:", numero);
+    } else {
+      console.log("🎯 [PDF] Numéro existant:", numero);
     }
 
     setGeneratingPrix(prixChoisi);
@@ -231,11 +238,19 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
     });
 
     setGenerating(true);
+    console.log("🎯 [PDF] State mis à jour, attente 300ms pour rendu DOM...");
 
     setTimeout(async () => {
+      console.log("🎯 [PDF] Timeout terminé, lancement de la génération...");
       try {
         const phone = localStorage.getItem(PHONE_KEY) || "Non renseigné";
         const email = `${userName.toLowerCase().replace(/\s+/g, ".")}@klubb.com`;
+        console.log("🎯 [PDF] Commercial:", { nom: userName, email, phone });
+
+        // Vérifier que les éléments DOM existent
+        const page1 = document.getElementById("fiche-vo-page-1");
+        const page2 = document.getElementById("fiche-vo-page-2");
+        console.log("🎯 [PDF] DOM page1:", !!page1, "page2:", !!page2);
 
         await generateFichePdf({
           machine: {
@@ -252,14 +267,15 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
             phone,
           },
         });
+        console.log("🎯 [PDF] ✅ Génération terminée avec succès !");
       } catch (err: any) {
+        console.error("❌ [PDF] Erreur:", err);
         alert("❌ Erreur lors de la génération du PDF : " + err.message);
-        console.error(err);
       } finally {
         setGenerating(false);
         setGeneratingMachine(null);
       }
-    }, 300);
+    }, 500);
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {

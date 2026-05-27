@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import {
   Machine,
   calculAgeStock,
@@ -45,6 +45,18 @@ interface DisponiblesPageProps {
 export default function DisponiblesPage({ userRole, userName }: DisponiblesPageProps) {
   // ✅ Récupérer le profil Firebase de l'utilisateur connecté
   const { user, profile } = useAuth();
+  
+  // ✅ State local pour le téléphone (mise à jour immédiate après sauvegarde)
+  const [currentPhone, setCurrentPhone] = useState<string | undefined>(
+    profile?.phone || localStorage.getItem(PHONE_KEY) || undefined
+  );
+  
+  // Synchroniser quand profile change
+  useEffect(() => {
+    if (profile?.phone) {
+      setCurrentPhone(profile.phone);
+    }
+  }, [profile?.phone]);
   
   // 🆕 Toggle "Voir archivées"
   const [showArchived, setShowArchived] = useState(false);
@@ -183,9 +195,8 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
 
   // ====== GÉNÉRATION FICHE VO ======
   function handleGenerateFiche(machine: Machine) {
-    // ✅ Récupérer le téléphone depuis le PROFIL UTILISATEUR (pas localStorage)
-    const phone = profile?.phone;
-    if (!phone) {
+    // ✅ Récupérer le téléphone depuis le state local (synchro avec Firebase)
+    if (!currentPhone) {
       setPendingGenerate(machine);
       setPhoneSetupOpen(true);
       return;
@@ -218,10 +229,15 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
       }
     }
     
+    // ✅ CRITIQUE : Mettre à jour le state local immédiatement
+    // (sinon profile?.phone reste undefined jusqu'au prochain reload)
+    setCurrentPhone(phone);
+    
     if (pendingGenerate) {
       const m = pendingGenerate;
       setPendingGenerate(null);
-      routerPrix(m);
+      // Passer la machine ET le phone pour éviter race condition
+      setTimeout(() => routerPrix(m), 100);
     }
   }
 
@@ -252,7 +268,7 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
 
     setTimeout(async () => {
       try {
-        const phone = profile?.phone || "Non renseigné";
+        const phone = currentPhone || "Non renseigné";
         const email = `${userName.toLowerCase().replace(/\s+/g, ".")}@klubb.com`;
 
         await generateFichePdf({
@@ -598,7 +614,7 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
             commercial={{
               nom: userName,
               email: `${userName.toLowerCase().replace(/\s+/g, ".")}@klubb.com`,
-              phone: profile?.phone || "—",
+              phone: currentPhone || "—",
             }}
           />
         </div>

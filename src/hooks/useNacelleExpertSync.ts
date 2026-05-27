@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { collection, query, where, getDocs, doc, updateDoc, setDoc } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
+import { collection, query, where, getDocs, doc, updateDoc, setDoc, onSnapshot, getDoc } from 'firebase/firestore';
 import { db, dbNacelleExpert } from '../firebase';
 
 interface NacelleExpertDossier {
@@ -170,9 +170,57 @@ export function useNacelleExpertSync() {
             createdBy: dossier.createdBy,
           };
 
-          console.log(`💾 Création de la fiche en restitution (expertise OK) pour ${dossier.immat}`);
-          await setDoc(machineVORef, machineVOData);
-          console.log(`✅ Fiche créée avec succès`);
+          // ✅ ANTI-ÉCRASEMENT : Vérifier si la machine existe déjà
+          const existingDoc = await getDoc(machineVORef);
+          
+          if (existingDoc.exists()) {
+            // 🔄 RELOCATION : La nacelle revient pour une nouvelle expertise
+            console.log(`🔄 Machine ${dossier.immat} existe déjà - mise à jour intelligente`);
+            const existingData = existingDoc.data();
+            
+            // ✅ Préserver les données importantes Delta VO :
+            // - Fiche commerciale (hauteur, déport, etc.)
+            // - Prix précédents (à titre indicatif, pourront être révisés)
+            // - Historique
+            const smartUpdate: any = {
+              // Nouvelles données d'expertise (remontent toujours)
+              heures: machineVOData.heures,
+              km_porteur: machineVOData.km_porteur,
+              dossier_nacelle_expert: machineVOData.dossier_nacelle_expert,
+              
+              // ✅ Remise en cycle restitution pour nouvelle facturation expertise
+              statut: 'restitution',
+              recuperation_ok: true,
+              expertise_ok: true,
+              facture_ok: false,        // ⏳ Nouvelle facture expertise à faire
+              facture_reglee_ok: false, // ⏳ Nouveau règlement à recevoir
+              fiche_vo_creee: false,    // ⏳ Refaire la fiche VO si besoin
+              
+              // Conserver les données Delta VO existantes
+              fiche_commerciale: existingData.fiche_commerciale,
+              prix_fr: existingData.prix_fr,
+              prix_dealer: existingData.prix_dealer,
+              prix_modifie_le: existingData.prix_modifie_le,
+              prix_modifie_par: existingData.prix_modifie_par,
+              
+              date_modification: new Date(),
+            };
+            
+            // Nettoyer les undefined avant Firebase
+            Object.keys(smartUpdate).forEach(key => {
+              if (smartUpdate[key] === undefined) {
+                delete smartUpdate[key];
+              }
+            });
+            
+            await updateDoc(machineVORef, smartUpdate);
+            console.log(`✅ Machine ${dossier.immat} mise à jour (relocation détectée)`);
+          } else {
+            // 🆕 Nouvelle nacelle : création normale
+            console.log(`💾 Création nouvelle fiche pour ${dossier.immat}`);
+            await setDoc(machineVORef, machineVOData);
+            console.log(`✅ Fiche créée avec succès`);
+          }
 
           // Marquer comme synchronisé dans Nacelle-Expert
           const dossierRef = doc(dbNacelleExpert, 'dossiers', dossierDoc.id);
@@ -205,6 +253,37 @@ export function useNacelleExpertSync() {
       setIsLoading(false);
     }
   };
+
+  // ✅ ÉCOUTE TEMPS RÉEL des nouveaux dossiers Nacelle-Expert
+  useEffect(() => {
+    console.log('🔄 Démarrage de l\'écoute temps réel Nacelle-Expert');
+    
+    const dossiersQuery = query(
+      collection(dbNacelleExpert, 'dossiers'),
+      where('synced_to_delta_vo', '==', false)
+    );
+    
+    const unsubscribe = onSnapshot(
+      dossiersQuery,
+      (snapshot) => {
+        if (snapshot.empty) {
+          console.log('ℹ️ Aucun nouveau dossier à synchroniser');
+          return;
+        }
+        
+        console.log(`🆕 ${snapshot.size} nouveau(x) dossier(s) détecté(s) - sync automatique`);
+        syncDossiers();
+      },
+      (error) => {
+        console.error('❌ Erreur écoute Nacelle-Expert:', error);
+      }
+    );
+    
+    return () => {
+      console.log('🛑 Arrêt de l\'écoute Nacelle-Expert');
+      unsubscribe();
+    };
+  }, []);
 
   return {
     syncDossiers,

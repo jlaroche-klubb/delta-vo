@@ -104,6 +104,8 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             statut: statutFirebase,
             
             date_retour: data.dossier_nacelle_expert?.date_retour || '',
+            // ✅ Auto-remplir date_demande_recuperation (machine déjà récupérée)
+            date_demande_recuperation: data.date_demande_recuperation || data.dossier_nacelle_expert?.date_retour || data.dossier_nacelle_expert?.date_depart || '',
             client_precedent: data.dossier_nacelle_expert?.client || '',
             contrat: data.dossier_nacelle_expert?.contrat || '',
             

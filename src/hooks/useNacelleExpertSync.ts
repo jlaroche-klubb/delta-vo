@@ -130,12 +130,18 @@ export function useNacelleExpertSync() {
           // Créer la fiche VO dans Delta VO
           const machineVORef = doc(db, 'machines_vo', dossier.immat);
           
-          const machineVOData: MachineVO = {
+          // ✅ Date demande récupération = date de retour (la machine est arrivée)
+          const dateRecup = dossier.retour?.date || dossier.depart?.date || new Date().toISOString().slice(0, 10);
+          
+          const machineVOData: any = {
             // Données de base
             immat: dossier.info.immat,
             modele: dossier.info.modele || '',
             type_nacelle: dossier.info.type_nacelle || '',
             annee_fab: dossier.info.annee_fab || '',
+            
+            // ✅ Date demande récupération auto-remplie (machine déjà arrivée)
+            date_demande_recuperation: dateRecup,
             heures: dossier.retour?.heures || dossier.depart?.heures || '',
             km_porteur: dossier.retour?.km_porteur || dossier.depart?.km_porteur || '',
             
@@ -187,6 +193,9 @@ export function useNacelleExpertSync() {
               heures: machineVOData.heures,
               km_porteur: machineVOData.km_porteur,
               dossier_nacelle_expert: machineVOData.dossier_nacelle_expert,
+              
+              // ✅ Nouvelle date de récupération pour ce cycle de relocation
+              date_demande_recuperation: dateRecup,
               
               // ✅ Remise en cycle restitution pour nouvelle facturation expertise
               statut: 'restitution',

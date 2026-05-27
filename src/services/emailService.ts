@@ -9,29 +9,32 @@ const EMAILJS_CONFIG = {
   PUBLIC_KEY: 'rjoizN7-HjqOIimkF',
 };
 
-// Initialiser EmailJS au chargement du module
-emailjs.init(EMAILJS_CONFIG.PUBLIC_KEY);
+console.log('📧 [emailService] Module chargé');
 
 /**
  * Récupère tous les emails des admins depuis Firebase
  */
 async function getAdminEmails(): Promise<{ email: string; prenom: string }[]> {
   try {
+    console.log('📧 [emailService] Recherche des admins dans Firebase...');
     const adminQuery = query(
       collection(db, 'users'),
       where('role', '==', 'admin')
     );
     const snapshot = await getDocs(adminQuery);
     
-    return snapshot.docs.map(doc => {
+    const admins = snapshot.docs.map(doc => {
       const data = doc.data();
       return {
         email: data.email || '',
         prenom: data.prenom || 'Admin',
       };
     }).filter(admin => admin.email !== '');
+    
+    console.log(`📧 [emailService] ${admins.length} admin(s) trouvé(s):`, admins.map(a => a.email));
+    return admins;
   } catch (err) {
-    console.error('❌ Erreur récupération admins:', err);
+    console.error('❌ [emailService] Erreur récupération admins:', err);
     return [];
   }
 }
@@ -45,15 +48,21 @@ export async function notifyAdminsNewUser(newUser: {
   nom: string;
   prenom: string;
 }): Promise<void> {
+  console.log('📧 [emailService] notifyAdminsNewUser appelée avec:', newUser);
+  
   try {
+    // Initialiser EmailJS au moment de l'envoi
+    emailjs.init(EMAILJS_CONFIG.PUBLIC_KEY);
+    console.log('📧 [emailService] EmailJS initialisé');
+    
     const admins = await getAdminEmails();
     
     if (admins.length === 0) {
-      console.warn('⚠️ Aucun admin trouvé pour notifier la nouvelle demande');
+      console.warn('⚠️ [emailService] Aucun admin trouvé pour notifier la nouvelle demande');
       return;
     }
     
-    console.log(`📧 Envoi notification à ${admins.length} admin(s)...`);
+    console.log(`📧 [emailService] Envoi notification à ${admins.length} admin(s)...`);
     
     const dateFormatted = new Date().toLocaleString('fr-FR', {
       day: '2-digit',
@@ -74,23 +83,24 @@ export async function notifyAdminsNewUser(newUser: {
         date_demande: dateFormatted,
       };
       
+      console.log(`📧 [emailService] Envoi à ${admin.email}...`, templateParams);
+      
       return emailjs.send(
         EMAILJS_CONFIG.SERVICE_ID,
         EMAILJS_CONFIG.TEMPLATE_ID,
         templateParams
       ).then(response => {
-        console.log(`✅ Mail envoyé à ${admin.email}:`, response.status);
+        console.log(`✅ [emailService] Mail envoyé à ${admin.email}:`, response.status, response.text);
         return response;
       }).catch(err => {
-        console.error(`❌ Erreur envoi mail à ${admin.email}:`, err);
+        console.error(`❌ [emailService] Erreur envoi mail à ${admin.email}:`, err);
         return null;
       });
     });
     
     await Promise.all(sendPromises);
-    console.log('✅ Toutes les notifications envoyées');
+    console.log('✅ [emailService] Toutes les notifications traitées');
   } catch (err) {
-    console.error('❌ Erreur générale notifyAdminsNewUser:', err);
-    // Ne pas bloquer le flux d'inscription si l'email échoue
+    console.error('❌ [emailService] Erreur générale notifyAdminsNewUser:', err);
   }
 }

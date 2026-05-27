@@ -30,6 +30,9 @@ import {
   canExportListePrix,
   canDeleteMachine,
 } from "../utils/permissions";
+import { useAuth } from "../AuthContext";
+import { doc, updateDoc } from "firebase/firestore";
+import { db } from "../firebase";
 
 const SEUIL_REPRICER = 60;
 const PHONE_KEY = "delta-vo-user-phone";
@@ -40,6 +43,9 @@ interface DisponiblesPageProps {
 }
 
 export default function DisponiblesPage({ userRole, userName }: DisponiblesPageProps) {
+  // ✅ Récupérer le profil Firebase de l'utilisateur connecté
+  const { user, profile } = useAuth();
+  
   // 🆕 Toggle "Voir archivées"
   const [showArchived, setShowArchived] = useState(false);
 
@@ -177,7 +183,8 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
 
   // ====== GÉNÉRATION FICHE VO ======
   function handleGenerateFiche(machine: Machine) {
-    const phone = localStorage.getItem(PHONE_KEY);
+    // ✅ Récupérer le téléphone depuis le PROFIL UTILISATEUR (pas localStorage)
+    const phone = profile?.phone;
     if (!phone) {
       setPendingGenerate(machine);
       setPhoneSetupOpen(true);
@@ -198,8 +205,19 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
     setChoixPrixMachine(machine);
   }
 
-  function handlePhoneSaved(phone: string) {
-    localStorage.setItem(PHONE_KEY, phone);
+  async function handlePhoneSaved(phone: string) {
+    // ✅ Sauvegarder le téléphone dans le PROFIL UTILISATEUR Firebase
+    if (user) {
+      try {
+        await updateDoc(doc(db, "users", user.uid), { phone });
+        console.log("✅ Téléphone enregistré dans le profil:", phone);
+      } catch (err) {
+        console.error("❌ Erreur sauvegarde phone:", err);
+        // Fallback localStorage si Firebase échoue
+        localStorage.setItem(PHONE_KEY, phone);
+      }
+    }
+    
     if (pendingGenerate) {
       const m = pendingGenerate;
       setPendingGenerate(null);
@@ -215,17 +233,10 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
   }
 
   async function doGeneratePdf(machine: Machine, prixChoisi: "fr" | "dealer") {
-    console.log("🎯 [PDF] Début génération pour", machine.immat, "prix:", prixChoisi);
-    console.log("🎯 [PDF] Fiche commerciale:", machine.fiche_commerciale);
-    console.log("🎯 [PDF] Photos commerciales:", machine.photos_commerciales);
-    
     let numero = machine.fiche_commerciale?.numero_fiche;
     if (!numero) {
       numero = getNextFicheNumber(machines);
       attribuerNumeroFiche(machine.id, numero);
-      console.log("🎯 [PDF] Nouveau numéro attribué:", numero);
-    } else {
-      console.log("🎯 [PDF] Numéro existant:", numero);
     }
 
     setGeneratingPrix(prixChoisi);
@@ -238,19 +249,11 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
     });
 
     setGenerating(true);
-    console.log("🎯 [PDF] State mis à jour, attente 300ms pour rendu DOM...");
 
     setTimeout(async () => {
-      console.log("🎯 [PDF] Timeout terminé, lancement de la génération...");
       try {
-        const phone = localStorage.getItem(PHONE_KEY) || "Non renseigné";
+        const phone = profile?.phone || "Non renseigné";
         const email = `${userName.toLowerCase().replace(/\s+/g, ".")}@klubb.com`;
-        console.log("🎯 [PDF] Commercial:", { nom: userName, email, phone });
-
-        // Vérifier que les éléments DOM existent
-        const page1 = document.getElementById("fiche-vo-page-1");
-        const page2 = document.getElementById("fiche-vo-page-2");
-        console.log("🎯 [PDF] DOM page1:", !!page1, "page2:", !!page2);
 
         await generateFichePdf({
           machine: {
@@ -267,15 +270,14 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
             phone,
           },
         });
-        console.log("🎯 [PDF] ✅ Génération terminée avec succès !");
       } catch (err: any) {
-        console.error("❌ [PDF] Erreur:", err);
         alert("❌ Erreur lors de la génération du PDF : " + err.message);
+        console.error(err);
       } finally {
         setGenerating(false);
         setGeneratingMachine(null);
       }
-    }, 500);
+    }, 300);
   }
 
   async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -596,7 +598,7 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
             commercial={{
               nom: userName,
               email: `${userName.toLowerCase().replace(/\s+/g, ".")}@klubb.com`,
-              phone: localStorage.getItem(PHONE_KEY) || "—",
+              phone: profile?.phone || "—",
             }}
           />
         </div>

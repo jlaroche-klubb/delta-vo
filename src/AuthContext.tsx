@@ -3,6 +3,7 @@ import { onAuthStateChanged, signInWithPopup, signOut, User } from "firebase/aut
 import { doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
 import { auth, db, googleProvider } from "./firebase";
 import { UserProfile } from "./types";
+import { notifyAdminsNewUser } from "./services/emailService";
 
 interface AuthContextType {
   user: User | null;
@@ -76,6 +77,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               
               await setDoc(doc(db, "pending_users", pendingId), pendingProfile);
               console.log("✅ Demande d'approbation créée");
+              
+              // ✅ Envoyer un mail de notification à tous les admins
+              notifyAdminsNewUser({
+                email: currentUser.email!,
+                nom: nom || "Nom",
+                prenom: prenom || "Prénom",
+              }).catch(err => {
+                console.error("⚠️ Erreur notification admins (non bloquant):", err);
+              });
+              
               setProfile(null);
             }
           }

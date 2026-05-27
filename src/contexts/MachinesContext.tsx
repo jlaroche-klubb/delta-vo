@@ -312,21 +312,36 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  function basculerEnLld(machineId: string, clientLld: string, dateMiseDispo: string) {
-    setMockMachines((prev) =>
-      prev.map((m) =>
-        m.id === machineId
-          ? {
-              ...m,
-              statut: "louee_lld",
-              type_sortie: "lld",
-              client_lld: clientLld,
-              date_mise_dispo_lld: dateMiseDispo,
-              updatedAt: new Date().toISOString(),
-            }
-          : m
-      )
-    );
+  async function basculerEnLld(machineId: string, clientLld: string, dateMiseDispo: string) {
+    // ✅ Bug 2 corrigé : La LLD passe directement en "en_cours" pour préparation
+    const updates = {
+      statut: "en_cours" as const,
+      type_sortie: "lld" as const,
+      type_prepa: "normale" as const,  // Prépa normale par défaut pour LLD
+      client_lld: clientLld,
+      acheteur: clientLld,  // Le client LLD est l'acheteur dans le workflow
+      date_mise_dispo_lld: dateMiseDispo,
+      date_livraison_prevue: dateMiseDispo,
+      date_mise_en_cours: new Date().toISOString(),
+      etapes_prepa: creerEtapesPrepa("normale"),
+      updatedAt: new Date().toISOString(),
+    };
+    
+    // Si machine Firebase, update Firestore
+    if (isFirebaseMachine(machineId)) {
+      try {
+        await updateDoc(doc(db, 'machines_vo', machineId), updates);
+        console.log(`✅ Machine ${machineId} basculée en LLD → en_cours dans Firebase`);
+      } catch (err) {
+        console.error('❌ Erreur update LLD Firebase:', err);
+      }
+    } else {
+      setMockMachines((prev) =>
+        prev.map((m) =>
+          m.id === machineId ? { ...m, ...updates } : m
+        )
+      );
+    }
   }
 
   function toggleEtapePrepa(machineId: string, etapeId: string, userName: string) {
@@ -344,7 +359,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     );
   }
 
-  function configureEnCours(
+  async function configureEnCours(
     machineId: string,
     typePrepa: "normale" | "en_etat",
     acheteur: string,
@@ -353,23 +368,34 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     dateLivraison: string
   ) {
     const now = new Date().toISOString();
-    setMockMachines((prev) =>
-      prev.map((m) =>
-        m.id === machineId
-          ? {
-              ...m,
-              type_prepa: typePrepa,
-              acheteur,
-              commercial_vendeur: commercial,
-              date_vente: dateVente,
-              date_livraison_prevue: dateLivraison,
-              date_mise_en_cours: now,
-              etapes_prepa: creerEtapesPrepa(typePrepa),
-              updatedAt: now,
-            }
-          : m
-      )
-    );
+    const updates = {
+      statut: "en_cours" as const,        // ✅ Bug 3 : Passer en en_cours
+      type_sortie: "vente" as const,
+      type_prepa: typePrepa,
+      acheteur,
+      commercial_vendeur: commercial,
+      date_vente: dateVente,
+      date_livraison_prevue: dateLivraison,
+      date_mise_en_cours: now,
+      etapes_prepa: creerEtapesPrepa(typePrepa),
+      updatedAt: now,
+    };
+    
+    // Si machine Firebase, update Firestore
+    if (isFirebaseMachine(machineId)) {
+      try {
+        await updateDoc(doc(db, 'machines_vo', machineId), updates);
+        console.log(`✅ Machine ${machineId} configurée en_cours (vente) dans Firebase`);
+      } catch (err) {
+        console.error('❌ Erreur configureEnCours Firebase:', err);
+      }
+    } else {
+      setMockMachines((prev) =>
+        prev.map((m) =>
+          m.id === machineId ? { ...m, ...updates } : m
+        )
+      );
+    }
   }
 
   function marquerFacturee(

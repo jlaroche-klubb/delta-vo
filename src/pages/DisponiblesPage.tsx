@@ -269,7 +269,7 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
     setTimeout(async () => {
       try {
         const phone = currentPhone || "Non renseigné";
-        const email = `${userName.toLowerCase().replace(/\s+/g, ".")}@klubb.com`;
+        const email = user?.email || `${userName.toLowerCase().replace(/\s+/g, ".")}@klubb.com`;
 
         await generateFichePdf({
           machine: {
@@ -613,7 +613,7 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
             prixChoisi={generatingPrix}
             commercial={{
               nom: userName,
-              email: `${userName.toLowerCase().replace(/\s+/g, ".")}@klubb.com`,
+              email: user?.email || `${userName.toLowerCase().replace(/\s+/g, ".")}@klubb.com`,
               phone: currentPhone || "—",
             }}
           />

@@ -5,7 +5,7 @@ import { db } from '../firebase';
 // ✅ Configuration EmailJS
 const EMAILJS_CONFIG = {
   SERVICE_ID: 'service_up4aegi',
-  TEMPLATE_ID: 'f2sc6nn',  // ✅ Sans le préfixe "template_"
+  TEMPLATE_ID: 'template_ues4jfj',  // ✅ Le BON template ID
   PUBLIC_KEY: 'rjoizN7-HjqOIimkF',
 };
 

@@ -36,6 +36,7 @@ interface MachinesContextType {
     dateVente: string,
     dateLivraison: string
   ) => void;
+  cancelEnCours: (machineId: string) => void;  // ✅ Annuler mise en préparation
   marquerFacturee: (
     machineId: string,
     numeroFacture: string,
@@ -398,6 +399,39 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function cancelEnCours(machineId: string) {
+    // ✅ Annule la mise en préparation : retour en "disponible"
+    const updates = {
+      statut: "disponible" as const,
+      type_sortie: null,
+      type_prepa: null,
+      acheteur: null,
+      commercial_vendeur: null,
+      date_vente: null,
+      date_livraison_prevue: null,
+      date_mise_en_cours: null,
+      etapes_prepa: null,
+      client_lld: null,
+      date_mise_dispo_lld: null,
+      updatedAt: new Date().toISOString(),
+    };
+    
+    if (isFirebaseMachine(machineId)) {
+      try {
+        await updateDoc(doc(db, 'machines_vo', machineId), updates as any);
+        console.log(`✅ Machine ${machineId} remise en disponible (annulation prépa)`);
+      } catch (err) {
+        console.error('❌ Erreur cancelEnCours Firebase:', err);
+      }
+    } else {
+      setMockMachines((prev) =>
+        prev.map((m) =>
+          m.id === machineId ? { ...m, ...updates } as Machine : m
+        )
+      );
+    }
+  }
+
   function marquerFacturee(
     machineId: string,
     numeroFacture: string,
@@ -580,6 +614,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       basculerEnLld,
       toggleEtapePrepa,
       configureEnCours,
+      cancelEnCours,
       marquerFacturee,
       marquerPayee,
       updateFicheCommerciale,

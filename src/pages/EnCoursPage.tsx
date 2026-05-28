@@ -24,7 +24,7 @@ interface EnCoursPageProps {
 }
 
 export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
-  const { machines, toggleEtapePrepa, configureEnCours, marquerFacturee } = useMachines();
+  const { machines, toggleEtapePrepa, configureEnCours, cancelEnCours, marquerFacturee } = useMachines();
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<EnCoursFilterState>(EMPTY_ENCOURS_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -34,6 +34,7 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
   const canEditPrepa = canEditEtapesPreparation(userRole as any);
   const canConfigure = userRole === "secretaire" || userRole === "admin";
   const canFacturer = userRole === "secretaire" || userRole === "admin";
+  const canCancel = userRole === "admin";  // ✅ Admin only
 
   const baseEnCours = useMemo(
     () => machines.filter((m) => m.statut === "en_cours"),
@@ -142,6 +143,10 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
     );
   }
 
+  function handleCancel(machineId: string) {
+    cancelEnCours(machineId);
+  }
+
   function handleFacturer(machineId: string, numeroFacture: string, dateFacturation: string) {
     marquerFacturee(machineId, numeroFacture, dateFacturation);
   }
@@ -239,6 +244,8 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
                 canFacturer={false}
                 onToggleEtape={handleToggleEtape}
                 onConfigure={setConfigMachine}
+                canCancel={canCancel}
+                onCancel={handleCancel}
               />
             ))}
           </div>
@@ -268,6 +275,8 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
                 onToggleEtape={handleToggleEtape}
                 onConfigure={setConfigMachine}
                 onFacturer={setFactureMachine}
+                canCancel={canCancel}
+                onCancel={handleCancel}
               />
             ))}
           </div>
@@ -297,6 +306,8 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
                 onToggleEtape={handleToggleEtape}
                 onConfigure={setConfigMachine}
                 onFacturer={setFactureMachine}
+                canCancel={canCancel}
+                onCancel={handleCancel}
               />
             ))}
           </div>

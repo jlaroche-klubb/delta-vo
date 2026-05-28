@@ -198,6 +198,31 @@ export default function EnCoursCard({
           )}
         </>
       )}
+      
+      {/* ✅ Bouton Admin : Annuler la mise en préparation */}
+      {canCancel && onCancel && (
+        <div className="encours-admin-actions" style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #e5e5e5' }}>
+          <button
+            onClick={() => {
+              if (window.confirm(`⚠️ Annuler la mise en préparation de ${machine.immat} ?\n\nLa machine retournera dans les "Disponibles" et toutes les données de vente/LLD seront effacées.`)) {
+                onCancel(machine.id);
+              }
+            }}
+            style={{
+              background: '#dc3545',
+              color: 'white',
+              border: 'none',
+              padding: '8px 16px',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontSize: '13px',
+              fontWeight: 'bold'
+            }}
+          >
+            ❌ Annuler la mise en préparation
+          </button>
+        </div>
+      )}
     </div>
   );
 }

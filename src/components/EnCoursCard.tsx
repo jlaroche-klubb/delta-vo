@@ -13,6 +13,7 @@ interface EnCoursCardProps {
   canFacturer: boolean;
   canCancel?: boolean;
   onToggleEtape?: (machineId: string, etapeId: string) => void;
+  onSetNonNecessaire?: (machineId: string, etapeId: string) => void;
   onConfigure?: (machine: Machine) => void;
   onFacturer?: (machine: Machine) => void;
   onCancel?: (machineId: string) => void;
@@ -25,6 +26,7 @@ export default function EnCoursCard({
   canFacturer,
   canCancel = false,
   onToggleEtape,
+  onSetNonNecessaire,
   onConfigure,
   onFacturer,
   onCancel,
@@ -175,9 +177,14 @@ export default function EnCoursCard({
                     key={etape.id}
                     etape={etape}
                     canEdit={canEditPrepa}
-                    onClick={
+                    onToggle={
                       canEditPrepa && onToggleEtape
                         ? () => onToggleEtape(machine.id, etape.id)
+                        : undefined
+                    }
+                    onSetNA={
+                      canEditPrepa && onSetNonNecessaire
+                        ? () => onSetNonNecessaire(machine.id, etape.id)
                         : undefined
                     }
                   />
@@ -236,32 +243,86 @@ export default function EnCoursCard({
 function EtapeRow({
   etape,
   canEdit,
-  onClick,
+  onToggle,
+  onSetNA,
 }: {
   etape: EtapePrepa;
   canEdit: boolean;
-  onClick?: () => void;
+  onToggle?: () => void;
+  onSetNA?: () => void;
 }) {
+  // État visuel de l'étape
+  const isDone = etape.done;
+  const isNA = etape.non_necessaire;
+  const validated = isDone || isNA;
+
   return (
-    <div
-      className={`etape-row ${etape.done ? "etape-done" : ""} ${canEdit ? "etape-clickable" : ""}`}
-      onClick={onClick}
-    >
+    <div className={`etape-row ${validated ? "etape-done" : ""}`}>
       <div className="etape-check">
-        {etape.done ? (
+        {isDone ? (
           <span className="check-icon-done">✓</span>
+        ) : isNA ? (
+          <span className="check-icon-done" style={{ color: "#888" }}>⊘</span>
         ) : (
           <span className="check-icon-todo">○</span>
         )}
       </div>
-      <div className="etape-info">
-        <span className="etape-label">{etape.label}</span>
-        {etape.done && etape.done_by && (
+      <div className="etape-info" style={{ flex: 1 }}>
+        <span className="etape-label">
+          {etape.label}
+          {isNA && <em style={{ color: "#888", marginLeft: 6 }}>(non nécessaire)</em>}
+        </span>
+        {isDone && etape.done_by && (
           <span className="etape-tracking">
             par <strong>{etape.done_by}</strong> le {formatDate(etape.done_at)}
           </span>
         )}
       </div>
+
+      {/* Boutons d'action (si édition autorisée) */}
+      {canEdit && (
+        <div className="etape-actions" style={{ display: "flex", gap: 6 }}>
+          {/* Bouton OK / Fait */}
+          <button
+            type="button"
+            onClick={onToggle}
+            style={{
+              padding: "4px 10px",
+              borderRadius: 4,
+              border: "1px solid",
+              borderColor: isDone ? "#28a745" : "#ccc",
+              background: isDone ? "#28a745" : "white",
+              color: isDone ? "white" : "#444",
+              cursor: "pointer",
+              fontSize: 12,
+              fontWeight: 600,
+            }}
+          >
+            {isDone ? "✓ Fait" : "Marquer fait"}
+          </button>
+
+          {/* Bouton Non nécessaire (uniquement pour CT et VGP) */}
+          {etape.has_na && onSetNA && (
+            <button
+              type="button"
+              onClick={onSetNA}
+              style={{
+                padding: "4px 10px",
+                borderRadius: 4,
+                border: "1px solid",
+                borderColor: isNA ? "#6c757d" : "#ccc",
+                background: isNA ? "#6c757d" : "white",
+                color: isNA ? "white" : "#444",
+                cursor: "pointer",
+                fontSize: 12,
+                fontWeight: 600,
+              }}
+            >
+              ⊘ Non nécessaire
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

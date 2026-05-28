@@ -10,6 +10,7 @@ import StatsPage from "./pages/StatsPage";
 import Logo from "./components/Logo";
 import AdminPage from "./pages/AdminPage";
 import { useNacelleExpertSync } from "./hooks/useNacelleExpertSync";
+import { getAccessiblePages } from "./utils/permissions";
 import "./App.css";
 
 const DEV_MODE = false;
@@ -73,12 +74,15 @@ function AppContent() {
     }
   };
 
-  // Liste des onglets dans l'ordre
-  const tabs: Page[] = ["restitutions", "disponibles", "encours", "cloturees"];
-  if (isAdmin) {
-    tabs.push("stats");
-    tabs.push("admin");
-  }
+  // ✅ Liste des onglets selon les permissions du rôle
+  const accessiblePages = getAccessiblePages(userRole as any);
+  // Ordre d'affichage souhaité
+  const pageOrder: Page[] = ["restitutions", "disponibles", "encours", "cloturees", "stats", "admin"];
+  const tabs: Page[] = pageOrder.filter((p) => accessiblePages.includes(p));
+  
+  // ✅ Si la page active n'est pas accessible pour ce rôle, basculer sur la première dispo
+  const currentPageAccessible = tabs.includes(page);
+  const effectivePage = currentPageAccessible ? page : (tabs[0] || "disponibles");
 
   return (
     <div className="app">
@@ -168,18 +172,18 @@ function AppContent() {
       )}
 
       <main className="app-main">
-        {page === "restitutions" && <RestitutionsPage />}
-        {page === "disponibles" && (
+        {effectivePage === "restitutions" && <RestitutionsPage />}
+        {effectivePage === "disponibles" && (
           <DisponiblesPage userRole={userRole} userName={userName} />
         )}
-        {page === "encours" && (
+        {effectivePage === "encours" && (
           <EnCoursPage userRole={userRole} userName={userName} />
         )}
-        {page === "cloturees" && (
+        {effectivePage === "cloturees" && (
           <ClotureesPage userRole={userRole} userName={userName} />
         )}
-        {page === "stats" && isAdmin && <StatsPage />}
-        {page === "admin" && isAdmin && <AdminPage />}
+        {effectivePage === "stats" && isAdmin && <StatsPage />}
+        {effectivePage === "admin" && isAdmin && <AdminPage />}
       </main>
     </div>
   );

@@ -28,6 +28,7 @@ interface MachinesContextType {
   ) => void;
   basculerEnLld: (machineId: string, clientLld: string, dateMiseDispo: string) => void;
   toggleEtapePrepa: (machineId: string, etapeId: string, userName: string) => void;
+  setEtapeNonNecessaire: (machineId: string, etapeId: string) => void;
   configureEnCours: (
     machineId: string,
     typePrepa: "normale" | "en_etat",
@@ -364,19 +365,77 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  function toggleEtapePrepa(machineId: string, etapeId: string, userName: string) {
+  async function toggleEtapePrepa(machineId: string, etapeId: string, userName: string) {
     const now = new Date().toISOString();
-    setMockMachines((prev) =>
-      prev.map((m) => {
-        if (m.id !== machineId || !m.etapes_prepa) return m;
-        const updatedEtapes = m.etapes_prepa.map((e) =>
-          e.id === etapeId
-            ? { ...e, done: !e.done, done_by: !e.done ? userName : undefined, done_at: !e.done ? now : undefined }
-            : e
-        );
-        return { ...m, etapes_prepa: updatedEtapes, updatedAt: now };
-      })
-    );
+    const machine = machines.find((m) => m.id === machineId);
+    if (!machine || !machine.etapes_prepa) return;
+
+    // Calculer les nouvelles étapes : on coche/décoche "done"
+    // Si on coche "done", on retire automatiquement "non_necessaire"
+    const updatedEtapes = machine.etapes_prepa.map((e) => {
+      if (e.id !== etapeId) return e;
+      const newDone = !e.done;
+      return {
+        ...e,
+        done: newDone,
+        non_necessaire: newDone ? false : e.non_necessaire,
+        done_by: newDone ? userName : undefined,
+        done_at: newDone ? now : undefined,
+      };
+    });
+
+    if (isFirebaseMachine(machineId)) {
+      try {
+        await updateDoc(doc(db, "machines_vo", machineId), {
+          etapes_prepa: updatedEtapes,
+          updatedAt: now,
+        });
+      } catch (err) {
+        console.error("❌ Erreur toggleEtapePrepa Firebase:", err);
+      }
+    } else {
+      setMockMachines((prev) =>
+        prev.map((m) =>
+          m.id === machineId ? { ...m, etapes_prepa: updatedEtapes, updatedAt: now } : m
+        )
+      );
+    }
+  }
+
+  async function setEtapeNonNecessaire(machineId: string, etapeId: string) {
+    const now = new Date().toISOString();
+    const machine = machines.find((m) => m.id === machineId);
+    if (!machine || !machine.etapes_prepa) return;
+
+    // Toggle "non_necessaire". Si on active, on retire "done"
+    const updatedEtapes = machine.etapes_prepa.map((e) => {
+      if (e.id !== etapeId) return e;
+      const newNA = !e.non_necessaire;
+      return {
+        ...e,
+        non_necessaire: newNA,
+        done: newNA ? false : e.done,
+        done_by: undefined,
+        done_at: undefined,
+      };
+    });
+
+    if (isFirebaseMachine(machineId)) {
+      try {
+        await updateDoc(doc(db, "machines_vo", machineId), {
+          etapes_prepa: updatedEtapes,
+          updatedAt: now,
+        });
+      } catch (err) {
+        console.error("❌ Erreur setEtapeNonNecessaire Firebase:", err);
+      }
+    } else {
+      setMockMachines((prev) =>
+        prev.map((m) =>
+          m.id === machineId ? { ...m, etapes_prepa: updatedEtapes, updatedAt: now } : m
+        )
+      );
+    }
   }
 
   async function configureEnCours(
@@ -632,6 +691,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       updatePrice,
       basculerEnLld,
       toggleEtapePrepa,
+      setEtapeNonNecessaire,
       configureEnCours,
       cancelEnCours,
       marquerFacturee,

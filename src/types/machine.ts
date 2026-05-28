@@ -33,6 +33,8 @@ export interface EtapePrepa {
   id: string;
   label: string;
   done: boolean;
+  non_necessaire?: boolean;  // Pour CT et VGP : marqué comme non nécessaire
+  has_na?: boolean;          // true si l'étape peut être "non nécessaire" (CT, VGP)
   done_by?: string;
   done_at?: string;
 }
@@ -146,26 +148,28 @@ export function getAgeStockColor(jours: number, seuilRepricer: number = 60): {
   }
 }
 
+// Étapes prépa NORMALE (ordre d'affichage : CT, VGP, Révision, Lavage)
+// has_na = true → l'étape peut être marquée "Non nécessaire"
 const ETAPES_PREPA_NORMALE = [
-  "Lavage complet",
-  "Peinture si nécessaire",
-  "Contrôle technique + CT CACES",
-  "Pneumatique (rechapé OK)",
-  "Préparation complète (mécanique + électrique)",
+  { label: "Contrôle technique", has_na: true },
+  { label: "VGP", has_na: true },
+  { label: "Révision", has_na: false },
+  { label: "Lavage", has_na: false },
 ];
 
+// Étapes prépa EN L'ÉTAT (export) : juste un lavage léger
 const ETAPES_PREPA_EN_ETAT = [
-  "Lavage rapide",
-  "Contrôle technique + CT CACES",
-  "Pneumatique (si besoin)",
+  { label: "Lavage léger", has_na: false },
 ];
 
 export function creerEtapesPrepa(typePrepa: TypePrepa = "normale"): EtapePrepa[] {
-  const labels = typePrepa === "normale" ? ETAPES_PREPA_NORMALE : ETAPES_PREPA_EN_ETAT;
-  return labels.map((label, idx) => ({
+  const etapes = typePrepa === "normale" ? ETAPES_PREPA_NORMALE : ETAPES_PREPA_EN_ETAT;
+  return etapes.map((etape, idx) => ({
     id: `etape-${idx + 1}`,
-    label,
+    label: etape.label,
     done: false,
+    non_necessaire: false,
+    has_na: etape.has_na,
   }));
 }
 
@@ -271,7 +275,8 @@ export function getNextFicheNumber(machines: Machine[]): string {
 
 export function prepaTerminee(etapesPrepa: EtapePrepa[] | undefined): boolean {
   if (!etapesPrepa || etapesPrepa.length === 0) return false;
-  return etapesPrepa.every((e) => e.done);
+  // Une étape est "validée" si elle est faite (done) OU marquée non nécessaire
+  return etapesPrepa.every((e) => e.done || e.non_necessaire);
 }
 
 export function isLivraisonEnRetard(dateLivraisonPrevue: string | undefined): boolean {

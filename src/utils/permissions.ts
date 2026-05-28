@@ -113,6 +113,30 @@ export function canValidateEtapesTechniques(role: UserRole): boolean {
   return ["admin", "chef", "atelier"].includes(role);
 }
 
+/**
+ * Configurer la mise en cours (choix prépa normale/en l'état + infos vente)
+ * Admin et Secrétaire/ADV uniquement
+ */
+export function canConfigureEnCours(role: UserRole): boolean {
+  return ["admin", "secretaire"].includes(role);
+}
+
+/**
+ * Facturer une machine (marquer comme facturée → clôturée)
+ * Admin et Secrétaire/ADV uniquement
+ */
+export function canFacturer(role: UserRole): boolean {
+  return ["admin", "secretaire"].includes(role);
+}
+
+/**
+ * Annuler une mise en préparation (retour en disponible)
+ * Admin uniquement
+ */
+export function canCancelEnCours(role: UserRole): boolean {
+  return role === "admin";
+}
+
 // ==================== EXPERTISE ====================
 
 export function canViewExpertiseDetail(role: UserRole): boolean {

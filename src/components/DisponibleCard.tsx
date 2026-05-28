@@ -5,7 +5,8 @@ interface DisponibleCardProps {
   seuilRepricer?: number;
   isAdmin?: boolean;
   canLld?: boolean;
-  canFiche?: boolean;
+  canFiche?: boolean;          // Éditer la fiche commerciale
+  canGenerateFiche?: boolean;  // Générer le PDF (différent de l'édition)
   canViewPrixFR?: boolean;
   canViewprixDealer?: boolean;
   onEditPrice?: (machine: Machine) => void;
@@ -23,6 +24,7 @@ export default function DisponibleCard({
   isAdmin = false,
   canLld = false,
   canFiche = false,
+  canGenerateFiche = false,
   canViewPrixFR = true,
   canViewprixDealer = true,
   onEditPrice,
@@ -82,7 +84,7 @@ export default function DisponibleCard({
                 {ficheComplete ? "✏️ Modifier fiche" : "📝 Compléter fiche"}
               </button>
             )}
-            {canFiche && ficheComplete && hasPrice && onGenerateFiche && (
+            {canGenerateFiche && ficheComplete && hasPrice && onGenerateFiche && (
               <button
                 className="btn-generate-fiche"
                 onClick={() => onGenerateFiche(machine)}

@@ -29,6 +29,9 @@ import {
   canImportExcelPricing,
   canExportListePrix,
   canDeleteMachine,
+  canCreateLLD,
+  canGenerateFicheVO,
+  canEditFicheCommerciale,
 } from "../utils/permissions";
 import { useAuth } from "../AuthContext";
 import { doc, updateDoc } from "firebase/firestore";
@@ -91,13 +94,11 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isAdmin = userRole === "admin";
-  const canLld = userRole === "admin" || userRole === "secretaire";
-  const canFiche =
-    userRole === "admin" ||
-    userRole === "secretaire" ||
-    userRole === "vendeur_fr" ||
-    userRole === "dealer" ||
-    userRole === "chef";
+  const canLld = canCreateLLD(userRole as any);
+  // Éditer la fiche commerciale : admin, secretaire, vendeur_fr, dealer
+  const canFiche = canEditFicheCommerciale(userRole as any);
+  // Générer le PDF : admin, vendeur_fr, dealer (PAS secrétaire)
+  const canGenFiche = canGenerateFicheVO(userRole as any);
 
   const baseDispo = useMemo(
     () => machines.filter((m) => m.statut === "disponible" || (m.statut === "restitution" && m.expertise_ok)),
@@ -469,6 +470,7 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
                 isAdmin={isAdmin}
                 canLld={canLld}
                 canFiche={canFiche}
+                canGenerateFiche={canGenFiche}
                 onEditPrice={setEditingMachine}
                 onLld={setLldMachine}
                 onEditFiche={setFicheMachine}
@@ -500,6 +502,7 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
                 isAdmin={isAdmin}
                 canLld={canLld}
                 canFiche={canFiche}
+                canGenerateFiche={canGenFiche}
                 onEditPrice={setEditingMachine}
                 onLld={setLldMachine}
                 onEditFiche={setFicheMachine}

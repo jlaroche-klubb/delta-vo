@@ -11,9 +11,11 @@ interface EnCoursCardProps {
   canEditPrepa: boolean;
   canConfigure: boolean;
   canFacturer: boolean;
+  canCancel?: boolean;
   onToggleEtape?: (machineId: string, etapeId: string) => void;
   onConfigure?: (machine: Machine) => void;
   onFacturer?: (machine: Machine) => void;
+  onCancel?: (machineId: string) => void;
 }
 
 export default function EnCoursCard({
@@ -21,9 +23,11 @@ export default function EnCoursCard({
   canEditPrepa,
   canConfigure,
   canFacturer,
+  canCancel = false,
   onToggleEtape,
   onConfigure,
   onFacturer,
+  onCancel,
 }: EnCoursCardProps) {
   const isLld = machine.type_sortie === "lld";
   const isConfigured = !!machine.type_prepa;

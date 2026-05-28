@@ -426,7 +426,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     } else {
       setMockMachines((prev) =>
         prev.map((m) =>
-          m.id === machineId ? { ...m, ...updates } as Machine : m
+          m.id === machineId ? ({ ...m, ...updates } as unknown as Machine) : m
         )
       );
     }

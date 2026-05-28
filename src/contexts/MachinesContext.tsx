@@ -510,34 +510,54 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  function marquerFacturee(
+  async function marquerFacturee(
     machineId: string,
     numeroFacture: string,
     dateFacturation: string
   ) {
-    setMockMachines((prev) =>
-      prev.map((m) =>
-        m.id === machineId
-          ? {
-              ...m,
-              numero_facture: numeroFacture,
-              date_facturation: dateFacturation,
-              statut: "cloturee",
-              updatedAt: new Date().toISOString(),
-            }
-          : m
-      )
-    );
+    const updates = {
+      numero_facture: numeroFacture,
+      date_facturation: dateFacturation,
+      statut: "cloturee" as const,
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (isFirebaseMachine(machineId)) {
+      try {
+        await updateDoc(doc(db, "machines_vo", machineId), updates);
+        console.log(`✅ Machine ${machineId} facturée → clôturée dans Firebase`);
+      } catch (err) {
+        console.error("❌ Erreur marquerFacturee Firebase:", err);
+      }
+    } else {
+      setMockMachines((prev) =>
+        prev.map((m) =>
+          m.id === machineId ? { ...m, ...updates } : m
+        )
+      );
+    }
   }
 
-  function marquerPayee(machineId: string, dateReglement: string) {
-    setMockMachines((prev) =>
-      prev.map((m) =>
-        m.id === machineId
-          ? { ...m, date_reglement: dateReglement, updatedAt: new Date().toISOString() }
-          : m
-      )
-    );
+  async function marquerPayee(machineId: string, dateReglement: string) {
+    const updates = {
+      date_reglement: dateReglement,
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (isFirebaseMachine(machineId)) {
+      try {
+        await updateDoc(doc(db, "machines_vo", machineId), updates);
+        console.log(`✅ Machine ${machineId} marquée payée dans Firebase`);
+      } catch (err) {
+        console.error("❌ Erreur marquerPayee Firebase:", err);
+      }
+    } else {
+      setMockMachines((prev) =>
+        prev.map((m) =>
+          m.id === machineId ? { ...m, ...updates } : m
+        )
+      );
+    }
   }
 
   async function updateFicheCommerciale(machineId: string, fiche: FicheCommerciale) {

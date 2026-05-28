@@ -168,6 +168,23 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             // ✅ Conserver le rapport d'expertise
             rapport_expertise: data.rapport_expertise || data.dossier_nacelle_expert?.rapport_expertise,
             agent_expert: data.agent_expert || data.dossier_nacelle_expert?.agent_retour,
+            
+            // ✅ Champs de mise en cours / préparation (vente ou LLD)
+            type_sortie: data.type_sortie || undefined,
+            type_prepa: data.type_prepa || undefined,
+            acheteur: data.acheteur || undefined,
+            commercial_vendeur: data.commercial_vendeur || undefined,
+            date_vente: data.date_vente || undefined,
+            date_livraison_prevue: data.date_livraison_prevue || undefined,
+            date_mise_en_cours: data.date_mise_en_cours || undefined,
+            etapes_prepa: data.etapes_prepa || undefined,
+            client_lld: data.client_lld || undefined,
+            date_mise_dispo_lld: data.date_mise_dispo_lld || undefined,
+            
+            // ✅ Champs de facturation
+            numero_facture: data.numero_facture || undefined,
+            date_facturation: data.date_facturation || undefined,
+            date_reglement: data.date_reglement || undefined,
               
             createdAt: data.date_ajout?.toDate?.()?.toISOString?.() || new Date().toISOString(),
             updatedAt: data.date_modification?.toDate?.()?.toISOString?.(),

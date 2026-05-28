@@ -89,13 +89,15 @@ export default function EnCoursCard({
         </div>
       </div>
 
-      {!isConfigured && !isLld && (
+      {!isConfigured && (
         <div className="unconfigured-banner">
           <div className="unconfigured-icon">⚙️</div>
           <div className="unconfigured-text">
             <strong>Cette machine attend d'être configurée</strong>
             <div className="unconfigured-sub">
-              L'ADV doit choisir prépa normale / en l'état + renseigner l'acheteur et le commercial
+              {isLld 
+                ? "L'ADV doit choisir le type de préparation pour cette mise en location"
+                : "L'ADV doit choisir prépa normale / en l'état + renseigner l'acheteur et le commercial"}
             </div>
           </div>
           {canConfigure && onConfigure && (

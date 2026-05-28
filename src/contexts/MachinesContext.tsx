@@ -314,17 +314,19 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
   }
 
   async function basculerEnLld(machineId: string, clientLld: string, dateMiseDispo: string) {
-    // ✅ Bug 2 corrigé : La LLD passe directement en "en_cours" pour préparation
-    const updates = {
+    // ✅ La LLD passe en "en_cours" mais NON CONFIGURÉE
+    // → L'ADV/Admin devra choisir le type de prépa (normale / en l'état)
+    const updates: any = {
       statut: "en_cours" as const,
       type_sortie: "lld" as const,
-      type_prepa: "normale" as const,  // Prépa normale par défaut pour LLD
+      // PAS de type_prepa : la machine sera "non configurée" pour que l'ADV choisisse
+      type_prepa: null,
       client_lld: clientLld,
-      acheteur: clientLld,  // Le client LLD est l'acheteur dans le workflow
+      acheteur: clientLld,
       date_mise_dispo_lld: dateMiseDispo,
       date_livraison_prevue: dateMiseDispo,
       date_mise_en_cours: new Date().toISOString(),
-      etapes_prepa: creerEtapesPrepa("normale"),
+      etapes_prepa: null,
       updatedAt: new Date().toISOString(),
     };
     

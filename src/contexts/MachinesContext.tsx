@@ -44,6 +44,7 @@ interface MachinesContextType {
     dateFacturation: string
   ) => void;
   marquerPayee: (machineId: string, dateReglement: string) => void;
+  annulerCloture: (machineId: string) => void;  // ✅ Revenir en arrière (admin)
   updateFicheCommerciale: (machineId: string, fiche: FicheCommerciale) => void;
   attribuerNumeroFiche: (machineId: string, numero: string) => void;
   syncExpertiseFromNacelleExpert: (expertiseData: {
@@ -560,6 +561,33 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function annulerCloture(machineId: string) {
+    // ✅ Revenir en arrière : la machine clôturée repasse en "en_cours"
+    // On efface la facture et le règlement
+    const updates: any = {
+      statut: "en_cours" as const,
+      numero_facture: null,
+      date_facturation: null,
+      date_reglement: null,
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (isFirebaseMachine(machineId)) {
+      try {
+        await updateDoc(doc(db, "machines_vo", machineId), updates);
+        console.log(`✅ Clôture annulée pour ${machineId} → retour en cours`);
+      } catch (err) {
+        console.error("❌ Erreur annulerCloture Firebase:", err);
+      }
+    } else {
+      setMockMachines((prev) =>
+        prev.map((m) =>
+          m.id === machineId ? ({ ...m, ...updates } as unknown as Machine) : m
+        )
+      );
+    }
+  }
+
   async function updateFicheCommerciale(machineId: string, fiche: FicheCommerciale) {
     if (isFirebaseMachine(machineId)) {
       try {
@@ -716,6 +744,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       cancelEnCours,
       marquerFacturee,
       marquerPayee,
+      annulerCloture,
       updateFicheCommerciale,
       attribuerNumeroFiche,
       syncExpertiseFromNacelleExpert,

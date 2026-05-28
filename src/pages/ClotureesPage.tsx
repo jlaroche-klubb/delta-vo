@@ -30,7 +30,7 @@ export default function ClotureesPage({ userRole, userName }: ClotureesPageProps
   // 🆕 Toggle "Voir archivées"
   const [showArchived, setShowArchived] = useState(false);
 
-  const { machines, marquerPayee } = useMachinesFiltered(showArchived);
+  const { machines, marquerPayee, annulerCloture } = useMachinesFiltered(showArchived);
 
   // Pour le compteur des archivées
   const { machines: allMachinesUnfiltered } = useMachinesFiltered(true);
@@ -182,6 +182,15 @@ export default function ClotureesPage({ userRole, userName }: ClotureesPageProps
 
   function handleMarkPaid(machineId: string, dateReglement: string) {
     marquerPayee(machineId, dateReglement);
+  }
+
+  function handleAnnulerCloture(machine: Machine) {
+    if (window.confirm(
+      `⚠️ Annuler la clôture de ${machine.immat} ?\n\n` +
+      `La machine repassera en "En cours de préparation" et la facture/règlement seront effacés.`
+    )) {
+      annulerCloture(machine.id);
+    }
   }
 
   function clickUrgenceImpayes() {
@@ -394,7 +403,9 @@ export default function ClotureesPage({ userRole, userName }: ClotureesPageProps
                   key={m.id}
                   machine={m}
                   canEdit={canEdit}
+                  isAdmin={isAdmin}
                   onMarkPaid={setMarkingPaid}
+                  onAnnulerCloture={handleAnnulerCloture}
                 />
               ))}
             </tbody>
@@ -424,11 +435,15 @@ export default function ClotureesPage({ userRole, userName }: ClotureesPageProps
 function ClotureeRow({
   machine,
   canEdit,
+  isAdmin,
   onMarkPaid,
+  onAnnulerCloture,
 }: {
   machine: Machine;
   canEdit: boolean;
+  isAdmin: boolean;
   onMarkPaid: (m: Machine) => void;
+  onAnnulerCloture: (m: Machine) => void;
 }) {
   const statut = getStatutPaiement(machine);
   const jours = joursDepuisFacturation(machine.date_facturation);
@@ -462,6 +477,25 @@ function ClotureeRow({
         {statut !== "payee" && canEdit && !machine.archived && (
           <button className="btn-mark-paid" onClick={() => onMarkPaid(machine)}>
             ✓ Marquer payée
+          </button>
+        )}
+        {isAdmin && !machine.archived && (
+          <button
+            className="btn-annuler-cloture"
+            onClick={() => onAnnulerCloture(machine)}
+            title="Annuler la clôture et revenir en préparation"
+            style={{
+              background: "#dc3545",
+              color: "white",
+              border: "none",
+              padding: "6px 12px",
+              borderRadius: 4,
+              cursor: "pointer",
+              fontSize: 12,
+              marginLeft: 6,
+            }}
+          >
+            ↩️ Annuler clôture
           </button>
         )}
       </td>

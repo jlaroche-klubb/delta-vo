@@ -113,6 +113,13 @@ export interface Machine {
   archived_by?: string;
   ne_dossier_id?: string;
 
+  // ✅ Offre en cours / HubSpot
+  offre_en_cours?: boolean;        // badge "Offre en cours"
+  client_offre?: string;           // nom du client de l'offre
+  montant_offre?: number;          // montant proposé (modifiable)
+  hubspot_deal_id?: string;        // ID du Deal HubSpot (rempli en Livraison 2)
+  date_offre?: string;             // date de création de l'offre
+
   is_test?: boolean;
   createdAt: string;
   updatedAt?: string;

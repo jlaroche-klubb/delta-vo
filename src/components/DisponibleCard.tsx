@@ -16,6 +16,11 @@ interface DisponibleCardProps {
   onViewExpertise?: (machine: Machine) => void;
   canDelete?: boolean;
   onDelete?: (id: string) => void;
+  // ✅ Offre HubSpot
+  canOffre?: boolean;
+  isInPanier?: boolean;
+  onTogglePanier?: (machine: Machine) => void;
+  onAnnulerOffre?: (machine: Machine) => void;
 }
 
 export default function DisponibleCard({
@@ -34,14 +39,57 @@ export default function DisponibleCard({
   onViewExpertise,
   canDelete = false,
   onDelete,
+  canOffre = false,
+  isInPanier = false,
+  onTogglePanier,
+  onAnnulerOffre,
 }: DisponibleCardProps) {
   const age = machine.date_mise_stock ? calculAgeStock(machine.date_mise_stock) : 0;
   const ageInfo = getAgeStockColor(age, seuilRepricer);
   const hasPrice = machine.prix_fr !== undefined || machine.prix_dealer !== undefined;
   const ficheComplete = isFicheComplete(machine);
 
+  const offreEnCours = machine.offre_en_cours === true;
+
   return (
-    <div className={`dispo-card ${!hasPrice ? "no-price" : ""}`}>
+    <div
+      className={`dispo-card ${!hasPrice ? "no-price" : ""}`}
+      style={isInPanier ? { outline: "3px solid #1a73e8", outlineOffset: 2 } : undefined}
+    >
+      {offreEnCours && (
+        <div
+          style={{
+            background: "#e8f0fe",
+            color: "#1a73e8",
+            padding: "4px 10px",
+            borderRadius: 4,
+            fontSize: 12,
+            fontWeight: 700,
+            marginBottom: 8,
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <span>🔵 Offre en cours{machine.client_offre ? ` — ${machine.client_offre}` : ""}</span>
+          {onAnnulerOffre && (
+            <button
+              onClick={() => onAnnulerOffre(machine)}
+              title="Annuler l'offre"
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "#1a73e8",
+                cursor: "pointer",
+                fontWeight: 700,
+                fontSize: 14,
+              }}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      )}
       <div className="dispo-header">
         <div>
           <div className="dispo-immat">
@@ -100,6 +148,24 @@ export default function DisponibleCard({
                 title="Basculer cette machine en location longue durée"
               >
                 🔁 Mise en location
+              </button>
+            )}
+            {canOffre && hasPrice && onTogglePanier && (
+              <button
+                onClick={() => onTogglePanier(machine)}
+                title={isInPanier ? "Retirer de l'offre" : "Ajouter à l'offre HubSpot"}
+                style={{
+                  background: isInPanier ? "#1a73e8" : "white",
+                  color: isInPanier ? "white" : "#1a73e8",
+                  border: "1px solid #1a73e8",
+                  padding: "6px 12px",
+                  borderRadius: 4,
+                  cursor: "pointer",
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}
+              >
+                {isInPanier ? "✓ Dans l'offre" : "➕ Ajouter à l'offre"}
               </button>
             )}
             {canDelete && onDelete && (

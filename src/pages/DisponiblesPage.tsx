@@ -7,6 +7,7 @@ import {
 } from "../types/machine";
 import { useMachinesFiltered } from "../contexts/MachinesContext";
 import DisponibleCard from "../components/DisponibleCard";
+import OffreModal from "../components/OffreModal";
 import EditPriceModal from "../components/EditPriceModal";
 import ImportResultModal from "../components/ImportResultModal";
 import LldModal from "../components/LldModal";
@@ -71,6 +72,8 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
     updateFicheCommerciale,
     attribuerNumeroFiche,
     deleteMachine,
+    creerOffre,
+    annulerOffre,
   } = useMachinesFiltered(showArchived);
 
   // Pour le compteur des archivées
@@ -91,6 +94,9 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
   const [generatingMachine, setGeneratingMachine] = useState<Machine | null>(null);
   const [generatingPrix, setGeneratingPrix] = useState<"fr" | "dealer">("fr");
   const [generating, setGenerating] = useState(false);
+  // ✅ Panier offre HubSpot (vente en lot)
+  const [panier, setPanier] = useState<Machine[]>([]);
+  const [offreModalOpen, setOffreModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isAdmin = userRole === "admin";
@@ -99,6 +105,8 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
   const canFiche = canEditFicheCommerciale(userRole as any);
   // Générer le PDF : admin, vendeur_fr, dealer (PAS secrétaire)
   const canGenFiche = canGenerateFicheVO(userRole as any);
+  // ✅ Créer une offre HubSpot : admin, vendeur_fr, dealer
+  const canOffre = ["admin", "vendeur_fr", "dealer"].includes(userRole);
 
   const baseDispo = useMemo(
     () => machines.filter((m) => m.statut === "disponible" || (m.statut === "restitution" && m.expertise_ok)),
@@ -195,6 +203,32 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
   }
 
   // ====== GÉNÉRATION FICHE VO ======
+  function togglePanier(machine: Machine) {
+    setPanier((prev) => {
+      const exists = prev.find((m) => m.id === machine.id);
+      if (exists) return prev.filter((m) => m.id !== machine.id);
+      return [...prev, machine];
+    });
+  }
+
+  function isInPanier(machineId: string): boolean {
+    return panier.some((m) => m.id === machineId);
+  }
+
+  async function handleCreerOffre(clientOffre: string, montants: Record<string, number>) {
+    const ids = panier.map((m) => m.id);
+    await creerOffre(ids, clientOffre, montants);
+    setPanier([]);
+    setOffreModalOpen(false);
+    alert(`✅ Offre créée pour ${clientOffre} (${ids.length} nacelle(s))`);
+  }
+
+  function handleAnnulerOffre(machine: Machine) {
+    if (window.confirm(`Annuler l'offre en cours sur ${machine.immat} ?`)) {
+      annulerOffre(machine.id);
+    }
+  }
+
   function handleGenerateFiche(machine: Machine) {
     // ✅ Récupérer le téléphone depuis le state local (synchro avec Firebase)
     if (!currentPhone) {
@@ -471,6 +505,10 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
                 canLld={canLld}
                 canFiche={canFiche}
                 canGenerateFiche={canGenFiche}
+                canOffre={canOffre}
+                isInPanier={isInPanier(m.id)}
+                onTogglePanier={togglePanier}
+                onAnnulerOffre={handleAnnulerOffre}
                 onEditPrice={setEditingMachine}
                 onLld={setLldMachine}
                 onEditFiche={setFicheMachine}
@@ -503,6 +541,10 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
                 canLld={canLld}
                 canFiche={canFiche}
                 canGenerateFiche={canGenFiche}
+                canOffre={canOffre}
+                isInPanier={isInPanier(m.id)}
+                onTogglePanier={togglePanier}
+                onAnnulerOffre={handleAnnulerOffre}
                 onEditPrice={setEditingMachine}
                 onLld={setLldMachine}
                 onEditFiche={setFicheMachine}
@@ -621,6 +663,68 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
             }}
           />
         </div>
+      )}
+
+      {/* ✅ Barre flottante du panier d'offre */}
+      {canOffre && panier.length > 0 && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 20,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: "#1a73e8",
+            color: "white",
+            padding: "12px 20px",
+            borderRadius: 50,
+            boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
+            display: "flex",
+            alignItems: "center",
+            gap: 16,
+            zIndex: 1000,
+          }}
+        >
+          <span style={{ fontWeight: 600 }}>
+            🛒 {panier.length} nacelle{panier.length > 1 ? "s" : ""} sélectionnée{panier.length > 1 ? "s" : ""}
+          </span>
+          <button
+            onClick={() => setOffreModalOpen(true)}
+            style={{
+              background: "white",
+              color: "#1a73e8",
+              border: "none",
+              padding: "8px 16px",
+              borderRadius: 50,
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            📤 Créer l'offre
+          </button>
+          <button
+            onClick={() => setPanier([])}
+            title="Vider la sélection"
+            style={{
+              background: "transparent",
+              color: "white",
+              border: "1px solid white",
+              padding: "8px 12px",
+              borderRadius: 50,
+              cursor: "pointer",
+            }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {/* ✅ Modal de création d'offre */}
+      {offreModalOpen && panier.length > 0 && (
+        <OffreModal
+          machines={panier}
+          onClose={() => setOffreModalOpen(false)}
+          onConfirm={handleCreerOffre}
+        />
       )}
     </div>
   );

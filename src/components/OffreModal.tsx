@@ -35,20 +35,74 @@ export default function OffreModal({ machines, onClose, onConfirm }: OffreModalP
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div
+      className="modal-overlay"
+      onClick={onClose}
+      style={{
+        position: "fixed",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: "rgba(0, 0, 0, 0.6)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 2000,
+        padding: 20,
+      }}
+    >
       <div
         className="modal-content"
         onClick={(e) => e.stopPropagation()}
-        style={{ maxWidth: 600, width: "90%" }}
+        style={{
+          maxWidth: 600,
+          width: "90%",
+          maxHeight: "90vh",
+          background: "white",
+          borderRadius: 8,
+          boxShadow: "0 10px 40px rgba(0, 0, 0, 0.3)",
+          overflow: "hidden",
+          display: "flex",
+          flexDirection: "column",
+        }}
       >
-        <div className="modal-header">
-          <h2>📤 Créer une offre HubSpot</h2>
-          <button className="modal-close" onClick={onClose}>
+        <div
+          className="modal-header"
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            padding: "16px 20px",
+            borderBottom: "1px solid #eee",
+            background: "white",
+          }}
+        >
+          <h2 style={{ margin: 0, fontSize: 18 }}>📤 Créer une offre HubSpot</h2>
+          <button
+            onClick={onClose}
+            style={{
+              background: "transparent",
+              border: "none",
+              fontSize: 20,
+              cursor: "pointer",
+              color: "#666",
+              padding: 4,
+            }}
+          >
             ✕
           </button>
         </div>
 
-        <div className="modal-body" style={{ padding: 20 }}>
+        <div
+          className="modal-body"
+          style={{
+            padding: 20,
+            overflowY: "auto",
+            flex: 1,
+            background: "white",
+          }}
+        >
           {/* Nom du client */}
           <div style={{ marginBottom: 20 }}>
             <label style={{ display: "block", fontWeight: 600, marginBottom: 6 }}>
@@ -135,7 +189,14 @@ export default function OffreModal({ machines, onClose, onConfirm }: OffreModalP
 
         <div
           className="modal-footer"
-          style={{ display: "flex", justifyContent: "flex-end", gap: 10, padding: 16 }}
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            gap: 10,
+            padding: 16,
+            borderTop: "1px solid #eee",
+            background: "#fafafa",
+          }}
         >
           <button
             onClick={onClose}

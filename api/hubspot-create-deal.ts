@@ -84,9 +84,9 @@ export default async function handler(req: any, res: any) {
           properties: {
             dealname: dealName,
             amount: String(amount),
-            description: `Offre VO Delta VO\n\nNacelles :\n${description}`,
-            // Propriété custom pour stocker les immatriculations (à créer côté HubSpot)
-            immatriculation_nacelle: immats,
+            // Immatriculations dans la description (en attendant la propriété custom)
+            description: `Offre VO Delta VO\n\nImmatriculations : ${immats}\n\nNacelles :\n${description}`,
+            // TODO : ajouter immatriculation_nacelle quand la propriété custom HubSpot sera créée
           },
         }),
       }

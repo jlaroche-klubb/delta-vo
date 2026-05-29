@@ -60,7 +60,7 @@ interface MachinesContextType {
     date_expertise: string;
   }) => void;
   deleteMachine: (machineId: string) => void;
-  creerOffre: (machineIds: string[], clientOffre: string, montants: Record<string, number>) => Promise<void>;
+  creerOffre: (machineIds: string[], clientOffre: string, montants: Record<string, number>, hubspotDealId?: string) => Promise<void>;
   annulerOffre: (machineId: string) => void;
 }
 
@@ -742,7 +742,8 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
   async function creerOffre(
     machineIds: string[],
     clientOffre: string,
-    montants: Record<string, number>
+    montants: Record<string, number>,
+    hubspotDealId?: string
   ) {
     const now = new Date().toISOString();
 
@@ -754,6 +755,9 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
         date_offre: now,
         updatedAt: now,
       };
+      if (hubspotDealId) {
+        updates.hubspot_deal_id = hubspotDealId;
+      }
 
       if (isFirebaseMachine(machineId)) {
         try {

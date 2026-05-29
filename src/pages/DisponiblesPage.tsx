@@ -8,6 +8,7 @@ import {
 import { useMachinesFiltered } from "../contexts/MachinesContext";
 import DisponibleCard from "../components/DisponibleCard";
 import OffreModal from "../components/OffreModal";
+import { createHubspotDeal } from "../services/hubspotService";
 import EditPriceModal from "../components/EditPriceModal";
 import ImportResultModal from "../components/ImportResultModal";
 import LldModal from "../components/LldModal";
@@ -215,12 +216,54 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
     return panier.some((m) => m.id === machineId);
   }
 
-  async function handleCreerOffre(clientOffre: string, montants: Record<string, number>) {
+  async function handleCreerOffre(
+    clientOffre: string,
+    montants: Record<string, number>
+  ) {
     const ids = panier.map((m) => m.id);
-    await creerOffre(ids, clientOffre, montants);
+
+    // Préparer les nacelles pour HubSpot
+    const nacelles = panier.map((m) => ({
+      immat: m.immat,
+      modele: m.type_nacelle || m.modele_porteur || "",
+      montant: montants[m.id] ?? 0,
+    }));
+
+    // 1. Tenter la création du Deal HubSpot
+    let hubspotDealId: string | undefined;
+    try {
+      const result = await createHubspotDeal(clientOffre, nacelles);
+      hubspotDealId = result.dealId;
+      console.log(`✅ Deal HubSpot créé : ${result.dealName} (id: ${result.dealId})`);
+    } catch (err: any) {
+      console.error("❌ Erreur HubSpot:", err);
+      const confirmContinue = window.confirm(
+        `⚠️ La création du Deal HubSpot a échoué :\n${err.message}\n\n` +
+        `Voulez-vous quand même marquer les nacelles comme "Offre en cours" dans Delta VO ?\n` +
+        `(Le Deal HubSpot devra être créé manuellement)`
+      );
+      if (!confirmContinue) {
+        return;
+      }
+    }
+
+    // 2. Marquer les nacelles "Offre en cours" dans Firebase (avec ou sans hubspot_deal_id)
+    await creerOffre(ids, clientOffre, montants, hubspotDealId);
+
     setPanier([]);
     setOffreModalOpen(false);
-    alert(`✅ Offre créée pour ${clientOffre} (${ids.length} nacelle(s))`);
+
+    if (hubspotDealId) {
+      alert(
+        `✅ Offre créée pour ${clientOffre} (${ids.length} nacelle(s))\n` +
+        `Deal HubSpot : ${hubspotDealId}`
+      );
+    } else {
+      alert(
+        `⚠️ Offre créée localement pour ${clientOffre} (${ids.length} nacelle(s))\n` +
+        `Le Deal HubSpot n'a pas pu être créé.`
+      );
+    }
   }
 
   function handleAnnulerOffre(machine: Machine) {

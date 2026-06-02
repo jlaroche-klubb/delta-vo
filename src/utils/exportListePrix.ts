@@ -35,6 +35,7 @@ export function exportListePrix(machines: Machine[], userRole: UserRole) {
       "Mise en circulation": m.annee_circulation || "",
       "Heures nacelle": m.heures_nacelle ?? "",
       "Km porteur": m.km_porteur ?? "",
+      "Montant expertise VO (€)": m.rapport_expertise?.total_retenue_ht ?? "",
     };
 
     // Ajouter les prix selon les permissions
@@ -64,6 +65,7 @@ export function exportListePrix(machines: Machine[], userRole: UserRole) {
     { wch: 15 }, // Mise en circulation
     { wch: 12 }, // Heures
     { wch: 12 }, // Km
+    { wch: 20 }, // Montant expertise VO
   ];
 
   if (showPrixFR) colWidths.push({ wch: 15 }); // Prix FR

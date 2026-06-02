@@ -28,6 +28,7 @@ export function exportStatsToExcel({ machines, periodeLabel }: ExportStatsOption
     "Acheteur": m.acheteur || "",
     "Commercial": m.commercial_vendeur || "",
     "Marché": m.marche === "dealer" ? "Dealer" : "France",
+    "Montant expertise VO (€)": m.rapport_expertise?.total_retenue_ht ?? "",
     "Prix de vente (€)": m.prix_vente_final || 0,
     "Date vente": m.date_vente || "",
     "Date facturation": m.date_facturation || "",
@@ -39,10 +40,10 @@ export function exportStatsToExcel({ machines, periodeLabel }: ExportStatsOption
   const ws1 = XLSX.utils.json_to_sheet(rows);
   ws1["!cols"] = [
     { wch: 14 },{ wch: 12 },{ wch: 18 },{ wch: 24 },{ wch: 20 },
-    { wch: 10 },{ wch: 16 },{ wch: 12 },{ wch: 14 },{ wch: 14 },
-    { wch: 14 },{ wch: 14 },
+    { wch: 10 },{ wch: 20 },{ wch: 16 },{ wch: 12 },{ wch: 14 },
+    { wch: 14 },{ wch: 14 },{ wch: 14 },
   ];
-  styleHeader(ws1, 12);
+  styleHeader(ws1, 13);
   XLSX.utils.book_append_sheet(wb, ws1, "Détail ventes");
 
   // ════════ ONGLET 2 : SYNTHÈSE PAR COMMERCIAL ════════

@@ -20,9 +20,27 @@ export default function NacelleExpertModal({ machine, onClose }: NacelleExpertMo
   const d = machine.dossier_nacelle_expert;
   if (!d) return null;
 
-  const degats = d.degats || [];
-  const photosDepart = machine.photos_ne_depart || d.photos_depart || [];
-  const photosRetour = machine.photos_ne_retour || d.photos_retour || [];
+  // Les données Nacelle-Expert ne sont pas toujours des tableaux (parfois objets/undefined).
+  const asArray = (v: any): any[] => {
+    if (Array.isArray(v)) return v;
+    if (v && typeof v === "object") return Object.values(v);
+    return [];
+  };
+  const asText = (v: any): string => {
+    if (v == null) return "";
+    if (typeof v === "string") return v;
+    if (typeof v === "object") return v.description || v.label || v.libelle || v.zone || JSON.stringify(v);
+    return String(v);
+  };
+  const asUrl = (v: any): string => {
+    if (typeof v === "string") return v;
+    if (v && typeof v === "object") return v.url || v.src || v.downloadURL || "";
+    return "";
+  };
+
+  const degats = asArray(d.degats).map(asText).filter(Boolean);
+  const photosDepart = asArray(machine.photos_ne_depart ?? d.photos_depart).map(asUrl).filter(Boolean);
+  const photosRetour = asArray(machine.photos_ne_retour ?? d.photos_retour).map(asUrl).filter(Boolean);
 
   return (
     <div

@@ -75,6 +75,7 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
     basculerEnLld,
     updateFicheCommerciale,
     updatePhotosSupplementaires,
+    updateShareToken,
     attribuerNumeroFiche,
     deleteMachine,
     creerOffre,
@@ -698,6 +699,7 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
           userName={userName}
           onClose={() => setPhotosMachine(null)}
           onSave={handleSavePhotos}
+          onShareTokenChange={updateShareToken}
         />
       )}
 

@@ -71,6 +71,7 @@ interface MachinesContextType {
   annulerCloture: (machineId: string) => void;  // ✅ Revenir en arrière (admin)
   updateFicheCommerciale: (machineId: string, fiche: FicheCommerciale) => void;
   updatePhotosSupplementaires: (machineId: string, photos: PhotoSupplementaire[]) => void;
+  updateShareToken: (machineId: string, token: string | null) => void;
   attribuerNumeroFiche: (machineId: string, numero: string) => void;
   syncExpertiseFromNacelleExpert: (expertiseData: {
     immat: string;
@@ -182,6 +183,9 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             // et non un tableau : on l'aplatit pour récupérer toutes les URLs.
             photos_ne_depart: flattenNePhotos(data.dossier_nacelle_expert?.photos_depart),
             photos_ne_retour: flattenNePhotos(data.dossier_nacelle_expert?.photos_retour),
+
+            // ✅ Jeton du lien de partage galerie (si un lien actif existe)
+            share_token: data.share_token || undefined,
 
             // ✅ Indicateurs depuis Firebase
             recuperation_ok: data.recuperation_ok ?? true,
@@ -681,6 +685,27 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function updateShareToken(machineId: string, token: string | null) {
+    if (isFirebaseMachine(machineId)) {
+      try {
+        await updateDoc(doc(db, "machines_vo", machineId), {
+          share_token: token || "",
+          updatedAt: new Date().toISOString(),
+        });
+      } catch (err) {
+        console.error("❌ Erreur Firebase share_token:", err);
+      }
+    } else {
+      setMockMachines((prev) =>
+        prev.map((m) =>
+          m.id === machineId
+            ? { ...m, share_token: token || undefined, updatedAt: new Date().toISOString() }
+            : m
+        )
+      );
+    }
+  }
+
   async function attribuerNumeroFiche(machineId: string, numero: string) {
     const machine = machines.find(m => m.id === machineId);
     if (!machine) return;
@@ -877,6 +902,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       annulerCloture,
       updateFicheCommerciale,
       updatePhotosSupplementaires,
+      updateShareToken,
       attribuerNumeroFiche,
       syncExpertiseFromNacelleExpert,
       deleteMachine,

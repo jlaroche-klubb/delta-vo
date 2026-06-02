@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider, useAuth } from "./AuthContext";
 import { MachinesProvider } from "./contexts/MachinesContext";
 import LoginPage from "./LoginPage";
+import GaleriePage from "./pages/GaleriePage";
 import RestitutionsPage from "./pages/RestitutionsPage";
 import DisponiblesPage from "./pages/DisponiblesPage";
 import EnCoursPage from "./pages/EnCoursPage";
@@ -191,10 +193,24 @@ function AppContent() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <MachinesProvider>
-        <AppContent />
-      </MachinesProvider>
-    </AuthProvider>
+    <BrowserRouter>
+      <Routes>
+        {/* Page PUBLIQUE : galerie partagée au client. Aucune authentification,
+            rendue hors AuthProvider/MachinesProvider (pas de sync, pas de login). */}
+        <Route path="/galerie/:token" element={<GaleriePage />} />
+
+        {/* Toute le reste de l'app interne, avec authentification + contextes. */}
+        <Route
+          path="*"
+          element={
+            <AuthProvider>
+              <MachinesProvider>
+                <AppContent />
+              </MachinesProvider>
+            </AuthProvider>
+          }
+        />
+      </Routes>
+    </BrowserRouter>
   );
 }

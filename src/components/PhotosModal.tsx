@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState } from "react";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { storage } from "../firebase";
+import { doc, setDoc, updateDoc } from "firebase/firestore";
+import { storage, db } from "../firebase";
 import { Machine, PhotoSupplementaire } from "../types/machine";
 
 interface PhotosModalProps {
@@ -8,6 +9,7 @@ interface PhotosModalProps {
   userName: string;
   onClose: () => void;
   onSave: (machineId: string, photos: PhotoSupplementaire[]) => void;
+  onShareTokenChange: (machineId: string, token: string | null) => void;
 }
 
 // Les 4 vues officielles de la fiche VO (verrouillées, jamais modifiables ici)
@@ -23,6 +25,7 @@ export default function PhotosModal({
   userName,
   onClose,
   onSave,
+  onShareTokenChange,
 }: PhotosModalProps) {
   const [photos, setPhotos] = useState<PhotoSupplementaire[]>(
     machine.photos_supplementaires ? [...machine.photos_supplementaires] : []
@@ -30,6 +33,12 @@ export default function PhotosModal({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Partage client ──
+  const [shareToken, setShareToken] = useState<string | null>(machine.share_token || null);
+  const [shareBusy, setShareBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const shareUrl = shareToken ? `${window.location.origin}/galerie/${shareToken}` : "";
 
   const officielles = machine.photos_commerciales || {};
 
@@ -106,6 +115,91 @@ export default function PhotosModal({
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  // Liste des photos partagées = 4 officielles + supplémentaires (dédupliquées, ordre conservé)
+  function buildSharePhotos(): string[] {
+    const officiellesUrlsArr = Object.values(officielles).filter(Boolean) as string[];
+    const suppUrls = photos.map((p) => p.url);
+    const seen = new Set<string>();
+    return [...officiellesUrlsArr, ...suppUrls].filter((u) => {
+      if (!u || seen.has(u)) return false;
+      seen.add(u);
+      return true;
+    });
+  }
+
+  function genToken(): string {
+    const raw =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+    return raw.replace(/-/g, "");
+  }
+
+  async function generateOrUpdateShare() {
+    const sharePhotos = buildSharePhotos();
+    if (sharePhotos.length === 0) {
+      setError("Aucune photo à partager.");
+      return;
+    }
+    setShareBusy(true);
+    setError(null);
+    try {
+      // On enregistre d'abord la sélection pour que machine et lien restent cohérents
+      onSave(machine.id, photos);
+
+      const token = shareToken || genToken();
+      await setDoc(doc(db, "shares", token), {
+        immat: machine.immat,
+        label: `${machine.type_nacelle || ""} ${machine.modele_porteur || ""}`.trim(),
+        photos: sharePhotos,
+        created_by: userName,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        revoked: false,
+        expires_at: null,
+      });
+
+      if (!shareToken) {
+        onShareTokenChange(machine.id, token);
+        setShareToken(token);
+      }
+    } catch (e) {
+      console.error("❌ Erreur création lien de partage:", e);
+      setError("Impossible de créer le lien. Réessaie.");
+    } finally {
+      setShareBusy(false);
+    }
+  }
+
+  async function revokeShare() {
+    if (!shareToken) return;
+    setShareBusy(true);
+    setError(null);
+    try {
+      await updateDoc(doc(db, "shares", shareToken), {
+        revoked: true,
+        updated_at: new Date().toISOString(),
+      });
+      onShareTokenChange(machine.id, null);
+      setShareToken(null);
+    } catch (e) {
+      console.error("❌ Erreur révocation lien:", e);
+      setError("Impossible de révoquer le lien. Réessaie.");
+    } finally {
+      setShareBusy(false);
+    }
+  }
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback : sélection manuelle
     }
   }
 
@@ -240,6 +334,55 @@ export default function PhotosModal({
               </div>
             </>
           )}
+
+          {/* ─── Partage client ─── */}
+          <h3 style={sectionTitle}>
+            🔗 Partage client <span style={lockNote}>(lien vers une galerie en ligne)</span>
+          </h3>
+          {!shareToken ? (
+            <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+              <button className="btn-secondary" onClick={generateOrUpdateShare} disabled={shareBusy}>
+                {shareBusy ? "⏳ Création..." : "🔗 Générer un lien de partage"}
+              </button>
+              <span style={{ fontSize: 12, color: "#6a7488" }}>
+                Crée une page web (4 photos officielles + sélection) à envoyer au client.
+              </span>
+            </div>
+          ) : (
+            <div style={shareBox}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <input readOnly value={shareUrl} onFocus={(e) => e.currentTarget.select()} style={shareInput} />
+                <button className="btn-secondary" onClick={copyLink} style={{ whiteSpace: "nowrap" }}>
+                  {copied ? "✓ Copié" : "📋 Copier"}
+                </button>
+              </div>
+              <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+                <button className="btn-secondary" onClick={generateOrUpdateShare} disabled={shareBusy}>
+                  {shareBusy ? "⏳..." : "🔄 Mettre à jour les photos du lien"}
+                </button>
+                <button
+                  onClick={revokeShare}
+                  disabled={shareBusy}
+                  style={{
+                    background: "#fff",
+                    color: "#c8102e",
+                    border: "1px solid #c8102e",
+                    borderRadius: 4,
+                    padding: "6px 14px",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  🗑 Révoquer le lien
+                </button>
+              </div>
+              <div style={{ fontSize: 11, color: "#6a7488", marginTop: 8 }}>
+                Lien actif. Après avoir modifié la sélection de photos, clique sur « Mettre à jour »
+                pour rafraîchir la galerie. « Révoquer » désactive définitivement le lien.
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="modal-footer">
@@ -328,4 +471,21 @@ const emptyBox: React.CSSProperties = {
   padding: "14px 16px",
   fontSize: 13,
   color: "#6a7488",
+};
+const shareBox: React.CSSProperties = {
+  background: "#f8f9fb",
+  border: "1px solid #e5e8ec",
+  borderRadius: 8,
+  padding: "14px 16px",
+};
+const shareInput: React.CSSProperties = {
+  flex: 1,
+  minWidth: 180,
+  fontSize: 13,
+  padding: "8px 10px",
+  border: "1px solid #cfd6e0",
+  borderRadius: 4,
+  background: "#fff",
+  color: "#1a2030",
+  fontFamily: "monospace",
 };

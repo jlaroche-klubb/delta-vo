@@ -100,6 +100,10 @@ export interface Machine {
   photos_ne_depart?: string[];
   photos_ne_retour?: string[];
 
+  // Jeton du lien de partage galerie client actif (collection Firestore "shares").
+  // Présent = un lien actif existe ; absent/undefined = aucun lien.
+  share_token?: string;
+
   date_mise_stock?: string;
   prix_fr?: number;
   prix_dealer?: number;

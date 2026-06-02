@@ -71,10 +71,35 @@ export default function DisponibleCard({
             alignItems: "center",
           }}
         >
-          <span>🔵 Offre en cours{machine.client_offre ? ` — ${machine.client_offre}` : ""}</span>
+          {/* Partie cliquable : si on a un deal HubSpot, ouvre dans un nouvel onglet */}
+          {machine.hubspot_deal_id ? (
+            <a
+              href={`https://app.hubspot.com/contacts/144239378/deal/${machine.hubspot_deal_id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Ouvrir le deal dans HubSpot"
+              style={{
+                color: "#1a73e8",
+                textDecoration: "none",
+                flex: 1,
+                cursor: "pointer",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
+              onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
+            >
+              🔵 Offre en cours{machine.client_offre ? ` — ${machine.client_offre}` : ""} 🔗
+            </a>
+          ) : (
+            <span style={{ flex: 1 }}>
+              🔵 Offre en cours{machine.client_offre ? ` — ${machine.client_offre}` : ""}
+            </span>
+          )}
           {onAnnulerOffre && (
             <button
-              onClick={() => onAnnulerOffre(machine)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onAnnulerOffre(machine);
+              }}
               title="Annuler l'offre"
               style={{
                 background: "transparent",
@@ -83,6 +108,7 @@ export default function DisponibleCard({
                 cursor: "pointer",
                 fontWeight: 700,
                 fontSize: 14,
+                marginLeft: 8,
               }}
             >
               ✕

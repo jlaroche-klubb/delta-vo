@@ -254,10 +254,10 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
     setOffreModalOpen(false);
 
     if (hubspotDealId) {
-      alert(
-        `✅ Offre créée pour ${clientOffre} (${ids.length} nacelle(s))\n` +
-        `Deal HubSpot : ${hubspotDealId}`
-      );
+      // ✅ Ouvre directement le Deal HubSpot dans un nouvel onglet
+      const dealUrl = `https://app.hubspot.com/contacts/144239378/deal/${hubspotDealId}`;
+      window.open(dealUrl, "_blank", "noopener,noreferrer");
+      console.log(`✅ Deal HubSpot ouvert : ${dealUrl}`);
     } else {
       alert(
         `⚠️ Offre créée localement pour ${clientOffre} (${ids.length} nacelle(s))\n` +

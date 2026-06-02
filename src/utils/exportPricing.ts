@@ -11,13 +11,14 @@ export function exportPricingToExcel({ machines, seuilRepricer = 60 }: ExportPri
   const disponibles = machines.filter((m) => m.statut === "disponible");
 
   // Séparer en 2 catégories
-  const aPricer = disponibles.filter(
-    (m) => m.prix_fr === undefined && m.prix_dealer === undefined
-  );
+  // ⚠️ Test souple (!m.prix_fr) pour rester cohérent avec l'affichage de la page :
+  // les prix non renseignés peuvent être null / 0 / "" (et pas seulement undefined),
+  // notamment quand ils viennent de Firestore.
+  const aPricer = disponibles.filter((m) => !m.prix_fr && !m.prix_dealer);
 
   const aRepricer = disponibles.filter(
     (m) =>
-      (m.prix_fr !== undefined || m.prix_dealer !== undefined) &&
+      (m.prix_fr || m.prix_dealer) &&
       m.date_mise_stock &&
       calculAgeStock(m.date_mise_stock) > seuilRepricer
   );

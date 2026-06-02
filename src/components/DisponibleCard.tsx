@@ -14,6 +14,8 @@ interface DisponibleCardProps {
   onEditFiche?: (machine: Machine) => void;
   onGenerateFiche?: (machine: Machine) => void;
   onViewExpertise?: (machine: Machine) => void;
+  canManagePhotos?: boolean;
+  onManagePhotos?: (machine: Machine) => void;
   canDelete?: boolean;
   onDelete?: (id: string) => void;
   // ✅ Offre HubSpot
@@ -37,6 +39,8 @@ export default function DisponibleCard({
   onEditFiche,
   onGenerateFiche,
   onViewExpertise,
+  canManagePhotos = false,
+  onManagePhotos,
   canDelete = false,
   onDelete,
   canOffre = false,
@@ -165,6 +169,18 @@ export default function DisponibleCard({
                 title="Générer la fiche commerciale en PDF"
               >
                 📄 Générer fiche VO
+              </button>
+            )}
+            {canManagePhotos && onManagePhotos && (
+              <button
+                className="btn-fiche-edit"
+                onClick={() => onManagePhotos(machine)}
+                title="Gérer les photos supplémentaires (galerie, upload, partage)"
+              >
+                📸 Photos
+                {machine.photos_supplementaires && machine.photos_supplementaires.length > 0
+                  ? ` (${machine.photos_supplementaires.length})`
+                  : ""}
               </button>
             )}
             {canLld && onLld && (

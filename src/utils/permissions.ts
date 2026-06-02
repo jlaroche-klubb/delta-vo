@@ -99,6 +99,15 @@ export function canEditFicheCommerciale(role: UserRole): boolean {
   return ["admin", "secretaire", "vendeur_fr", "dealer"].includes(role);
 }
 
+/**
+ * Gérer les photos supplémentaires d'une machine (galerie : upload + pioche
+ * dans Nacelle-Expert). N'affecte JAMAIS les 4 photos officielles de la fiche.
+ * Même périmètre que ceux qui gèrent la fiche.
+ */
+export function canManagePhotosSupplementaires(role: UserRole): boolean {
+  return ["admin", "secretaire", "vendeur_fr", "dealer"].includes(role);
+}
+
 // ==================== EN COURS DE PRÉPARATION ====================
 
 export function canViewMachinesEnPreparation(role: UserRole): boolean {

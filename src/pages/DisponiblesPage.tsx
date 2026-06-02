@@ -3,6 +3,7 @@ import {
   Machine,
   calculAgeStock,
   FicheCommerciale,
+  PhotoSupplementaire,
   getNextFicheNumber,
 } from "../types/machine";
 import { useMachinesFiltered } from "../contexts/MachinesContext";
@@ -16,6 +17,7 @@ import FicheCommercialeModal from "../components/FicheCommercialeModal";
 import PhoneSetupModal from "../components/PhoneSetupModal";
 import ChoixPrixModal from "../components/ChoixPrixModal";
 import ExpertiseModal from "../components/ExpertiseModal";
+import PhotosModal from "../components/PhotosModal";
 import FicheVoTemplate from "../components/FicheVoTemplate";
 import DisponiblesFilters, {
   DispoFilterState,
@@ -34,6 +36,7 @@ import {
   canCreateLLD,
   canGenerateFicheVO,
   canEditFicheCommerciale,
+  canManagePhotosSupplementaires,
 } from "../utils/permissions";
 import { useAuth } from "../AuthContext";
 import { doc, updateDoc } from "firebase/firestore";
@@ -71,6 +74,7 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
     updatePrice,
     basculerEnLld,
     updateFicheCommerciale,
+    updatePhotosSupplementaires,
     attribuerNumeroFiche,
     deleteMachine,
     creerOffre,
@@ -89,6 +93,7 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
   const [lldMachine, setLldMachine] = useState<Machine | null>(null);
   const [ficheMachine, setFicheMachine] = useState<Machine | null>(null);
   const [expertiseMachine, setExpertiseMachine] = useState<Machine | null>(null);
+  const [photosMachine, setPhotosMachine] = useState<Machine | null>(null);
   const [phoneSetupOpen, setPhoneSetupOpen] = useState(false);
   const [pendingGenerate, setPendingGenerate] = useState<Machine | null>(null);
   const [choixPrixMachine, setChoixPrixMachine] = useState<Machine | null>(null);
@@ -106,6 +111,8 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
   const canFiche = canEditFicheCommerciale(userRole as any);
   // Générer le PDF : admin, vendeur_fr, dealer (PAS secrétaire)
   const canGenFiche = canGenerateFicheVO(userRole as any);
+  // Gérer les photos supplémentaires : admin, secretaire, vendeur_fr, dealer
+  const canManagePhotos = canManagePhotosSupplementaires(userRole as any);
   // ✅ Créer une offre HubSpot : admin, vendeur_fr, dealer
   const canOffre = ["admin", "vendeur_fr", "dealer"].includes(userRole);
 
@@ -188,6 +195,10 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
 
   function handleSaveFiche(machineId: string, fiche: FicheCommerciale) {
     updateFicheCommerciale(machineId, fiche);
+  }
+
+  function handleSavePhotos(machineId: string, photos: PhotoSupplementaire[]) {
+    updatePhotosSupplementaires(machineId, photos);
   }
 
   function handleDeleteMachine(machineId: string) {
@@ -520,6 +531,8 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
                 isAdmin={isAdmin}
                 onEditPrice={setEditingMachine}
                 onViewExpertise={setExpertiseMachine}
+                canManagePhotos={canManagePhotos}
+                onManagePhotos={setPhotosMachine}
                 canDelete={canDeleteMachine(userRole as any)}
                 onDelete={handleDeleteMachine}
               />
@@ -557,6 +570,8 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
                 onEditFiche={setFicheMachine}
                 onGenerateFiche={handleGenerateFiche}
                 onViewExpertise={setExpertiseMachine}
+                canManagePhotos={canManagePhotos}
+                onManagePhotos={setPhotosMachine}
                 canDelete={canDeleteMachine(userRole as any)}
                 onDelete={handleDeleteMachine}
               />
@@ -593,6 +608,8 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
                 onEditFiche={setFicheMachine}
                 onGenerateFiche={handleGenerateFiche}
                 onViewExpertise={setExpertiseMachine}
+                canManagePhotos={canManagePhotos}
+                onManagePhotos={setPhotosMachine}
                 canDelete={canDeleteMachine(userRole as any)}
                 onDelete={handleDeleteMachine}
               />
@@ -672,6 +689,15 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
         <ExpertiseModal
           machine={expertiseMachine}
           onClose={() => setExpertiseMachine(null)}
+        />
+      )}
+
+      {photosMachine && (
+        <PhotosModal
+          machine={photosMachine}
+          userName={userName}
+          onClose={() => setPhotosMachine(null)}
+          onSave={handleSavePhotos}
         />
       )}
 

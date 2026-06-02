@@ -5,6 +5,7 @@ import {
   Machine,
   creerEtapesPrepa,
   FicheCommerciale,
+  PhotoSupplementaire,
 } from "../types/machine";
 import { MOCK_MACHINES } from "../data/mockMachines";
 import { MOCK_DISPONIBLES } from "../data/mockDisponibles";
@@ -46,6 +47,7 @@ interface MachinesContextType {
   marquerPayee: (machineId: string, dateReglement: string) => void;
   annulerCloture: (machineId: string) => void;  // ✅ Revenir en arrière (admin)
   updateFicheCommerciale: (machineId: string, fiche: FicheCommerciale) => void;
+  updatePhotosSupplementaires: (machineId: string, photos: PhotoSupplementaire[]) => void;
   attribuerNumeroFiche: (machineId: string, numero: string) => void;
   syncExpertiseFromNacelleExpert: (expertiseData: {
     immat: string;
@@ -636,6 +638,31 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function updatePhotosSupplementaires(
+    machineId: string,
+    photos: PhotoSupplementaire[]
+  ) {
+    if (isFirebaseMachine(machineId)) {
+      try {
+        await updateDoc(doc(db, "machines_vo", machineId), {
+          photos_supplementaires: photos,
+          updatedAt: new Date().toISOString(),
+        });
+        console.log(`✅ Photos supplémentaires mises à jour dans Firebase`);
+      } catch (err) {
+        console.error("❌ Erreur Firebase photos supplémentaires:", err);
+      }
+    } else {
+      setMockMachines((prev) =>
+        prev.map((m) =>
+          m.id === machineId
+            ? { ...m, photos_supplementaires: photos, updatedAt: new Date().toISOString() }
+            : m
+        )
+      );
+    }
+  }
+
   async function attribuerNumeroFiche(machineId: string, numero: string) {
     const machine = machines.find(m => m.id === machineId);
     if (!machine) return;
@@ -831,6 +858,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       marquerPayee,
       annulerCloture,
       updateFicheCommerciale,
+      updatePhotosSupplementaires,
       attribuerNumeroFiche,
       syncExpertiseFromNacelleExpert,
       deleteMachine,

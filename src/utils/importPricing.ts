@@ -11,7 +11,7 @@ export interface ImportSuccess {
   immat: string;
   prixFr?: number;
   prixDealer?: number;
-  source: "À pricer" | "À repricer";
+  source: string;
 }
 
 export interface ImportError {
@@ -25,6 +25,8 @@ interface ImportOptions {
   machines: Machine[];
 }
 
+const SOURCE = "Pricing PDG";
+
 export async function importPricingFromExcel({
   file,
   machines,
@@ -32,109 +34,93 @@ export async function importPricingFromExcel({
   const buffer = await file.arrayBuffer();
   const wb = XLSX.read(buffer, { type: "array" });
 
+  if (wb.SheetNames.length === 0) {
+    throw new Error("Le fichier Excel est vide.");
+  }
+
+  // On lit l'onglet "Pricing PDG" ; à défaut, le premier onglet du classeur
+  // (tolérant si l'onglet a été renommé en l'enregistrant).
+  const sheetName = wb.SheetNames.includes(SOURCE) ? SOURCE : wb.SheetNames[0];
+  const ws = wb.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json<any>(ws);
+
   const success: ImportSuccess[] = [];
   const errors: ImportError[] = [];
-  let totalRows = 0;
 
-  // Onglet "À pricer"
-  if (wb.SheetNames.includes("À pricer")) {
-    const ws = wb.Sheets["À pricer"];
-    const rows = XLSX.utils.sheet_to_json<any>(ws);
-    totalRows += rows.length;
-
-    rows.forEach((row, idx) => {
-      processRow(row, idx + 2, "À pricer", machines, success, errors, false);
-    });
+  // Vérifier que le fichier ressemble bien au modèle (colonnes de prix présentes)
+  if (rows.length > 0) {
+    const cols = Object.keys(rows[0]);
+    const aLesColonnes =
+      cols.includes("Prix France HT (€)") || cols.includes("Prix Dealer HT (€)");
+    if (!aLesColonnes) {
+      throw new Error(
+        "Le fichier ne correspond pas au modèle Pricing PDG (colonnes « Prix France HT (€) » / « Prix Dealer HT (€) » introuvables). Utilisez le fichier exporté depuis « Export Pricing PDG »."
+      );
+    }
   }
 
-  // Onglet "À repricer"
-  if (wb.SheetNames.includes("À repricer")) {
-    const ws = wb.Sheets["À repricer"];
-    const rows = XLSX.utils.sheet_to_json<any>(ws);
-    totalRows += rows.length;
+  rows.forEach((row, idx) => {
+    processRow(row, idx + 2, machines, success, errors);
+  });
 
-    rows.forEach((row, idx) => {
-      processRow(row, idx + 2, "À repricer", machines, success, errors, true);
-    });
-  }
-
-  if (wb.SheetNames.length === 0 || (!wb.SheetNames.includes("À pricer") && !wb.SheetNames.includes("À repricer"))) {
-    throw new Error(
-      "Le fichier ne contient pas les onglets attendus. Vérifiez que vous utilisez bien le modèle exporté depuis Delta VO (onglets « À pricer » et/ou « À repricer »)."
-    );
-  }
-
-  return { success, errors, totalRows };
+  return { success, errors, totalRows: rows.length };
 }
 
 function processRow(
   row: any,
   rowNum: number,
-  source: "À pricer" | "À repricer",
   machines: Machine[],
   success: ImportSuccess[],
-  errors: ImportError[],
-  isRepricer: boolean
+  errors: ImportError[]
 ) {
   const immat = String(row["Immatriculation"] || "").trim().toUpperCase();
 
   if (!immat) {
-    errors.push({
-      immat: `Ligne ${rowNum}`,
-      raison: "Immatriculation manquante",
-      source,
-    });
+    errors.push({ immat: `Ligne ${rowNum}`, raison: "Immatriculation manquante", source: SOURCE });
     return;
   }
 
-  // Trouver la machine
   const machine = machines.find((m) => m.immat.toUpperCase() === immat);
   if (!machine) {
     errors.push({
       immat,
       raison: `Immatriculation introuvable dans Delta VO (ligne ${rowNum})`,
-      source,
+      source: SOURCE,
     });
     return;
   }
 
-  // Vérifier le statut
-  if (machine.statut !== "disponible") {
+  // Même périmètre que l'export : disponible OU restitution dont l'expertise est validée
+  const perimetreOk =
+    machine.statut === "disponible" ||
+    (machine.statut === "restitution" && machine.expertise_ok);
+  if (!perimetreOk) {
     errors.push({
       immat,
       raison: `Machine au statut "${machine.statut}" — pricing non applicable`,
-      source,
+      source: SOURCE,
     });
     return;
   }
 
-  // Récupérer les prix selon l'onglet
-  const prixFrKey = isRepricer ? "Nouveau Prix FR (à remplir)" : "Prix FR (à remplir)";
-  const prixDealerKey = isRepricer
-    ? "Nouveau Prix Dealer (à remplir)"
-    : "Prix Dealer (à remplir)";
-
-  const prixFrRaw = row[prixFrKey];
-  const prixDealerRaw = row[prixDealerKey];
-
-  const prixFr = parsePrice(prixFrRaw);
-  const prixDealer = parsePrice(prixDealerRaw);
+  const prixFr = parsePrice(row["Prix France HT (€)"]);
+  const prixDealer = parsePrice(row["Prix Dealer HT (€)"]);
 
   if (prixFr === null && prixDealer === null) {
     errors.push({
       immat,
-      raison: "Aucun prix renseigné (Prix FR et Prix Dealer vides)",
-      source,
+      raison: "Aucun prix renseigné (Prix France HT et Prix Dealer HT vides)",
+      source: SOURCE,
     });
     return;
   }
 
   if (prixFr !== null && prixFr < 0) {
-    errors.push({ immat, raison: "Prix FR négatif", source });
+    errors.push({ immat, raison: "Prix France HT négatif", source: SOURCE });
     return;
   }
   if (prixDealer !== null && prixDealer < 0) {
-    errors.push({ immat, raison: "Prix Dealer négatif", source });
+    errors.push({ immat, raison: "Prix Dealer HT négatif", source: SOURCE });
     return;
   }
 
@@ -142,7 +128,7 @@ function processRow(
     immat,
     prixFr: prixFr === null ? undefined : prixFr,
     prixDealer: prixDealer === null ? undefined : prixDealer,
-    source,
+    source: SOURCE,
   });
 }
 

@@ -1,169 +1,74 @@
 import * as XLSX from "xlsx";
-import { Machine, calculAgeStock } from "../types/machine";
+import { Machine } from "../types/machine";
 
 interface ExportPricingOptions {
   machines: Machine[];
-  seuilRepricer?: number;
+  seuilRepricer?: number; // conservé pour compatibilité avec l'appelant (non utilisé)
 }
 
-export function exportPricingToExcel({ machines, seuilRepricer = 60 }: ExportPricingOptions) {
-  // Filtrer uniquement les machines disponibles
-  const disponibles = machines.filter((m) => m.statut === "disponible");
+/**
+ * Export Pricing PDG
+ * Même format que l'export Liste de prix, avec en plus :
+ *   - Montant expertise VO (repris du rapport d'expertise)
+ *   - VNC (case vide à remplir par le PDG)
+ *   - Prix Dealer HT et Prix France HT (valeur actuelle ou vide à remplir)
+ * Périmètre identique à la page Disponibles (statut "disponible"
+ * ou restitution dont l'expertise est validée).
+ */
+export function exportPricingToExcel({ machines }: ExportPricingOptions) {
+  const now = new Date();
+  const dateStr = `${now.getDate().toString().padStart(2, "0")}-${(now.getMonth() + 1)
+    .toString()
+    .padStart(2, "0")}-${now.getFullYear()}`;
 
-  // Séparer en 2 catégories
-  // ⚠️ Test souple (!m.prix_fr) pour rester cohérent avec l'affichage de la page :
-  // les prix non renseignés peuvent être null / 0 / "" (et pas seulement undefined),
-  // notamment quand ils viennent de Firestore.
-  const aPricer = disponibles.filter((m) => !m.prix_fr && !m.prix_dealer);
-
-  const aRepricer = disponibles.filter(
-    (m) =>
-      (m.prix_fr || m.prix_dealer) &&
-      m.date_mise_stock &&
-      calculAgeStock(m.date_mise_stock) > seuilRepricer
+  const disponibles = machines.filter(
+    (m) => m.statut === "disponible" || (m.statut === "restitution" && m.expertise_ok)
   );
 
-  if (aPricer.length === 0 && aRepricer.length === 0) {
-    alert("Aucune machine à pricer ou repricer pour le moment.");
+  if (disponibles.length === 0) {
+    alert("Aucune machine disponible à exporter.");
     return;
   }
 
-  // Créer le workbook
-  const wb = XLSX.utils.book_new();
-  wb.Props = {
-    Title: "Delta VO — Pricing",
-    Subject: "Tarification machines d'occasion",
-    Author: "Delta VO",
-    CreatedDate: new Date(),
-  };
-
-  // ════════ ONGLET 1 : À PRICER ════════
-  if (aPricer.length > 0) {
-    const rows1 = aPricer.map((m) => ({
-      "Immatriculation": m.immat,
-      "Type nacelle": m.type_nacelle,
-      "Modèle porteur": m.modele_porteur,
-      "Mise en circulation": m.annee_circulation,
-      "Km porteur": m.km_porteur ?? "",
+  const rows = disponibles.map((m) => {
+    const row: any = {
+      Immatriculation: m.immat || "",
+      "Type nacelle": m.type_nacelle || "",
+      "Modèle porteur": m.modele_porteur || "",
+      "Mise en circulation": m.annee_circulation || "",
       "Heures nacelle": m.heures_nacelle ?? "",
-      "Total retenue HT (info)": m.rapport_expertise?.total_retenue_ht ?? "",
-      "VNC (à remplir)": "",
-      "Prix FR (à remplir)": "",
-      "Prix Dealer (à remplir)": "",
-    }));
-
-    const ws1 = XLSX.utils.json_to_sheet(rows1);
-
-    // Largeurs de colonnes
-    ws1["!cols"] = [
-      { wch: 16 },  // Immat
-      { wch: 13 },  // Type
-      { wch: 18 },  // Modèle
-      { wch: 18 },  // Mise circulation
-      { wch: 13 },  // Km
-      { wch: 14 },  // Heures
-      { wch: 20 },  // Total retenue
-      { wch: 18 },  // VNC
-      { wch: 20 },  // Prix FR
-      { wch: 22 },  // Prix Dealer
-    ];
-
-    // Mise en forme header (bleu Delta)
-    styleHeader(ws1, 10);
-    // Mise en forme colonnes à remplir (jaune)
-    styleFillableCols(ws1, [7, 8, 9], rows1.length);
-
-    XLSX.utils.book_append_sheet(wb, ws1, "À pricer");
-  }
-
-  // ════════ ONGLET 2 : À REPRICER ════════
-  if (aRepricer.length > 0) {
-    const rows2 = aRepricer.map((m) => {
-      const age = m.date_mise_stock ? calculAgeStock(m.date_mise_stock) : 0;
-      return {
-        "Immatriculation": m.immat,
-        "Type nacelle": m.type_nacelle,
-        "Modèle porteur": m.modele_porteur,
-        "Mise en circulation": m.annee_circulation,
-        "Km porteur": m.km_porteur ?? "",
-        "Heures nacelle": m.heures_nacelle ?? "",
-        "Âge stock (jours)": age,
-        "Prix FR actuel": m.prix_fr ?? "",
-        "Prix Dealer actuel": m.prix_dealer ?? "",
-        "VNC (à remplir)": "",
-        "Nouveau Prix FR (à remplir)": "",
-        "Nouveau Prix Dealer (à remplir)": "",
-      };
-    });
-
-    const ws2 = XLSX.utils.json_to_sheet(rows2);
-
-    ws2["!cols"] = [
-      { wch: 16 },  // Immat
-      { wch: 13 },  // Type
-      { wch: 18 },  // Modèle
-      { wch: 18 },  // Mise circulation
-      { wch: 13 },  // Km
-      { wch: 14 },  // Heures
-      { wch: 16 },  // Âge stock
-      { wch: 16 },  // Prix FR actuel
-      { wch: 18 },  // Prix Dealer actuel
-      { wch: 18 },  // VNC
-      { wch: 26 },  // Nouveau Prix FR
-      { wch: 28 },  // Nouveau Prix Dealer
-    ];
-
-    styleHeader(ws2, 12);
-    styleFillableCols(ws2, [9, 10, 11], rows2.length);
-
-    XLSX.utils.book_append_sheet(wb, ws2, "À repricer");
-  }
-
-  // Nom du fichier
-  const today = new Date().toISOString().slice(0, 10);
-  const filename = `delta-vo_pricing_${today}.xlsx`;
-
-  XLSX.writeFile(wb, filename);
-}
-
-// Met en forme la ligne d'en-tête (fond bleu Delta + texte blanc gras)
-function styleHeader(ws: XLSX.WorkSheet, nbCols: number) {
-  for (let c = 0; c < nbCols; c++) {
-    const cellRef = XLSX.utils.encode_cell({ c, r: 0 });
-    if (!ws[cellRef]) continue;
-    ws[cellRef].s = {
-      font: { bold: true, color: { rgb: "FFFFFF" }, sz: 11 },
-      fill: { fgColor: { rgb: "1A2A6E" } },
-      alignment: { horizontal: "center", vertical: "center", wrapText: true },
-      border: {
-        top: { style: "thin", color: { rgb: "FFFFFF" } },
-        bottom: { style: "thin", color: { rgb: "FFFFFF" } },
-        left: { style: "thin", color: { rgb: "FFFFFF" } },
-        right: { style: "thin", color: { rgb: "FFFFFF" } },
-      },
+      "Km porteur": m.km_porteur ?? "",
+      "Montant expertise VO (€)": m.rapport_expertise?.total_retenue_ht ?? "",
+      "VNC (€)": "",
+      "Prix Dealer HT (€)": m.prix_dealer ?? "",
+      "Prix France HT (€)": m.prix_fr ?? "",
     };
-  }
-}
 
-// Met en forme les colonnes à remplir (fond jaune)
-function styleFillableCols(ws: XLSX.WorkSheet, colIndexes: number[], nbRows: number) {
-  for (let r = 1; r <= nbRows; r++) {
-    for (const c of colIndexes) {
-      const cellRef = XLSX.utils.encode_cell({ c, r });
-      if (!ws[cellRef]) {
-        // Créer la cellule vide si elle n'existe pas
-        ws[cellRef] = { t: "s", v: "" };
-      }
-      ws[cellRef].s = {
-        fill: { fgColor: { rgb: "FFF4CC" } },
-        border: {
-          top: { style: "thin", color: { rgb: "E5B800" } },
-          bottom: { style: "thin", color: { rgb: "E5B800" } },
-          left: { style: "thin", color: { rgb: "E5B800" } },
-          right: { style: "thin", color: { rgb: "E5B800" } },
-        },
-        alignment: { horizontal: "right", vertical: "center" },
-      };
+    if (m.date_mise_stock) {
+      row["Disponible depuis"] = m.date_mise_stock;
     }
-  }
+
+    return row;
+  });
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+
+  ws["!cols"] = [
+    { wch: 15 }, // Immat
+    { wch: 12 }, // Type nacelle
+    { wch: 20 }, // Modèle porteur
+    { wch: 15 }, // Mise en circulation
+    { wch: 12 }, // Heures
+    { wch: 12 }, // Km
+    { wch: 20 }, // Montant expertise VO
+    { wch: 14 }, // VNC
+    { wch: 16 }, // Prix Dealer
+    { wch: 16 }, // Prix FR
+    { wch: 15 }, // Dispo depuis
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Pricing PDG");
+
+  XLSX.writeFile(wb, `DeltaVO_PricingPDG_${dateStr}.xlsx`);
 }

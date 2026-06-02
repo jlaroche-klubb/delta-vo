@@ -213,6 +213,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             // ✅ Conserver le rapport d'expertise
             rapport_expertise: data.rapport_expertise || data.dossier_nacelle_expert?.rapport_expertise,
             agent_expert: data.agent_expert || data.dossier_nacelle_expert?.agent_retour,
+            dossier_nacelle_expert: data.dossier_nacelle_expert || undefined,
             
             // ✅ Champs de mise en cours / préparation (vente ou LLD)
             type_sortie: data.type_sortie || undefined,

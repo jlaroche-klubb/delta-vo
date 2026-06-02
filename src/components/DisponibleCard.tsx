@@ -14,6 +14,7 @@ interface DisponibleCardProps {
   onEditFiche?: (machine: Machine) => void;
   onGenerateFiche?: (machine: Machine) => void;
   onViewExpertise?: (machine: Machine) => void;
+  onViewNacelleExpert?: (machine: Machine) => void;
   canManagePhotos?: boolean;
   onManagePhotos?: (machine: Machine) => void;
   canDelete?: boolean;
@@ -39,6 +40,7 @@ export default function DisponibleCard({
   onEditFiche,
   onGenerateFiche,
   onViewExpertise,
+  onViewNacelleExpert,
   canManagePhotos = false,
   onManagePhotos,
   canDelete = false,
@@ -250,43 +252,27 @@ export default function DisponibleCard({
       </div>
 
       {/* Lien vers l'expertise réalisée dans Nacelle-Expert (sous heures/km/stock) */}
-      {machine.rapport_expertise && (
+      {machine.dossier_nacelle_expert && onViewNacelleExpert && (
         <div style={{ padding: "8px 4px 0" }}>
-          {machine.rapport_expertise.rapport_url ? (
-            <a
-              href={machine.rapport_expertise.rapport_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: "#1a2a6e", fontWeight: 600, fontSize: 13, textDecoration: "underline" }}
-            >
-              🔍 Expertise Nacelle-Expert
-              {machine.rapport_expertise.total_retenue_ht !== undefined
-                ? ` — ${machine.rapport_expertise.total_retenue_ht.toLocaleString("fr-FR")} €`
-                : ""}
-            </a>
-          ) : (
-            onViewExpertise && (
-              <button
-                type="button"
-                onClick={() => onViewExpertise(machine)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  padding: 0,
-                  color: "#1a2a6e",
-                  fontWeight: 600,
-                  fontSize: 13,
-                  textDecoration: "underline",
-                  cursor: "pointer",
-                }}
-              >
-                🔍 Expertise Nacelle-Expert
-                {machine.rapport_expertise.total_retenue_ht !== undefined
-                  ? ` — ${machine.rapport_expertise.total_retenue_ht.toLocaleString("fr-FR")} €`
-                  : ""}
-              </button>
-            )
-          )}
+          <button
+            type="button"
+            onClick={() => onViewNacelleExpert(machine)}
+            style={{
+              background: "none",
+              border: "none",
+              padding: 0,
+              color: "#1a2a6e",
+              fontWeight: 600,
+              fontSize: 13,
+              textDecoration: "underline",
+              cursor: "pointer",
+            }}
+          >
+            🔍 Expertise Nacelle-Expert
+            {machine.rapport_expertise?.total_retenue_ht !== undefined
+              ? ` — ${machine.rapport_expertise.total_retenue_ht.toLocaleString("fr-FR")} €`
+              : ""}
+          </button>
         </div>
       )}
 

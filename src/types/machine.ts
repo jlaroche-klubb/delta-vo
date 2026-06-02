@@ -58,6 +58,22 @@ export interface PhotoSupplementaire {
   ajout_par?: string;
 }
 
+export interface DossierNacelleExpert {
+  client?: string;
+  contrat?: string;
+  email?: string;
+  date_depart?: string;
+  date_retour?: string;
+  agent_depart?: string;
+  agent_retour?: string;
+  zones_depart?: any[];
+  zones_retour?: any[];
+  photos_depart?: string[];
+  photos_retour?: string[];
+  degats?: string[];
+  note_expert?: string;
+}
+
 export interface Machine {
   id: string;
   immat: string;
@@ -99,6 +115,9 @@ export interface Machine {
   // pour alimenter les photos supplémentaires (lecture seule, ne touche pas la fiche).
   photos_ne_depart?: string[];
   photos_ne_retour?: string[];
+
+  // Inspection complète remontée de Nacelle-Expert (zones, dégâts, note, photos).
+  dossier_nacelle_expert?: DossierNacelleExpert;
 
   // Jeton du lien de partage galerie client actif (collection Firestore "shares").
   // Présent = un lien actif existe ; absent/undefined = aucun lien.

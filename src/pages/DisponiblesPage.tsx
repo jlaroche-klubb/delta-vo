@@ -17,6 +17,7 @@ import FicheCommercialeModal from "../components/FicheCommercialeModal";
 import PhoneSetupModal from "../components/PhoneSetupModal";
 import ChoixPrixModal from "../components/ChoixPrixModal";
 import ExpertiseModal from "../components/ExpertiseModal";
+import NacelleExpertModal from "../components/NacelleExpertModal";
 import PhotosModal from "../components/PhotosModal";
 import FicheVoTemplate from "../components/FicheVoTemplate";
 import DisponiblesFilters, {
@@ -94,6 +95,7 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
   const [lldMachine, setLldMachine] = useState<Machine | null>(null);
   const [ficheMachine, setFicheMachine] = useState<Machine | null>(null);
   const [expertiseMachine, setExpertiseMachine] = useState<Machine | null>(null);
+  const [neMachine, setNeMachine] = useState<Machine | null>(null);
   const [photosMachine, setPhotosMachine] = useState<Machine | null>(null);
   const [phoneSetupOpen, setPhoneSetupOpen] = useState(false);
   const [pendingGenerate, setPendingGenerate] = useState<Machine | null>(null);
@@ -532,6 +534,7 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
                 isAdmin={isAdmin}
                 onEditPrice={setEditingMachine}
                 onViewExpertise={setExpertiseMachine}
+                onViewNacelleExpert={setNeMachine}
                 canManagePhotos={canManagePhotos}
                 onManagePhotos={setPhotosMachine}
                 canDelete={canDeleteMachine(userRole as any)}
@@ -571,6 +574,7 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
                 onEditFiche={setFicheMachine}
                 onGenerateFiche={handleGenerateFiche}
                 onViewExpertise={setExpertiseMachine}
+                onViewNacelleExpert={setNeMachine}
                 canManagePhotos={canManagePhotos}
                 onManagePhotos={setPhotosMachine}
                 canDelete={canDeleteMachine(userRole as any)}
@@ -609,6 +613,7 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
                 onEditFiche={setFicheMachine}
                 onGenerateFiche={handleGenerateFiche}
                 onViewExpertise={setExpertiseMachine}
+                onViewNacelleExpert={setNeMachine}
                 canManagePhotos={canManagePhotos}
                 onManagePhotos={setPhotosMachine}
                 canDelete={canDeleteMachine(userRole as any)}
@@ -683,6 +688,13 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
           machine={choixPrixMachine}
           onClose={() => setChoixPrixMachine(null)}
           onConfirm={handleChoixPrixConfirm}
+        />
+      )}
+
+      {neMachine && (
+        <NacelleExpertModal
+          machine={neMachine}
+          onClose={() => setNeMachine(null)}
         />
       )}
 

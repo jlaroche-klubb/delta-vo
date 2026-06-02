@@ -145,7 +145,24 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
               
               return undefined;
             })(),
-            
+
+            // ✅ Photos supplémentaires (optionnelles) stockées dans Delta VO
+            photos_supplementaires: Array.isArray(data.photos_supplementaires)
+              ? data.photos_supplementaires
+              : undefined,
+
+            // ✅ Pool de photos Nacelle-Expert (départ/retour) où piocher — lecture seule
+            photos_ne_depart: Array.isArray(data.dossier_nacelle_expert?.photos_depart)
+              ? data.dossier_nacelle_expert.photos_depart
+                  .map((p: any) => (typeof p === "string" ? p : p?.url))
+                  .filter(Boolean)
+              : undefined,
+            photos_ne_retour: Array.isArray(data.dossier_nacelle_expert?.photos_retour)
+              ? data.dossier_nacelle_expert.photos_retour
+                  .map((p: any) => (typeof p === "string" ? p : p?.url))
+                  .filter(Boolean)
+              : undefined,
+
             // ✅ Indicateurs depuis Firebase
             recuperation_ok: data.recuperation_ok ?? true,
             expertise_ok: data.expertise_ok ?? true,

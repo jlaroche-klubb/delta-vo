@@ -50,6 +50,14 @@ export interface FicheCommerciale {
   amenagement_interieur?: string;
 }
 
+export interface PhotoSupplementaire {
+  url: string;
+  nom?: string;
+  source: "upload" | "nacelle_expert"; // origine : upload manuel ou piochée dans Nacelle-Expert
+  ajout_at?: string;
+  ajout_par?: string;
+}
+
 export interface Machine {
   id: string;
   immat: string;
@@ -74,12 +82,23 @@ export interface Machine {
   agent_expertise?: string;
   rapport_expertise?: RapportExpertise;
 
+  // ⚠️ NE PAS TOUCHER : 4 photos 3/4 alimentées automatiquement par Nacelle-Expert,
+  // elles construisent la fiche VO (pages 1-2). Aucun écran Delta VO ne les modifie.
   photos_commerciales?: {
     av_droit?: string;
     av_gauche?: string;
     ar_droit?: string;
     ar_gauche?: string;
   };
+
+  // Photos supplémentaires OPTIONNELLES (jamais obligatoires).
+  // Alimentent la page 3 optionnelle de la fiche + la galerie/partage client.
+  photos_supplementaires?: PhotoSupplementaire[];
+
+  // Pool de photos déjà remontées de Nacelle-Expert, dans lequel on peut piocher
+  // pour alimenter les photos supplémentaires (lecture seule, ne touche pas la fiche).
+  photos_ne_depart?: string[];
+  photos_ne_retour?: string[];
 
   date_mise_stock?: string;
   prix_fr?: number;

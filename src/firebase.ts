@@ -1,6 +1,7 @@
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 
 // ========================================
 // CONFIGURATION DELTA VO (projet principal)
@@ -32,6 +33,7 @@ const firebaseConfigNacelleExpert = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+export const storage = getStorage(app); // bucket delta-vo (uploads internes : photos supp., CT, VGP, factures…)
 export const googleProvider = new GoogleAuthProvider();
 
 // ========================================

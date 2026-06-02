@@ -12,6 +12,29 @@ import { MOCK_DISPONIBLES } from "../data/mockDisponibles";
 import { MOCK_EN_COURS } from "../data/mockEnCours";
 import { MOCK_CLOTUREES } from "../data/mockCloturees";
 
+/**
+ * Aplatit le champ photos d'un dossier Nacelle-Expert.
+ * Dans Nacelle-Expert, depart.photos / retour.photos sont des OBJETS indexés par zone :
+ *   { carrosserie: [{name,url,path}], tour_complet_av_droit: [{url}], degat_xxx: [{url}], ... }
+ * On renvoie un tableau plat d'URLs. Les photos de dégâts (clés "degat_") sont exclues
+ * car ce sont des gros plans de casse, peu pertinents pour une galerie commerciale.
+ * Gère aussi le cas legacy où photos serait déjà un tableau.
+ */
+function flattenNePhotos(val: any): string[] | undefined {
+  if (!val) return undefined;
+  let urls: string[] = [];
+  if (Array.isArray(val)) {
+    urls = val.map((p: any) => (typeof p === "string" ? p : p?.url)).filter(Boolean);
+  } else if (typeof val === "object") {
+    urls = Object.entries(val)
+      .filter(([key]) => !key.startsWith("degat_"))
+      .flatMap(([, arr]) => (Array.isArray(arr) ? arr : []))
+      .map((p: any) => (typeof p === "string" ? p : p?.url))
+      .filter(Boolean);
+  }
+  return urls.length ? urls : undefined;
+}
+
 interface MachinesContextType {
   machines: Machine[];
   toggleEtapeRestitution: (
@@ -153,17 +176,12 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
               ? data.photos_supplementaires
               : undefined,
 
-            // ✅ Pool de photos Nacelle-Expert (départ/retour) où piocher — lecture seule
-            photos_ne_depart: Array.isArray(data.dossier_nacelle_expert?.photos_depart)
-              ? data.dossier_nacelle_expert.photos_depart
-                  .map((p: any) => (typeof p === "string" ? p : p?.url))
-                  .filter(Boolean)
-              : undefined,
-            photos_ne_retour: Array.isArray(data.dossier_nacelle_expert?.photos_retour)
-              ? data.dossier_nacelle_expert.photos_retour
-                  .map((p: any) => (typeof p === "string" ? p : p?.url))
-                  .filter(Boolean)
-              : undefined,
+            // ✅ Pool de photos Nacelle-Expert (départ/retour) où piocher — lecture seule.
+            // ⚠️ Dans Nacelle-Expert, .photos est un OBJET indexé par zone
+            // ({ zoneId: [{url}], tour_complet_av_droit: [{url}], degat_xxx: [{url}] })
+            // et non un tableau : on l'aplatit pour récupérer toutes les URLs.
+            photos_ne_depart: flattenNePhotos(data.dossier_nacelle_expert?.photos_depart),
+            photos_ne_retour: flattenNePhotos(data.dossier_nacelle_expert?.photos_retour),
 
             // ✅ Indicateurs depuis Firebase
             recuperation_ok: data.recuperation_ok ?? true,

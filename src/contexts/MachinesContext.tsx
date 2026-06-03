@@ -72,6 +72,7 @@ interface MachinesContextType {
   updateFicheCommerciale: (machineId: string, fiche: FicheCommerciale) => void;
   updatePhotosSupplementaires: (machineId: string, photos: PhotoSupplementaire[]) => void;
   updateShareToken: (machineId: string, token: string | null) => void;
+  updateLocalite: (machineId: string, localite: string) => void;
   attribuerNumeroFiche: (machineId: string, numero: string) => void;
   syncExpertiseFromNacelleExpert: (expertiseData: {
     immat: string;
@@ -214,6 +215,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             rapport_expertise: data.rapport_expertise || data.dossier_nacelle_expert?.rapport_expertise,
             agent_expert: data.agent_expert || data.dossier_nacelle_expert?.agent_retour,
             dossier_nacelle_expert: data.dossier_nacelle_expert || undefined,
+            localite: data.localite || "",
             
             // ✅ Champs de mise en cours / préparation (vente ou LLD)
             type_sortie: data.type_sortie || undefined,
@@ -707,6 +709,27 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function updateLocalite(machineId: string, localite: string) {
+    if (isFirebaseMachine(machineId)) {
+      try {
+        await updateDoc(doc(db, "machines_vo", machineId), {
+          localite: localite || "",
+          updatedAt: new Date().toISOString(),
+        });
+      } catch (err) {
+        console.error("❌ Erreur Firebase localite:", err);
+      }
+    } else {
+      setMockMachines((prev) =>
+        prev.map((m) =>
+          m.id === machineId
+            ? { ...m, localite, updatedAt: new Date().toISOString() }
+            : m
+        )
+      );
+    }
+  }
+
   async function attribuerNumeroFiche(machineId: string, numero: string) {
     const machine = machines.find(m => m.id === machineId);
     if (!machine) return;
@@ -904,6 +927,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       updateFicheCommerciale,
       updatePhotosSupplementaires,
       updateShareToken,
+      updateLocalite,
       attribuerNumeroFiche,
       syncExpertiseFromNacelleExpert,
       deleteMachine,

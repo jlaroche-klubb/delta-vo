@@ -119,6 +119,9 @@ export interface Machine {
   // Inspection complète remontée de Nacelle-Expert (zones, dégâts, note, photos).
   dossier_nacelle_expert?: DossierNacelleExpert;
 
+  // Site physique où se trouve la nacelle.
+  localite?: string;
+
   // Jeton du lien de partage galerie client actif (collection Firestore "shares").
   // Présent = un lien actif existe ; absent/undefined = aucun lien.
   share_token?: string;

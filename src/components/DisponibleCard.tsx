@@ -15,6 +15,7 @@ interface DisponibleCardProps {
   onGenerateFiche?: (machine: Machine) => void;
   onViewExpertise?: (machine: Machine) => void;
   onViewNacelleExpert?: (machine: Machine) => void;
+  onLocaliteChange?: (machineId: string, localite: string) => void;
   canManagePhotos?: boolean;
   onManagePhotos?: (machine: Machine) => void;
   canDelete?: boolean;
@@ -41,6 +42,7 @@ export default function DisponibleCard({
   onGenerateFiche,
   onViewExpertise,
   onViewNacelleExpert,
+  onLocaliteChange,
   canManagePhotos = false,
   onManagePhotos,
   canDelete = false,
@@ -242,6 +244,34 @@ export default function DisponibleCard({
         <span className="dispo-info-item">
           <span className="info-icon">📅</span>
           Stock depuis le <strong>{formatDate(machine.date_mise_stock || "")}</strong>
+        </span>
+        <span className="dispo-info-item">
+          <span className="info-icon">📍</span>
+          {onLocaliteChange ? (
+            <select
+              value={machine.localite || ""}
+              onChange={(e) => onLocaliteChange(machine.id, e.target.value)}
+              style={{
+                border: "1px solid #d0d0d0",
+                borderRadius: 6,
+                padding: "2px 6px",
+                fontSize: 13,
+                fontWeight: 600,
+                color: machine.localite ? "#1a2a6e" : "#999",
+                background: "#fff",
+                cursor: "pointer",
+              }}
+            >
+              <option value="">Site —</option>
+              {["EGI", "Ferrière", "Croissy", "Avignon", "St-Alban"].map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <strong>{machine.localite || "—"}</strong>
+          )}
         </span>
         {!ficheComplete && hasPrice && (
           <span className="dispo-info-item fiche-warning">

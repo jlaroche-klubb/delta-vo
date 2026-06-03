@@ -77,6 +77,7 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
     updateFicheCommerciale,
     updatePhotosSupplementaires,
     updateShareToken,
+    updateLocalite,
     attribuerNumeroFiche,
     deleteMachine,
     creerOffre,
@@ -535,6 +536,7 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
                 onEditPrice={setEditingMachine}
                 onViewExpertise={setExpertiseMachine}
                 onViewNacelleExpert={setNeMachine}
+                onLocaliteChange={updateLocalite}
                 canManagePhotos={canManagePhotos}
                 onManagePhotos={setPhotosMachine}
                 canDelete={canDeleteMachine(userRole as any)}
@@ -575,6 +577,7 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
                 onGenerateFiche={handleGenerateFiche}
                 onViewExpertise={setExpertiseMachine}
                 onViewNacelleExpert={setNeMachine}
+                onLocaliteChange={updateLocalite}
                 canManagePhotos={canManagePhotos}
                 onManagePhotos={setPhotosMachine}
                 canDelete={canDeleteMachine(userRole as any)}
@@ -614,6 +617,7 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
                 onGenerateFiche={handleGenerateFiche}
                 onViewExpertise={setExpertiseMachine}
                 onViewNacelleExpert={setNeMachine}
+                onLocaliteChange={updateLocalite}
                 canManagePhotos={canManagePhotos}
                 onManagePhotos={setPhotosMachine}
                 canDelete={canDeleteMachine(userRole as any)}

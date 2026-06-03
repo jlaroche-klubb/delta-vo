@@ -72,6 +72,7 @@ export interface DossierNacelleExpert {
   photos_retour?: string[];
   degats?: string[];
   note_expert?: string;
+  rapport_url?: string;
 }
 
 export interface Machine {

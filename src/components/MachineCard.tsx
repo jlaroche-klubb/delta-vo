@@ -192,6 +192,20 @@ export default function MachineCard({
           </div>
         )}
 
+        {/* Lien vers le rapport complet Nacelle-Expert envoyé au client */}
+        {machine.dossier_nacelle_expert?.rapport_url && (
+          <div style={{ padding: "2px 0 6px" }}>
+            <a
+              href={machine.dossier_nacelle_expert.rapport_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "#1a2a6e", fontWeight: 600, fontSize: 13, textDecoration: "underline" }}
+            >
+              📄 Rapport complet Nacelle-Expert (envoyé au client)
+            </a>
+          </div>
+        )}
+
         {/* Stepper (caché si archivée) */}
         {!machine.archived && (
           <div className="stepper">

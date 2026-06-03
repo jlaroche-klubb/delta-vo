@@ -35,7 +35,10 @@ interface NacelleExpertDossier {
     km_porteur?: string;
     agent?: string;
     commercialPhotos?: string[];
+    rapport_url?: string;
+    pdf_url?: string;
   };
+  rapport_url?: string;
   synced_to_delta_vo?: boolean;
   createdAt?: any;
   createdBy?: string;
@@ -161,6 +164,7 @@ export function useNacelleExpertSync() {
               photos_commerciales: dossier.retour?.commercialPhotos || {},
               degats: dossier.retour?.degats || [],
               note_expert: dossier.retour?.note || '',
+              rapport_url: dossier.retour?.pdf_url || dossier.rapport_url || dossier.retour?.rapport_url || '',
             },
             
             // ✅ CORRECTION: Statut "restitution" avec phase "expertise"

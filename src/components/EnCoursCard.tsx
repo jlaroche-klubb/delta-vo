@@ -242,10 +242,9 @@ export default function EnCoursCard({
                     }
                   />
                 ))}
-              </div>
 
-              {canEditPrepa && onAddEtape && (
-                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                {canEditPrepa && onAddEtape && (
+                  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                   <input
                     type="text"
                     value={newEtapeLabel}
@@ -286,8 +285,9 @@ export default function EnCoursCard({
                   >
                     ➕ Ajouter une étape
                   </button>
-                </div>
-              )}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 

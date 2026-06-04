@@ -25,7 +25,7 @@ interface EnCoursPageProps {
 }
 
 export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
-  const { machines, toggleEtapePrepa, configureEnCours, cancelEnCours, marquerFacturee, updateDocumentsVO } = useMachines();
+  const { machines, toggleEtapePrepa, setEtapeNonNecessaire, addEtapePrepa, removeEtapePrepa, configureEnCours, cancelEnCours, marquerFacturee, updateDocumentsVO } = useMachines();
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<EnCoursFilterState>(EMPTY_ENCOURS_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -246,6 +246,9 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
                 canConfigure={canConfigure}
                 canFacturer={false}
                 onToggleEtape={handleToggleEtape}
+                onSetNonNecessaire={setEtapeNonNecessaire}
+                onAddEtape={addEtapePrepa}
+                onRemoveEtape={removeEtapePrepa}
                 onConfigure={setConfigMachine}
                 canManageDocuments={canManageDocuments}
                 onOpenDocuments={setDocsMachine}
@@ -278,6 +281,9 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
                 canConfigure={canConfigure}
                 canFacturer={canFacturer}
                 onToggleEtape={handleToggleEtape}
+                onSetNonNecessaire={setEtapeNonNecessaire}
+                onAddEtape={addEtapePrepa}
+                onRemoveEtape={removeEtapePrepa}
                 onConfigure={setConfigMachine}
                 canManageDocuments={canManageDocuments}
                 onOpenDocuments={setDocsMachine}
@@ -311,6 +317,9 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
                 canConfigure={canConfigure}
                 canFacturer={canFacturer}
                 onToggleEtape={handleToggleEtape}
+                onSetNonNecessaire={setEtapeNonNecessaire}
+                onAddEtape={addEtapePrepa}
+                onRemoveEtape={removeEtapePrepa}
                 onConfigure={setConfigMachine}
                 canManageDocuments={canManageDocuments}
                 onOpenDocuments={setDocsMachine}

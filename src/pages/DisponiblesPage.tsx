@@ -244,6 +244,11 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
       montant: montants[m.id] ?? 0,
     }));
 
+    // Ouvre l'onglet TOUT DE SUITE (dans le geste de clic) pour éviter le
+    // blocage de pop-up : la création du deal est asynchrone, donc on ne peut
+    // pas ouvrir la fenêtre après coup. On y chargera l'URL du deal une fois prêt.
+    const hubspotTab = window.open("about:blank", "_blank");
+
     // 1. Tenter la création du Deal + Devis HubSpot
     let hubspotDealId: string | undefined;
     let quoteWarning: string | null | undefined;
@@ -255,8 +260,12 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
       if (result.quoteId) {
         console.log(`✅ Devis brouillon HubSpot créé : ${result.quoteId}`);
       }
+      if (quoteWarning) {
+        console.warn("⚠️ Devis non créé : " + quoteWarning);
+      }
     } catch (err: any) {
       console.error("❌ Erreur HubSpot:", err);
+      if (hubspotTab) hubspotTab.close();
       const confirmContinue = window.confirm(
         `⚠️ La création du Deal HubSpot a échoué :\n${err.message}\n\n` +
         `Voulez-vous quand même marquer les nacelles comme "Offre en cours" dans Delta VO ?\n` +
@@ -274,14 +283,17 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
     setOffreModalOpen(false);
 
     if (hubspotDealId) {
-      // ✅ Ouvre la fiche Deal HubSpot (le devis brouillon y figure, prêt à finaliser)
+      // ✅ Charge la fiche Deal HubSpot dans l'onglet déjà ouvert (le devis brouillon y figure)
       const dealUrl = `https://app.hubspot.com/contacts/144239378/deal/${hubspotDealId}`;
-      window.open(dealUrl, "_blank", "noopener,noreferrer");
-      console.log(`✅ Deal HubSpot ouvert : ${dealUrl}`);
-      if (quoteWarning) {
-        alert("⚠️ " + quoteWarning);
+      if (hubspotTab) {
+        hubspotTab.location.href = dealUrl;
+      } else {
+        // Au cas où l'onglet n'a pas pu être pré-ouvert
+        window.open(dealUrl, "_blank", "noopener,noreferrer");
       }
+      console.log(`✅ Deal HubSpot ouvert : ${dealUrl}`);
     } else {
+      if (hubspotTab) hubspotTab.close();
       alert(
         `⚠️ Offre créée localement pour ${clientOffre} (${ids.length} nacelle(s))\n` +
         `Le Deal HubSpot n'a pas pu être créé.`

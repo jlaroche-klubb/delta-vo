@@ -244,12 +244,17 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
       montant: montants[m.id] ?? 0,
     }));
 
-    // 1. Tenter la création du Deal HubSpot
+    // 1. Tenter la création du Deal + Devis HubSpot
     let hubspotDealId: string | undefined;
+    let quoteWarning: string | null | undefined;
     try {
       const result = await createHubspotDeal(clientOffre, nacelles);
       hubspotDealId = result.dealId;
+      quoteWarning = result.quoteWarning;
       console.log(`✅ Deal HubSpot créé : ${result.dealName} (id: ${result.dealId})`);
+      if (result.quoteId) {
+        console.log(`✅ Devis brouillon HubSpot créé : ${result.quoteId}`);
+      }
     } catch (err: any) {
       console.error("❌ Erreur HubSpot:", err);
       const confirmContinue = window.confirm(
@@ -269,10 +274,13 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
     setOffreModalOpen(false);
 
     if (hubspotDealId) {
-      // ✅ Ouvre directement le Deal HubSpot dans un nouvel onglet
+      // ✅ Ouvre la fiche Deal HubSpot (le devis brouillon y figure, prêt à finaliser)
       const dealUrl = `https://app.hubspot.com/contacts/144239378/deal/${hubspotDealId}`;
       window.open(dealUrl, "_blank", "noopener,noreferrer");
       console.log(`✅ Deal HubSpot ouvert : ${dealUrl}`);
+      if (quoteWarning) {
+        alert("⚠️ " + quoteWarning);
+      }
     } else {
       alert(
         `⚠️ Offre créée localement pour ${clientOffre} (${ids.length} nacelle(s))\n` +

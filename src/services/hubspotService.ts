@@ -6,41 +6,42 @@
 // ============================================================
 
 export interface NacelleOffre {
-    immat: string;
-    modele?: string;
-    montant: number;
+  immat: string;
+  modele?: string;
+  montant: number;
+}
+
+export interface CreateDealResult {
+  status: "ok";
+  dealId: string;
+  dealName: string;
+  amount: number;
+  quoteId?: string | null;
+  quoteWarning?: string | null;
+}
+
+/**
+ * Crée un Deal HubSpot pour une offre de nacelles VO.
+ * Appelle l'endpoint serverless /api/hubspot-create-deal.
+ */
+export async function createHubspotDeal(
+  client: string,
+  nacelles: NacelleOffre[]
+): Promise<CreateDealResult> {
+  const response = await fetch("/api/hubspot-create-deal", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ client, nacelles }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      errorData.error ||
+        errorData.message ||
+        `Erreur HubSpot (${response.status})`
+    );
   }
-  
-  export interface CreateDealResult {
-    status: "ok";
-    dealId: string;
-    dealName: string;
-    amount: number;
-  }
-  
-  /**
-   * Crée un Deal HubSpot pour une offre de nacelles VO.
-   * Appelle l'endpoint serverless /api/hubspot-create-deal.
-   */
-  export async function createHubspotDeal(
-    client: string,
-    nacelles: NacelleOffre[]
-  ): Promise<CreateDealResult> {
-    const response = await fetch("/api/hubspot-create-deal", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ client, nacelles }),
-    });
-  
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(
-        errorData.error ||
-          errorData.message ||
-          `Erreur HubSpot (${response.status})`
-      );
-    }
-  
-    return response.json();
-  }
-  
+
+  return response.json();
+}

@@ -298,6 +298,45 @@ export function useNacelleExpertSync() {
     };
   }, []);
 
+  // ✅ RATTRAPAGE AUTOMATIQUE du lien PDF de restitution
+  // Pour les machines déjà synchronisées AVANT l'ajout du PDF (flag synced_to_delta_vo
+  // resté à true) : on lit retour.pdf_url directement dans Nacelle-Expert et on remplit
+  // dossier_nacelle_expert.rapport_url dans machines_vo si absent/différent.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const snap = await getDocs(collection(dbNacelleExpert, 'dossiers'));
+        for (const d of snap.docs) {
+          if (cancelled) return;
+          const data: any = d.data();
+          const pdfUrl = data?.retour?.pdf_url;
+          if (!pdfUrl) continue;
+          const immat = data?.immat || data?.info?.immat || d.id;
+          if (!immat) continue;
+          try {
+            const ref = doc(db, 'machines_vo', immat);
+            const mSnap = await getDoc(ref);
+            if (!mSnap.exists()) continue;
+            const m: any = mSnap.data();
+            const current = m?.dossier_nacelle_expert?.rapport_url || '';
+            if (current !== pdfUrl) {
+              await updateDoc(ref, {
+                'dossier_nacelle_expert.rapport_url': pdfUrl,
+              });
+              console.log(`🔗 Lien PDF rattrapé pour ${immat}`);
+            }
+          } catch (e) {
+            console.error('Rattrapage PDF échoué pour', immat, e);
+          }
+        }
+      } catch (e) {
+        console.error('Rattrapage PDF : lecture des dossiers échouée', e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   return {
     syncDossiers,
     isLoading,

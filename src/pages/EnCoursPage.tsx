@@ -7,6 +7,7 @@ import {
 } from "../types/machine";
 import { useMachines } from "../contexts/MachinesContext";
 import EnCoursCard from "../components/EnCoursCard";
+import DocumentsModal from "../components/DocumentsModal";
 import ConfigEnCoursModal, {
   ConfigEnCoursPayload,
 } from "../components/ConfigEnCoursModal";
@@ -24,17 +25,19 @@ interface EnCoursPageProps {
 }
 
 export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
-  const { machines, toggleEtapePrepa, configureEnCours, cancelEnCours, marquerFacturee } = useMachines();
+  const { machines, toggleEtapePrepa, configureEnCours, cancelEnCours, marquerFacturee, updateDocumentsVO } = useMachines();
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<EnCoursFilterState>(EMPTY_ENCOURS_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [configMachine, setConfigMachine] = useState<Machine | null>(null);
   const [factureMachine, setFactureMachine] = useState<Machine | null>(null);
+  const [docsMachine, setDocsMachine] = useState<Machine | null>(null);
 
   const canEditPrepa = canEditEtapesPreparation(userRole as any);
   const canConfigure = userRole === "secretaire" || userRole === "admin";
   const canFacturer = userRole === "secretaire" || userRole === "admin";
   const canCancel = userRole === "admin";  // ✅ Admin only
+  const canManageDocuments = canEditPrepa || canConfigure; // atelier + secrétaire + admin
 
   const baseEnCours = useMemo(
     () => machines.filter((m) => m.statut === "en_cours"),
@@ -244,6 +247,8 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
                 canFacturer={false}
                 onToggleEtape={handleToggleEtape}
                 onConfigure={setConfigMachine}
+                canManageDocuments={canManageDocuments}
+                onOpenDocuments={setDocsMachine}
                 canCancel={canCancel}
                 onCancel={handleCancel}
               />
@@ -274,6 +279,8 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
                 canFacturer={canFacturer}
                 onToggleEtape={handleToggleEtape}
                 onConfigure={setConfigMachine}
+                canManageDocuments={canManageDocuments}
+                onOpenDocuments={setDocsMachine}
                 onFacturer={setFactureMachine}
                 canCancel={canCancel}
                 onCancel={handleCancel}
@@ -305,6 +312,8 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
                 canFacturer={canFacturer}
                 onToggleEtape={handleToggleEtape}
                 onConfigure={setConfigMachine}
+                canManageDocuments={canManageDocuments}
+                onOpenDocuments={setDocsMachine}
                 onFacturer={setFactureMachine}
                 canCancel={canCancel}
                 onCancel={handleCancel}
@@ -335,6 +344,16 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
           machine={factureMachine}
           onClose={() => setFactureMachine(null)}
           onConfirm={handleFacturer}
+        />
+      )}
+
+      {docsMachine && (
+        <DocumentsModal
+          machine={docsMachine}
+          canManage={canManageDocuments}
+          userName={userName}
+          onClose={() => setDocsMachine(null)}
+          onSave={updateDocumentsVO}
         />
       )}
     </div>

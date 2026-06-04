@@ -58,6 +58,17 @@ export interface PhotoSupplementaire {
   ajout_par?: string;
 }
 
+// Document déposé sur une machine en cours (CT, VGP, ou libellé libre)
+export interface DocumentVO {
+  id: string;
+  label: string;        // "CT", "VGP" ou libellé saisi à la main
+  nom?: string;         // nom du fichier d'origine
+  url: string;
+  path: string;         // chemin Storage (pour suppression)
+  uploaded_at?: string;
+  uploaded_by?: string;
+}
+
 export interface DossierNacelleExpert {
   client?: string;
   contrat?: string;
@@ -122,6 +133,9 @@ export interface Machine {
 
   // Site physique où se trouve la nacelle.
   localite?: string;
+
+  // Documents déposés pendant la préparation (CT, VGP, devis/factures travaux, etc.)
+  documents_vo?: DocumentVO[];
 
   // Jeton du lien de partage galerie client actif (collection Firestore "shares").
   // Présent = un lien actif existe ; absent/undefined = aucun lien.

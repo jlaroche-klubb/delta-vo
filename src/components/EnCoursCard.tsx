@@ -12,11 +12,13 @@ interface EnCoursCardProps {
   canConfigure: boolean;
   canFacturer: boolean;
   canCancel?: boolean;
+  canManageDocuments?: boolean;
   onToggleEtape?: (machineId: string, etapeId: string) => void;
   onSetNonNecessaire?: (machineId: string, etapeId: string) => void;
   onConfigure?: (machine: Machine) => void;
   onFacturer?: (machine: Machine) => void;
   onCancel?: (machineId: string) => void;
+  onOpenDocuments?: (machine: Machine) => void;
 }
 
 export default function EnCoursCard({
@@ -25,11 +27,13 @@ export default function EnCoursCard({
   canConfigure,
   canFacturer,
   canCancel = false,
+  canManageDocuments = false,
   onToggleEtape,
   onSetNonNecessaire,
   onConfigure,
   onFacturer,
   onCancel,
+  onOpenDocuments,
 }: EnCoursCardProps) {
   const isLld = machine.type_sortie === "lld";
   const isConfigured = !!machine.type_prepa;
@@ -90,6 +94,44 @@ export default function EnCoursCard({
           )}
         </div>
       </div>
+
+      {onOpenDocuments && (
+        <div style={{ padding: "0 0 4px" }}>
+          <button
+            type="button"
+            onClick={() => onOpenDocuments(machine)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              border: "1px solid #d0d0d0",
+              background: "#fff",
+              color: "#1a2a6e",
+              borderRadius: 6,
+              padding: "5px 10px",
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: "pointer",
+            }}
+          >
+            📎 Documents
+            {machine.documents_vo && machine.documents_vo.length > 0 && (
+              <span
+                style={{
+                  background: "#1a2a6e",
+                  color: "#fff",
+                  borderRadius: 10,
+                  padding: "1px 7px",
+                  fontSize: 11,
+                }}
+              >
+                {machine.documents_vo.length}
+              </span>
+            )}
+            {canManageDocuments ? "" : " (lecture)"}
+          </button>
+        </div>
+      )}
 
       {!isConfigured && (
         <div className="unconfigured-banner">

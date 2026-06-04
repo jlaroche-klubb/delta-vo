@@ -6,6 +6,7 @@ import {
   creerEtapesPrepa,
   FicheCommerciale,
   PhotoSupplementaire,
+  DocumentVO,
 } from "../types/machine";
 import { MOCK_MACHINES } from "../data/mockMachines";
 import { MOCK_DISPONIBLES } from "../data/mockDisponibles";
@@ -73,6 +74,7 @@ interface MachinesContextType {
   updatePhotosSupplementaires: (machineId: string, photos: PhotoSupplementaire[]) => void;
   updateShareToken: (machineId: string, token: string | null) => void;
   updateLocalite: (machineId: string, localite: string) => void;
+  updateDocumentsVO: (machineId: string, documents: DocumentVO[]) => void;
   attribuerNumeroFiche: (machineId: string, numero: string) => void;
   syncExpertiseFromNacelleExpert: (expertiseData: {
     immat: string;
@@ -216,6 +218,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             agent_expert: data.agent_expert || data.dossier_nacelle_expert?.agent_retour,
             dossier_nacelle_expert: data.dossier_nacelle_expert || undefined,
             localite: data.localite || "",
+            documents_vo: data.documents_vo || [],
             
             // ✅ Champs de mise en cours / préparation (vente ou LLD)
             type_sortie: data.type_sortie || undefined,
@@ -730,6 +733,27 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function updateDocumentsVO(machineId: string, documents: DocumentVO[]) {
+    if (isFirebaseMachine(machineId)) {
+      try {
+        await updateDoc(doc(db, "machines_vo", machineId), {
+          documents_vo: documents,
+          updatedAt: new Date().toISOString(),
+        });
+      } catch (err) {
+        console.error("❌ Erreur Firebase documents_vo:", err);
+      }
+    } else {
+      setMockMachines((prev) =>
+        prev.map((m) =>
+          m.id === machineId
+            ? { ...m, documents_vo: documents, updatedAt: new Date().toISOString() }
+            : m
+        )
+      );
+    }
+  }
+
   async function attribuerNumeroFiche(machineId: string, numero: string) {
     const machine = machines.find(m => m.id === machineId);
     if (!machine) return;
@@ -928,6 +952,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       updatePhotosSupplementaires,
       updateShareToken,
       updateLocalite,
+      updateDocumentsVO,
       attribuerNumeroFiche,
       syncExpertiseFromNacelleExpert,
       deleteMachine,

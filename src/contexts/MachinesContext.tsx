@@ -54,6 +54,8 @@ interface MachinesContextType {
   basculerEnLld: (machineId: string, clientLld: string, dateMiseDispo: string) => void;
   toggleEtapePrepa: (machineId: string, etapeId: string, userName: string) => void;
   setEtapeNonNecessaire: (machineId: string, etapeId: string) => void;
+  addEtapePrepa: (machineId: string, label: string) => void;
+  removeEtapePrepa: (machineId: string, etapeId: string) => void;
   configureEnCours: (
     machineId: string,
     typePrepa: "normale" | "en_etat",
@@ -485,6 +487,66 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
         });
       } catch (err) {
         console.error("❌ Erreur setEtapeNonNecessaire Firebase:", err);
+      }
+    } else {
+      setMockMachines((prev) =>
+        prev.map((m) =>
+          m.id === machineId ? { ...m, etapes_prepa: updatedEtapes, updatedAt: now } : m
+        )
+      );
+    }
+  }
+
+  async function addEtapePrepa(machineId: string, label: string) {
+    const clean = (label || "").trim();
+    if (!clean) return;
+    const now = new Date().toISOString();
+    const machine = machines.find((m) => m.id === machineId);
+    if (!machine) return;
+
+    const newEtape = {
+      id: `custom_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      label: clean,
+      done: false,
+      non_necessaire: false,
+      has_na: true,
+      custom: true,
+    };
+    const updatedEtapes = [...(machine.etapes_prepa || []), newEtape];
+
+    if (isFirebaseMachine(machineId)) {
+      try {
+        await updateDoc(doc(db, "machines_vo", machineId), {
+          etapes_prepa: updatedEtapes,
+          updatedAt: now,
+        });
+      } catch (err) {
+        console.error("❌ Erreur addEtapePrepa Firebase:", err);
+      }
+    } else {
+      setMockMachines((prev) =>
+        prev.map((m) =>
+          m.id === machineId ? { ...m, etapes_prepa: updatedEtapes, updatedAt: now } : m
+        )
+      );
+    }
+  }
+
+  async function removeEtapePrepa(machineId: string, etapeId: string) {
+    const now = new Date().toISOString();
+    const machine = machines.find((m) => m.id === machineId);
+    if (!machine || !machine.etapes_prepa) return;
+
+    const updatedEtapes = machine.etapes_prepa.filter((e) => e.id !== etapeId);
+
+    if (isFirebaseMachine(machineId)) {
+      try {
+        await updateDoc(doc(db, "machines_vo", machineId), {
+          etapes_prepa: updatedEtapes,
+          updatedAt: now,
+        });
+      } catch (err) {
+        console.error("❌ Erreur removeEtapePrepa Firebase:", err);
       }
     } else {
       setMockMachines((prev) =>
@@ -943,6 +1005,8 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       basculerEnLld,
       toggleEtapePrepa,
       setEtapeNonNecessaire,
+      addEtapePrepa,
+      removeEtapePrepa,
       configureEnCours,
       cancelEnCours,
       marquerFacturee,

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Machine,
   EtapePrepa,
@@ -19,6 +20,8 @@ interface EnCoursCardProps {
   onFacturer?: (machine: Machine) => void;
   onCancel?: (machineId: string) => void;
   onOpenDocuments?: (machine: Machine) => void;
+  onAddEtape?: (machineId: string, label: string) => void;
+  onRemoveEtape?: (machineId: string, etapeId: string) => void;
 }
 
 export default function EnCoursCard({
@@ -34,7 +37,10 @@ export default function EnCoursCard({
   onFacturer,
   onCancel,
   onOpenDocuments,
+  onAddEtape,
+  onRemoveEtape,
 }: EnCoursCardProps) {
+  const [newEtapeLabel, setNewEtapeLabel] = useState("");
   const isLld = machine.type_sortie === "lld";
   const isConfigured = !!machine.type_prepa;
   const isEnEtat = machine.type_prepa === "en_etat";
@@ -229,9 +235,59 @@ export default function EnCoursCard({
                         ? () => onSetNonNecessaire(machine.id, etape.id)
                         : undefined
                     }
+                    onRemove={
+                      canEditPrepa && onRemoveEtape && etape.custom
+                        ? () => onRemoveEtape(machine.id, etape.id)
+                        : undefined
+                    }
                   />
                 ))}
               </div>
+
+              {canEditPrepa && onAddEtape && (
+                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                  <input
+                    type="text"
+                    value={newEtapeLabel}
+                    onChange={(e) => setNewEtapeLabel(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && newEtapeLabel.trim()) {
+                        onAddEtape(machine.id, newEtapeLabel);
+                        setNewEtapeLabel("");
+                      }
+                    }}
+                    placeholder="Ajouter une étape (ex. Changer pneu, Réparer flèche)…"
+                    style={{
+                      flex: 1,
+                      border: "1px solid #d0d0d0",
+                      borderRadius: 6,
+                      padding: "7px 10px",
+                      fontSize: 13,
+                    }}
+                  />
+                  <button
+                    type="button"
+                    disabled={!newEtapeLabel.trim()}
+                    onClick={() => {
+                      onAddEtape(machine.id, newEtapeLabel);
+                      setNewEtapeLabel("");
+                    }}
+                    style={{
+                      padding: "7px 14px",
+                      borderRadius: 6,
+                      border: "none",
+                      background: newEtapeLabel.trim() ? "#1a2a6e" : "#bbb",
+                      color: "#fff",
+                      cursor: newEtapeLabel.trim() ? "pointer" : "default",
+                      fontSize: 13,
+                      fontWeight: 600,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    ➕ Ajouter une étape
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -287,11 +343,13 @@ function EtapeRow({
   canEdit,
   onToggle,
   onSetNA,
+  onRemove,
 }: {
   etape: EtapePrepa;
   canEdit: boolean;
   onToggle?: () => void;
   onSetNA?: () => void;
+  onRemove?: () => void;
 }) {
   // État visuel de l'étape
   const isDone = etape.done;
@@ -361,6 +419,27 @@ function EtapeRow({
               }}
             >
               ⊘ Non nécessaire
+            </button>
+          )}
+
+          {/* Bouton Supprimer (uniquement pour les étapes ajoutées à la main) */}
+          {onRemove && (
+            <button
+              type="button"
+              onClick={onRemove}
+              title="Supprimer cette étape"
+              style={{
+                padding: "4px 9px",
+                borderRadius: 4,
+                border: "1px solid #f0c0c5",
+                background: "white",
+                color: "#c8102e",
+                cursor: "pointer",
+                fontSize: 12,
+                fontWeight: 600,
+              }}
+            >
+              🗑
             </button>
           )}
         </div>

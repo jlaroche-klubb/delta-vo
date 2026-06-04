@@ -37,6 +37,7 @@ export interface EtapePrepa {
   has_na?: boolean;          // true si l'étape peut être "non nécessaire" (CT, VGP)
   done_by?: string;
   done_at?: string;
+  custom?: boolean;          // true si étape ajoutée à la main (supprimable)
 }
 
 export interface FicheCommerciale {

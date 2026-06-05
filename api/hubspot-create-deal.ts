@@ -74,6 +74,7 @@ export default async function handler(req: any, res: any) {
       properties: {
         dealname: dealName,
         amount: String(amount),
+        pipeline: "1310426306", // KLUBB Sales Pipeline
         description: `Offre VO Delta VO\n\nImmatriculations : ${immats}\n\nNacelles :\n${description}`,
       },
     });

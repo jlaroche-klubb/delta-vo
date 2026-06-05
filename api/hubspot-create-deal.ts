@@ -74,7 +74,6 @@ export default async function handler(req: any, res: any) {
       properties: {
         dealname: dealName,
         amount: String(amount),
-        pipeline: "1310426306", // KLUBB Sales Pipeline
         description: `Offre VO Delta VO\n\nImmatriculations : ${immats}\n\nNacelles :\n${description}`,
       },
     });
@@ -87,6 +86,23 @@ export default async function handler(req: any, res: any) {
     }
     const dealId = dealRes.json.id as string;
     console.log(`✅ Deal HubSpot créé : ${dealId} - ${dealName}`);
+
+    // 1a) Placer le deal dans le KLUBB Sales Pipeline (pipeline + stage ENSEMBLE).
+    // Best-effort : si le couple pipeline/stage est refusé, le deal reste créé
+    // (dans le pipeline par défaut) et reste éditable.
+    try {
+      const movePatch = await hs(`/crm/v3/objects/deals/${dealId}`, "PATCH", {
+        properties: {
+          pipeline: "1310426306",   // KLUBB Sales Pipeline
+          dealstage: "4444367062",  // KLUBB - Analyse des besoin (Needs Analysis)
+        },
+      });
+      if (!movePatch.ok) {
+        console.warn(`⚠️ pipeline/stage KLUBB non appliqués (${movePatch.status}): ${movePatch.text}`);
+      }
+    } catch (e) {
+      console.warn("⚠️ pipeline/stage KLUBB:", e);
+    }
 
     // 1b) Renseigner l'immatriculation sur le deal (propriété custom).
     // Best-effort : si la propriété immatriculation_nacelle n'existe pas encore

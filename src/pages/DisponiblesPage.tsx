@@ -49,9 +49,10 @@ const PHONE_KEY = "delta-vo-user-phone";
 interface DisponiblesPageProps {
   userRole: string;
   userName: string;
+  userEmail?: string;
 }
 
-export default function DisponiblesPage({ userRole, userName }: DisponiblesPageProps) {
+export default function DisponiblesPage({ userRole, userName, userEmail }: DisponiblesPageProps) {
   // ✅ Récupérer le profil Firebase de l'utilisateur connecté
   const { user, profile } = useAuth();
   
@@ -253,7 +254,7 @@ export default function DisponiblesPage({ userRole, userName }: DisponiblesPageP
     let hubspotDealId: string | undefined;
     let quoteWarning: string | null | undefined;
     try {
-      const result = await createHubspotDeal(clientOffre, nacelles);
+      const result = await createHubspotDeal(clientOffre, nacelles, userEmail);
       hubspotDealId = result.dealId;
       quoteWarning = result.quoteWarning;
       console.log(`✅ Deal HubSpot créé : ${result.dealName} (id: ${result.dealId})`);

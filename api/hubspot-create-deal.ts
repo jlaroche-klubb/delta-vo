@@ -23,6 +23,7 @@ interface NacelleOffre {
 interface CreateDealBody {
   client: string;
   nacelles: NacelleOffre[];
+  userEmail?: string;
 }
 
 export default async function handler(req: any, res: any) {
@@ -69,11 +70,34 @@ export default async function handler(req: any, res: any) {
       .map((n) => `• ${n.immat}${n.modele ? ` (${n.modele})` : ""} — ${(Number(n.montant) || 0).toLocaleString("fr-FR")} €`)
       .join("\n");
 
+    // Propriétaire du deal = commercial connecté (retrouvé par email dans HubSpot).
+    // Ainsi chaque vendeur est propriétaire de ses deals et peut les éditer.
+    let ownerId = "";
+    let ownerWarning: string | null = null;
+    if (body.userEmail) {
+      try {
+        const ownerRes = await hs(
+          `/crm/v3/owners/?email=${encodeURIComponent(body.userEmail)}`,
+          "GET"
+        );
+        if (ownerRes.ok && ownerRes.json?.results?.length) {
+          ownerId = String(ownerRes.json.results[0].id);
+        } else {
+          ownerWarning = `Aucun owner HubSpot trouvé pour ${body.userEmail} (le deal sera sans propriétaire).`;
+        }
+      } catch (e) {
+        ownerWarning = "Lookup owner HubSpot impossible (scope crm.objects.owners.read manquant ?).";
+        console.warn("⚠️ owner lookup:", e);
+      }
+    }
+    if (ownerWarning) console.warn("⚠️", ownerWarning);
+
     // 1) DEAL
     const dealRes = await hs("/crm/v3/objects/deals", "POST", {
       properties: {
         dealname: dealName,
         amount: String(amount),
+        ...(ownerId ? { hubspot_owner_id: ownerId } : {}),
         description: `Offre VO Delta VO\n\nImmatriculations : ${immats}\n\nNacelles :\n${description}`,
       },
     });
@@ -94,7 +118,7 @@ export default async function handler(req: any, res: any) {
       const movePatch = await hs(`/crm/v3/objects/deals/${dealId}`, "PATCH", {
         properties: {
           pipeline: "1310426306",   // KLUBB Sales Pipeline
-          dealstage: "4444367062",  // KLUBB - Analyse des besoin (Needs Analysis)
+          dealstage: "1784881365",  // KLUBB - Analyse des besoin (Needs Analysis)
         },
       });
       if (!movePatch.ok) {
@@ -186,6 +210,7 @@ export default async function handler(req: any, res: any) {
       amount,
       quoteId,
       quoteWarning,
+      ownerWarning,
     });
   } catch (err: any) {
     console.error("❌ Erreur création Deal/Devis:", err);

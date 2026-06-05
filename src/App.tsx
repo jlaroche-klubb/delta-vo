@@ -62,6 +62,7 @@ function AppContent() {
   }
 
   const userName = `${activeProfile!.prenom} ${activeProfile!.nom}`;
+  const userEmail = activeProfile!.email;
   const userRole = activeProfile!.role;
   const isAdmin = userRole === "admin";
 
@@ -176,7 +177,7 @@ function AppContent() {
       <main className="app-main">
         {effectivePage === "restitutions" && <RestitutionsPage />}
         {effectivePage === "disponibles" && (
-          <DisponiblesPage userRole={userRole} userName={userName} />
+          <DisponiblesPage userRole={userRole} userName={userName} userEmail={userEmail} />
         )}
         {effectivePage === "encours" && (
           <EnCoursPage userRole={userRole} userName={userName} />

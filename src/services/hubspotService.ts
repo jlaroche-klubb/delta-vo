@@ -18,6 +18,7 @@ export interface CreateDealResult {
   amount: number;
   quoteId?: string | null;
   quoteWarning?: string | null;
+  ownerWarning?: string | null;
 }
 
 /**
@@ -26,12 +27,13 @@ export interface CreateDealResult {
  */
 export async function createHubspotDeal(
   client: string,
-  nacelles: NacelleOffre[]
+  nacelles: NacelleOffre[],
+  userEmail?: string
 ): Promise<CreateDealResult> {
   const response = await fetch("/api/hubspot-create-deal", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ client, nacelles }),
+    body: JSON.stringify({ client, nacelles, userEmail }),
   });
 
   if (!response.ok) {

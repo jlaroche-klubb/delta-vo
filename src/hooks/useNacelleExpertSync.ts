@@ -192,32 +192,39 @@ export function useNacelleExpertSync() {
             // - Fiche commerciale (hauteur, déport, etc.)
             // - Prix précédents (à titre indicatif, pourront être révisés)
             // - Historique
+            // ✅ Une machine DÉJÀ en stock (disponible) ne doit PAS être tirée
+            // vers la restitution : on rafraîchit seulement ses données d'expertise/photos.
+            const enStock = existingData.statut === 'disponible';
+
             const smartUpdate: any = {
               // Nouvelles données d'expertise (remontent toujours)
               heures: machineVOData.heures,
               km_porteur: machineVOData.km_porteur,
               dossier_nacelle_expert: machineVOData.dossier_nacelle_expert,
-              
+
               // ✅ Nouvelle date de récupération pour ce cycle de relocation
               date_demande_recuperation: dateRecup,
-              
-              // ✅ Remise en cycle restitution pour nouvelle facturation expertise
-              statut: 'restitution',
-              recuperation_ok: true,
-              expertise_ok: true,
-              facture_ok: false,        // ⏳ Nouvelle facture expertise à faire
-              facture_reglee_ok: false, // ⏳ Nouveau règlement à recevoir
-              fiche_vo_creee: false,    // ⏳ Refaire la fiche VO si besoin
-              
+
               // Conserver les données Delta VO existantes
               fiche_commerciale: existingData.fiche_commerciale,
               prix_fr: existingData.prix_fr,
               prix_dealer: existingData.prix_dealer,
               prix_modifie_le: existingData.prix_modifie_le,
               prix_modifie_par: existingData.prix_modifie_par,
-              
+
               date_modification: new Date(),
             };
+
+            // Uniquement si la machine n'est PAS déjà en stock : on la (re)met en
+            // cycle restitution pour une nouvelle expertise/facturation (relocation).
+            if (!enStock) {
+              smartUpdate.statut = 'restitution';
+              smartUpdate.recuperation_ok = true;
+              smartUpdate.expertise_ok = true;
+              smartUpdate.facture_ok = false;
+              smartUpdate.facture_reglee_ok = false;
+              smartUpdate.fiche_vo_creee = false;
+            }
             
             // Nettoyer les undefined avant Firebase
             Object.keys(smartUpdate).forEach(key => {

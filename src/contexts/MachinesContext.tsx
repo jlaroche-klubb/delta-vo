@@ -615,6 +615,12 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
         if (!existing.localite && p.localite) updates.localite = p.localite;
         if (!existing.numero_dossier && p.numero_dossier) updates.numero_dossier = p.numero_dossier;
         if (existing.prix_fr == null && p.prix_fr != null) updates.prix_fr = p.prix_fr;
+        // Ces machines sont en STOCK (présentes dans le VOG "à vendre").
+        // Si elles ont été tirées en restitution par la synchro, on les remet disponibles.
+        if (existing.statut === "restitution") {
+          updates.statut = "disponible";
+          updates.fiche_vo_creee = true;
+        }
 
         if (Object.keys(updates).length > 0) {
           updates.updatedAt = now;
@@ -632,7 +638,10 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
           details.push({ ref: p.source, action: "déjà complète" });
         }
         const prix = existing.prix_fr ?? updates.prix_fr;
-        if (prix) await syncHubspotProduct("upsert", p.docId, modeleLabel(existing), prix);
+        if (prix) {
+          const label = `${existing.type_nacelle || p.type_nacelle} ${existing.modele_porteur || p.modele_porteur}`.trim();
+          await syncHubspotProduct("upsert", p.docId, label, prix);
+        }
       } else {
         // Nouvelle machine — noms de champs Firestore = ceux lus par la conversion
         const newDoc: any = {

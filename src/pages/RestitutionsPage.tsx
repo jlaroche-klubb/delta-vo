@@ -59,17 +59,10 @@ export default function RestitutionsPage() {
   const [form, setForm] = useState<NewMachineForm>(EMPTY_FORM);
 
   // === Filtrage par statut restitution puis search + filtres avancés ===
-  // ⚠️ Une machine en stock (disponible), louée ou clôturée n'a rien à faire ici,
-  // même si son expertise n'est pas "réglée" (expertise_recue vaut true partout).
   const restitutionMachines = useMemo(
     () => allMachines.filter((m) =>
       m.statut === "restitution" ||
-      (m.statut !== "disponible" &&
-        m.statut !== "louee_lld" &&
-        m.statut !== "cloturee" &&
-        m.statut !== "en_cours" &&
-        m.expertise_recue &&
-        !m.facture_reglee_ok)
+      (m.expertise_recue && !m.facture_reglee_ok)
     ),
     [allMachines]
   );

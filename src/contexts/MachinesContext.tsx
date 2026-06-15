@@ -616,10 +616,13 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
         if (!existing.numero_dossier && p.numero_dossier) updates.numero_dossier = p.numero_dossier;
         if (existing.prix_fr == null && p.prix_fr != null) updates.prix_fr = p.prix_fr;
         // Ces machines sont en STOCK (présentes dans le VOG "à vendre").
-        // Si elles ont été tirées en restitution par la synchro, on les remet disponibles.
+        // Si elles ont été tirées en restitution par la synchro, on les remet disponibles
+        // et on les marque "réglées" pour qu'elles sortent de la liste de restitution
+        // (la page Restitution garde les machines dont l'expertise n'est pas réglée).
         if (existing.statut === "restitution") {
           updates.statut = "disponible";
           updates.fiche_vo_creee = true;
+          updates.facture_reglee_ok = true;
         }
 
         if (Object.keys(updates).length > 0) {

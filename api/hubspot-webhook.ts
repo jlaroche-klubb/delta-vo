@@ -43,23 +43,97 @@ const HUBSPOT_API_BASE = "https://api.hubapi.com";
 const HUBSPOT_IMMAT_PROPERTY = "immatriculation_nacelle";
 
 /**
- * Récupère les détails d'un Deal HubSpot via l'API
+ * Récupère les immatriculations rattachées à un Deal :
+ *  1) via les LIGNES DE PRODUIT du deal (hs_sku = immatriculation) -> Option A
+ *  2) en secours, via la propriété immatriculation_nacelle (1 ou plusieurs, séparées par virgule)
+ * Renvoie la liste dédupliquée + le nom du deal.
  */
-async function getHubspotDeal(dealId: string, token: string) {
-  const url = `${HUBSPOT_API_BASE}/crm/v3/objects/deals/${dealId}?properties=${HUBSPOT_IMMAT_PROPERTY},dealname,dealstage`;
-  const res = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-  });
+async function getDealImmats(dealId: string, token: string): Promise<{ immats: string[]; dealName?: string }> {
+  const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
+  const immats = new Set<string>();
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`HubSpot API error ${res.status}: ${text}`);
+  // 1) Lignes de produit -> hs_sku
+  try {
+    const assocRes = await fetch(
+      `${HUBSPOT_API_BASE}/crm/v3/objects/deals/${dealId}/associations/line_items`,
+      { headers }
+    );
+    const assoc = await assocRes.json().catch(() => null);
+    const ids: string[] = (assoc?.results || [])
+      .map((r: any) => r.id ?? r.toObjectId)
+      .filter(Boolean)
+      .map((x: any) => String(x));
+
+    if (ids.length) {
+      const batch = await fetch(`${HUBSPOT_API_BASE}/crm/v3/objects/line_items/batch/read`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          properties: ["hs_sku", "name"],
+          inputs: ids.map((id) => ({ id })),
+        }),
+      });
+      const bj = await batch.json().catch(() => null);
+      for (const li of bj?.results || []) {
+        const sku = li?.properties?.hs_sku;
+        if (sku) immats.add(String(sku).trim().toUpperCase());
+      }
+    }
+  } catch (e) {
+    console.warn("⚠️ Lecture lignes de produit impossible:", e);
   }
 
-  return res.json();
+  // 2) Secours : propriété immatriculation_nacelle (+ nom du deal)
+  let dealName: string | undefined;
+  try {
+    const dealRes = await fetch(
+      `${HUBSPOT_API_BASE}/crm/v3/objects/deals/${dealId}?properties=${HUBSPOT_IMMAT_PROPERTY},dealname`,
+      { headers }
+    );
+    const deal = await dealRes.json().catch(() => null);
+    dealName = deal?.properties?.dealname;
+    const raw = deal?.properties?.[HUBSPOT_IMMAT_PROPERTY];
+    if (raw) {
+      String(raw)
+        .split(",")
+        .forEach((s) => {
+          const v = s.trim().toUpperCase();
+          if (v) immats.add(v);
+        });
+    }
+  } catch (e) {
+    console.warn("⚠️ Lecture deal impossible:", e);
+  }
+
+  return { immats: [...immats], dealName };
+}
+
+/**
+ * Archive le produit HubSpot correspondant à une immat (SKU).
+ */
+async function archiverProduit(immatUpper: string, token: string) {
+  try {
+    const search = await fetch(`${HUBSPOT_API_BASE}/crm/v3/objects/products/search`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        filterGroups: [{ filters: [{ propertyName: "hs_sku", operator: "EQ", value: immatUpper }] }],
+        properties: ["hs_sku"],
+        limit: 1,
+      }),
+    });
+    const sj = await search.json().catch(() => null);
+    const pid = sj?.results?.[0]?.id;
+    if (pid) {
+      await fetch(`${HUBSPOT_API_BASE}/crm/v3/objects/products/${pid}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      console.log(`🗄️ Produit HubSpot archivé (vendu) : ${immatUpper}`);
+    }
+  } catch (e) {
+    console.warn("⚠️ Archive produit (webhook) impossible:", e);
+  }
 }
 
 /**
@@ -153,46 +227,25 @@ export default async function handler(req: any, res: any) {
 
       console.log(`🎯 Deal ${objectId} passé en WON → traitement`);
 
-      // Récupérer le Deal pour lire l'immatriculation
-      const deal = await getHubspotDeal(String(objectId), token);
-      const immat = deal?.properties?.[HUBSPOT_IMMAT_PROPERTY];
-      const dealName = deal?.properties?.dealname;
+      // Option A : on récupère les immats depuis les lignes de produit (SKU),
+      // avec la propriété immatriculation_nacelle en secours.
+      const { immats, dealName } = await getDealImmats(String(objectId), token);
 
-      if (!immat) {
+      if (!immats.length) {
         console.warn(
-          `⚠️ Deal ${objectId} sans immatriculation (propriété ${HUBSPOT_IMMAT_PROPERTY} vide)`
+          `⚠️ Deal ${objectId} : aucune immat trouvée (ni ligne de produit, ni ${HUBSPOT_IMMAT_PROPERTY})`
         );
         results.push({ dealId: objectId, error: "no_immat" });
         continue;
       }
 
-      const result = await basculerNacelleEnPreparation(immat, dealName);
-      console.log(`✅ Résultat pour ${immat}:`, result);
-      results.push({ dealId: objectId, ...result });
+      for (const immat of immats) {
+        const result = await basculerNacelleEnPreparation(immat, dealName || "Client HubSpot");
+        console.log(`✅ Résultat pour ${immat}:`, result);
+        results.push({ dealId: objectId, ...result });
 
-      // Machine vendue -> archiver le produit HubSpot correspondant (SKU = immat)
-      try {
-        const immatUpper = String(immat).trim().toUpperCase();
-        const search = await fetch(`${HUBSPOT_API_BASE}/crm/v3/objects/products/search`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            filterGroups: [{ filters: [{ propertyName: "hs_sku", operator: "EQ", value: immatUpper }] }],
-            properties: ["hs_sku"],
-            limit: 1,
-          }),
-        });
-        const sj = await search.json().catch(() => null);
-        const pid = sj?.results?.[0]?.id;
-        if (pid) {
-          await fetch(`${HUBSPOT_API_BASE}/crm/v3/objects/products/${pid}`, {
-            method: "DELETE",
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          console.log(`🗄️ Produit HubSpot archivé (vendu) : ${immatUpper}`);
-        }
-      } catch (e) {
-        console.warn("⚠️ Archive produit (webhook) impossible:", e);
+        // Machine vendue -> archiver le produit HubSpot correspondant
+        await archiverProduit(immat, token);
       }
     }
 

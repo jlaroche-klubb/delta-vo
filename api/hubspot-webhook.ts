@@ -35,7 +35,6 @@ const app =
 const db = getFirestore(app);
 
 // ---- Constantes HubSpot ----
-const HUBSPOT_WON_STAGE = "1784881368"; // KLUBB Sales Pipeline - Order Won (Gagné)
 const HUBSPOT_API_BASE = "https://api.hubapi.com";
 
 // Nom de la propriété HubSpot qui contient l'immatriculation de la nacelle.
@@ -48,7 +47,7 @@ const HUBSPOT_IMMAT_PROPERTY = "immatriculation_nacelle";
  *  2) en secours, via la propriété immatriculation_nacelle (1 ou plusieurs, séparées par virgule)
  * Renvoie la liste dédupliquée + le nom du deal.
  */
-async function getDealImmats(dealId: string, token: string): Promise<{ immats: string[]; dealName?: string }> {
+async function getDealImmats(dealId: string, token: string): Promise<{ immats: string[]; dealName?: string; isClosedWon: boolean }> {
   const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
   const immats = new Set<string>();
 
@@ -85,13 +84,15 @@ async function getDealImmats(dealId: string, token: string): Promise<{ immats: s
 
   // 2) Secours : propriété immatriculation_nacelle (+ nom du deal)
   let dealName: string | undefined;
+  let isClosedWon = false;
   try {
     const dealRes = await fetch(
-      `${HUBSPOT_API_BASE}/crm/v3/objects/deals/${dealId}?properties=${HUBSPOT_IMMAT_PROPERTY},dealname`,
+      `${HUBSPOT_API_BASE}/crm/v3/objects/deals/${dealId}?properties=${HUBSPOT_IMMAT_PROPERTY},dealname,hs_is_closed_won`,
       { headers }
     );
     const deal = await dealRes.json().catch(() => null);
     dealName = deal?.properties?.dealname;
+    isClosedWon = String(deal?.properties?.hs_is_closed_won) === "true";
     const raw = deal?.properties?.[HUBSPOT_IMMAT_PROPERTY];
     if (raw) {
       String(raw)
@@ -105,7 +106,7 @@ async function getDealImmats(dealId: string, token: string): Promise<{ immats: s
     console.warn("⚠️ Lecture deal impossible:", e);
   }
 
-  return { immats: [...immats], dealName };
+  return { immats: [...immats], dealName, isClosedWon };
 }
 
 /**
@@ -212,24 +213,26 @@ export default async function handler(req: any, res: any) {
     const results: any[] = [];
 
     for (const event of events) {
-      const { objectId, propertyName, propertyValue } = event;
+      const { objectId, propertyName } = event;
 
-      // On ne traite que les changements de stage vers "Won"
+      // On ne réagit qu'aux changements de phase de la transaction
       if (propertyName !== "dealstage") {
         console.log(`⏭️ Ignoré : propertyName=${propertyName} (pas dealstage)`);
         continue;
       }
 
-      if (String(propertyValue) !== HUBSPOT_WON_STAGE) {
-        console.log(`⏭️ Ignoré : stage=${propertyValue} (pas Won)`);
+      // Option A : on récupère les immats depuis les lignes de produit (SKU),
+      // avec la propriété immatriculation_nacelle en secours.
+      // On lit aussi hs_is_closed_won pour savoir si le deal est "Gagné"
+      // (robuste : marche pour TOUT pipeline/stage, sans id en dur).
+      const { immats, dealName, isClosedWon } = await getDealImmats(String(objectId), token);
+
+      if (!isClosedWon) {
+        console.log(`⏭️ Deal ${objectId} : pas Gagné (hs_is_closed_won != true)`);
         continue;
       }
 
-      console.log(`🎯 Deal ${objectId} passé en WON → traitement`);
-
-      // Option A : on récupère les immats depuis les lignes de produit (SKU),
-      // avec la propriété immatriculation_nacelle en secours.
-      const { immats, dealName } = await getDealImmats(String(objectId), token);
+      console.log(`🎯 Deal ${objectId} GAGNÉ → traitement`);
 
       if (!immats.length) {
         console.warn(

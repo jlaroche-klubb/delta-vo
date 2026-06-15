@@ -200,10 +200,14 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             fiche_vo_creee: ficheVoCreee,
             expertise_recue: true,
             
-            // ✅ date_mise_stock UNIQUEMENT si "disponible"
-            date_mise_stock: statutFirebase === 'disponible'
-              ? (data.date_ajout?.toDate?.()?.toISOString?.()?.slice(0, 10) || new Date().toISOString().slice(0, 10))
-              : undefined,
+            // ✅ date_mise_stock pour les machines visibles en Disponibles
+            // (disponible OU restitution avec expertise reçue) — sinon "Stock depuis le —"
+            date_mise_stock:
+              (statutFirebase === 'disponible' ||
+                (statutFirebase === 'restitution' && (data.expertise_ok ?? true)))
+                ? (data.date_ajout?.toDate?.()?.toISOString?.()?.slice(0, 10) ||
+                   new Date().toISOString().slice(0, 10))
+                : undefined,
               
             // ✅ Conserver les prix si présents
             prix_fr: data.prix_fr,

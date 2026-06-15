@@ -35,7 +35,7 @@ const app =
 const db = getFirestore(app);
 
 // ---- Constantes HubSpot ----
-const HUBSPOT_WON_STAGE = "4444367065"; // Commande – Gagné – Won
+const HUBSPOT_WON_STAGE = "1784881368"; // KLUBB Sales Pipeline - Order Won (Gagné)
 const HUBSPOT_API_BASE = "https://api.hubapi.com";
 
 // Nom de la propriété HubSpot qui contient l'immatriculation de la nacelle.
@@ -169,6 +169,31 @@ export default async function handler(req: any, res: any) {
       const result = await basculerNacelleEnPreparation(immat, dealName);
       console.log(`✅ Résultat pour ${immat}:`, result);
       results.push({ dealId: objectId, ...result });
+
+      // Machine vendue -> archiver le produit HubSpot correspondant (SKU = immat)
+      try {
+        const immatUpper = String(immat).trim().toUpperCase();
+        const search = await fetch(`${HUBSPOT_API_BASE}/crm/v3/objects/products/search`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            filterGroups: [{ filters: [{ propertyName: "hs_sku", operator: "EQ", value: immatUpper }] }],
+            properties: ["hs_sku"],
+            limit: 1,
+          }),
+        });
+        const sj = await search.json().catch(() => null);
+        const pid = sj?.results?.[0]?.id;
+        if (pid) {
+          await fetch(`${HUBSPOT_API_BASE}/crm/v3/objects/products/${pid}`, {
+            method: "DELETE",
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          console.log(`🗄️ Produit HubSpot archivé (vendu) : ${immatUpper}`);
+        }
+      } catch (e) {
+        console.warn("⚠️ Archive produit (webhook) impossible:", e);
+      }
     }
 
     return res.status(200).json({ status: "ok", results });

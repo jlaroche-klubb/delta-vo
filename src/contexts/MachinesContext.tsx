@@ -12,6 +12,13 @@ import { MOCK_MACHINES } from "../data/mockMachines";
 import { MOCK_DISPONIBLES } from "../data/mockDisponibles";
 import { MOCK_EN_COURS } from "../data/mockEnCours";
 import { MOCK_CLOTUREES } from "../data/mockCloturees";
+import { syncHubspotProduct } from "../services/hubspotService";
+
+// Libellé "type + porteur" pour le nom du produit HubSpot (ex. "KL26 Renault Master PLT")
+function modeleLabel(m?: Machine): string | undefined {
+  if (!m) return undefined;
+  return `${m.type_nacelle ?? ""} ${m.modele_porteur ?? ""}`.trim() || undefined;
+}
 
 /**
  * Aplatit le champ photos d'un dossier Nacelle-Expert.
@@ -383,6 +390,13 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         console.error('❌ Erreur update prix Firebase:', err);
       }
+      // Synchro produit HubSpot : prix fixé -> upsert ; prix retiré -> archive
+      const mm = machines.find((x) => x.id === machineId);
+      if (prixFr && prixFr > 0) {
+        syncHubspotProduct("upsert", machineId, modeleLabel(mm), prixFr);
+      } else {
+        syncHubspotProduct("archive", machineId);
+      }
     } else {
       setMockMachines((prev) =>
         prev.map((m) =>
@@ -419,6 +433,8 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         console.error('❌ Erreur update LLD Firebase:', err);
       }
+      // Machine sortie du stock -> archiver le produit HubSpot
+      syncHubspotProduct("archive", machineId);
     } else {
       setMockMachines((prev) =>
         prev.map((m) =>
@@ -623,6 +639,11 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
         console.log(`✅ Machine ${machineId} remise en disponible (annulation prépa)`);
       } catch (err) {
         console.error('❌ Erreur cancelEnCours Firebase:', err);
+      }
+      // Retour en stock -> re-publier le produit HubSpot si la machine a un prix
+      const mm = machines.find((x) => x.id === machineId);
+      if (mm?.prix_fr && mm.prix_fr > 0) {
+        syncHubspotProduct("upsert", machineId, modeleLabel(mm), mm.prix_fr);
       }
     } else {
       setMockMachines((prev) =>

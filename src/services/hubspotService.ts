@@ -47,3 +47,30 @@ export async function createHubspotDeal(
 
   return response.json();
 }
+
+/**
+ * Synchronise une nacelle vers la bibliothèque de produits HubSpot.
+ * - action "upsert"  : crée/met à jour le produit (machine disponible avec prix)
+ * - action "archive" : archive le produit (machine vendue / sortie du stock)
+ * Best-effort : n'échoue jamais (les erreurs sont seulement loguées).
+ */
+export async function syncHubspotProduct(
+  action: "upsert" | "archive",
+  immat: string,
+  modele?: string,
+  prix?: number | null
+): Promise<void> {
+  try {
+    const response = await fetch("/api/hubspot-sync-product", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, immat, modele, prix }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (data?.warning) {
+      console.warn(`⚠️ Sync produit HubSpot (${immat}):`, data.warning);
+    }
+  } catch (err) {
+    console.warn(`⚠️ Sync produit HubSpot impossible (${immat}):`, err);
+  }
+}

@@ -605,12 +605,13 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
 
       if (existing) {
         // Machine déjà connue -> on ne complète QUE les champs vides (jamais d'écrasement)
+        // ⚠️ Noms de champs Firestore = ceux lus par la conversion (modele/annee_fab/heures)
         const updates: any = {};
-        if (!existing.modele_porteur && p.modele_porteur) updates.modele_porteur = p.modele_porteur;
+        if (!existing.modele_porteur && p.modele_porteur) updates.modele = p.modele_porteur;
         if (!existing.type_nacelle && p.type_nacelle) updates.type_nacelle = p.type_nacelle;
-        if (!existing.annee_circulation && p.annee_circulation) updates.annee_circulation = p.annee_circulation;
+        if (!existing.annee_circulation && p.annee_circulation) updates.annee_fab = p.annee_circulation;
         if (existing.km_porteur == null && p.km_porteur != null) updates.km_porteur = p.km_porteur;
-        if (existing.heures_nacelle == null && p.heures_nacelle != null) updates.heures_nacelle = p.heures_nacelle;
+        if (existing.heures_nacelle == null && p.heures_nacelle != null) updates.heures = p.heures_nacelle;
         if (!existing.localite && p.localite) updates.localite = p.localite;
         if (!existing.numero_dossier && p.numero_dossier) updates.numero_dossier = p.numero_dossier;
         if (existing.prix_fr == null && p.prix_fr != null) updates.prix_fr = p.prix_fr;
@@ -633,12 +634,12 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
         const prix = existing.prix_fr ?? updates.prix_fr;
         if (prix) await syncHubspotProduct("upsert", p.docId, modeleLabel(existing), prix);
       } else {
-        // Nouvelle machine
+        // Nouvelle machine — noms de champs Firestore = ceux lus par la conversion
         const newDoc: any = {
           immat: p.immat || p.docId,
-          modele_porteur: p.modele_porteur,
+          modele: p.modele_porteur,
           type_nacelle: p.type_nacelle,
-          annee_circulation: p.annee_circulation,
+          annee_fab: p.annee_circulation,
           statut: "disponible",
           date_ajout: Timestamp.fromDate(new Date()),
           recuperation_ok: true,
@@ -648,7 +649,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
         };
         if (p.numero_dossier) newDoc.numero_dossier = p.numero_dossier;
         if (p.km_porteur != null) newDoc.km_porteur = p.km_porteur;
-        if (p.heures_nacelle != null) newDoc.heures_nacelle = p.heures_nacelle;
+        if (p.heures_nacelle != null) newDoc.heures = p.heures_nacelle;
         if (p.localite) newDoc.localite = p.localite;
         if (p.prix_fr != null) newDoc.prix_fr = p.prix_fr;
 

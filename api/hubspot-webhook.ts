@@ -7,32 +7,23 @@
 // la machine correspondante en "en_cours" (préparation) dans Firebase.
 // ============================================================
 
-import { initializeApp, getApps } from "firebase/app";
-import {
-  getFirestore,
-  collection,
-  query,
-  where,
-  getDocs,
-  updateDoc,
-  doc,
-} from "firebase/firestore";
+import admin from "firebase-admin";
 
-// ---- Config Firebase Delta VO (même que côté client) ----
-const firebaseConfig = {
-  apiKey: "AIzaSyD9BhTym5Rjm-UK2-F2ES4PV5NUjxJR8HY",
-  authDomain: "delta-vo.firebaseapp.com",
-  projectId: "delta-vo",
-  storageBucket: "delta-vo.firebasestorage.app",
-  messagingSenderId: "44936008146",
-  appId: "1:44936008146:web:420cef581cae468764380b",
-};
-
-// Initialiser Firebase (réutilise l'app si déjà initialisée)
-const app =
-  getApps().find((a) => a.name === "webhook-app") ||
-  initializeApp(firebaseConfig, "webhook-app");
-const db = getFirestore(app);
+// ---- Firebase Admin : écriture serveur autorisée (contourne les règles
+// de sécurité Firestore via un compte de service). Le JSON du compte de
+// service est stocké dans la variable d'environnement FIREBASE_SERVICE_ACCOUNT. ----
+function getDb() {
+  if (!admin.apps.length) {
+    const raw = process.env.FIREBASE_SERVICE_ACCOUNT || "";
+    if (!raw) throw new Error("FIREBASE_SERVICE_ACCOUNT manquant");
+    const serviceAccount = JSON.parse(raw);
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+      projectId: "delta-vo",
+    });
+  }
+  return admin.firestore();
+}
 
 // ---- Constantes HubSpot ----
 const HUBSPOT_API_BASE = "https://api.hubapi.com";
@@ -75,7 +66,8 @@ async function getDealImmats(dealId: string, token: string): Promise<{ immats: s
       const bj = await batch.json().catch(() => null);
       for (const li of bj?.results || []) {
         const sku = li?.properties?.hs_sku;
-        if (sku) immats.add(String(sku).trim().toUpperCase());
+        const v = sku ? String(sku).trim().toUpperCase() : "";
+        if (v) immats.add(v);
       }
     }
   } catch (e) {
@@ -138,47 +130,44 @@ async function archiverProduit(immatUpper: string, token: string) {
 }
 
 /**
- * Bascule une nacelle en "en_cours" (préparation) à partir de son immatriculation
+ * Bascule une nacelle en "en_cours" (préparation) à partir de son immatriculation.
+ * Écrit via le SDK Admin (droits serveur).
  */
 async function basculerNacelleEnPreparation(immat: string, dealName: string) {
-  // Chercher la machine par immatriculation (insensible à la casse)
   const immatUpper = immat.trim().toUpperCase();
-
-  // L'ID du document machines_vo est l'immatriculation
-  const machineRef = doc(db, "machines_vo", immatUpper);
-
-  // On tente directement la mise à jour sur le doc (id = immat)
-  try {
-    await updateDoc(machineRef, {
-      statut: "en_cours",
-      type_sortie: "vente",
-      acheteur: dealName || "Client HubSpot",
-      date_mise_en_cours: new Date().toISOString(),
-      hubspot_synced: true,
-      updatedAt: new Date().toISOString(),
-    });
-    return { found: true, immat: immatUpper, method: "docId" };
-  } catch (errDoc) {
-    // Si le doc n'existe pas avec cet id, on cherche par champ "immat"
-    const q = query(
-      collection(db, "machines_vo"),
-      where("immat", "==", immatUpper)
-    );
-    const snap = await getDocs(q);
-    if (snap.empty) {
-      return { found: false, immat: immatUpper };
-    }
-    const machineDoc = snap.docs[0];
-    await updateDoc(machineDoc.ref, {
-      statut: "en_cours",
-      type_sortie: "vente",
-      acheteur: dealName || "Client HubSpot",
-      date_mise_en_cours: new Date().toISOString(),
-      hubspot_synced: true,
-      updatedAt: new Date().toISOString(),
-    });
-    return { found: true, immat: immatUpper, method: "query" };
+  if (!immatUpper || immatUpper.includes("/")) {
+    return { found: false, immat: immatUpper, error: "immat_invalide" };
   }
+
+  const db = getDb();
+  const updates = {
+    statut: "en_cours",
+    type_sortie: "vente",
+    acheteur: dealName || "Client HubSpot",
+    date_mise_en_cours: new Date().toISOString(),
+    hubspot_synced: true,
+    updatedAt: new Date().toISOString(),
+  };
+
+  // L'ID du document machines_vo est l'immatriculation (MAJUSCULES)
+  const ref = db.collection("machines_vo").doc(immatUpper);
+  const snap = await ref.get();
+  if (snap.exists) {
+    await ref.update(updates);
+    return { found: true, immat: immatUpper, method: "docId" };
+  }
+
+  // Secours : recherche par champ "immat"
+  const q = await db
+    .collection("machines_vo")
+    .where("immat", "==", immatUpper)
+    .limit(1)
+    .get();
+  if (q.empty) {
+    return { found: false, immat: immatUpper };
+  }
+  await q.docs[0].ref.update(updates);
+  return { found: true, immat: immatUpper, method: "query" };
 }
 
 // ============================================================
@@ -243,12 +232,17 @@ export default async function handler(req: any, res: any) {
       }
 
       for (const immat of immats) {
-        const result = await basculerNacelleEnPreparation(immat, dealName || "Client HubSpot");
-        console.log(`✅ Résultat pour ${immat}:`, result);
-        results.push({ dealId: objectId, ...result });
+        try {
+          const result = await basculerNacelleEnPreparation(immat, dealName || "Client HubSpot");
+          console.log(`✅ Résultat pour ${immat}:`, JSON.stringify(result));
+          results.push({ dealId: objectId, ...result });
 
-        // Machine vendue -> archiver le produit HubSpot correspondant
-        await archiverProduit(immat, token);
+          // Machine vendue -> archiver le produit HubSpot correspondant
+          await archiverProduit(immat, token);
+        } catch (e: any) {
+          console.error(`❌ Échec bascule ${immat}:`, e?.message || e);
+          results.push({ dealId: objectId, immat, error: "bascule_failed", detail: String(e?.message || e) });
+        }
       }
     }
 

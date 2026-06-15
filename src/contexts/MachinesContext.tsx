@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useMemo } from "react";
-import { collection, onSnapshot, doc, updateDoc } from "firebase/firestore";
+import { collection, onSnapshot, doc, updateDoc, setDoc, Timestamp } from "firebase/firestore";
 import { db } from "../firebase";
 import {
   Machine,
@@ -13,6 +13,14 @@ import { MOCK_DISPONIBLES } from "../data/mockDisponibles";
 import { MOCK_EN_COURS } from "../data/mockEnCours";
 import { MOCK_CLOTUREES } from "../data/mockCloturees";
 import { syncHubspotProduct } from "../services/hubspotService";
+import type { ParsedStockMachine } from "../utils/importStock";
+
+export interface StockImportSummary {
+  created: number;
+  merged: number;
+  skipped: number;
+  details: { ref: string; action: string }[];
+}
 
 // Libellé "type + porteur" pour le nom du produit HubSpot (ex. "KL26 Renault Master PLT")
 function modeleLabel(m?: Machine): string | undefined {
@@ -56,13 +64,15 @@ interface MachinesContextType {
     prixFr: number | undefined,
     prixDealer: number | undefined,
     userName: string,
-    manuel: boolean
+    manuel: boolean,
+    numeroDossier?: string
   ) => void;
   basculerEnLld: (machineId: string, clientLld: string, dateMiseDispo: string) => void;
   toggleEtapePrepa: (machineId: string, etapeId: string, userName: string) => void;
   setEtapeNonNecessaire: (machineId: string, etapeId: string) => void;
   addEtapePrepa: (machineId: string, label: string) => void;
   removeEtapePrepa: (machineId: string, etapeId: string) => void;
+  importStockMachines: (parsed: ParsedStockMachine[]) => Promise<StockImportSummary>;
   configureEnCours: (
     machineId: string,
     typePrepa: "normale" | "en_etat",
@@ -219,6 +229,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             // ✅ Conserver les prix si présents
             prix_fr: data.prix_fr,
             prix_dealer: data.prix_dealer,
+            numero_dossier: data.numero_dossier || undefined,
             prix_modifie_le: data.prix_modifie_le,
             prix_modifie_par: data.prix_modifie_par,
             prix_modifie_manuellement: data.prix_modifie_manuellement,
@@ -372,10 +383,11 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     prixFr: number | undefined,
     prixDealer: number | undefined,
     userName: string,
-    manuel: boolean
+    manuel: boolean,
+    numeroDossier?: string
   ) {
     const today = new Date().toISOString().slice(0, 10);
-    const updates = {
+    const updates: any = {
       prix_fr: prixFr ?? null,
       prix_dealer: prixDealer ?? null,
       prix_modifie_le: today,
@@ -383,6 +395,10 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       prix_modifie_manuellement: manuel,
       updatedAt: new Date().toISOString(),
     };
+    // N° de dossier : on ne l'écrit que s'il est fourni (le workflow Excel ne le passe pas)
+    if (numeroDossier !== undefined) {
+      updates.numero_dossier = numeroDossier.trim() || null;
+    }
     
     if (isFirebaseMachine(machineId)) {
       try {
@@ -401,7 +417,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       setMockMachines((prev) =>
         prev.map((m) =>
           m.id === machineId
-            ? { ...m, prix_fr: prixFr, prix_dealer: prixDealer, prix_modifie_le: today, prix_modifie_par: userName, prix_modifie_manuellement: manuel, updatedAt: new Date().toISOString() }
+            ? { ...m, prix_fr: prixFr, prix_dealer: prixDealer, prix_modifie_le: today, prix_modifie_par: userName, prix_modifie_manuellement: manuel, ...(numeroDossier !== undefined ? { numero_dossier: numeroDossier.trim() || undefined } : {}), updatedAt: new Date().toISOString() }
             : m
         )
       );
@@ -575,6 +591,87 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
         )
       );
     }
+  }
+
+  async function importStockMachines(parsed: ParsedStockMachine[]): Promise<StockImportSummary> {
+    let created = 0;
+    let merged = 0;
+    let skipped = 0;
+    const details: { ref: string; action: string }[] = [];
+
+    for (const p of parsed) {
+      const now = new Date().toISOString();
+      const existing = machines.find((m) => m.id === p.docId);
+
+      if (existing) {
+        // Machine déjà connue -> on ne complète QUE les champs vides (jamais d'écrasement)
+        const updates: any = {};
+        if (!existing.modele_porteur && p.modele_porteur) updates.modele_porteur = p.modele_porteur;
+        if (!existing.type_nacelle && p.type_nacelle) updates.type_nacelle = p.type_nacelle;
+        if (!existing.annee_circulation && p.annee_circulation) updates.annee_circulation = p.annee_circulation;
+        if (existing.km_porteur == null && p.km_porteur != null) updates.km_porteur = p.km_porteur;
+        if (existing.heures_nacelle == null && p.heures_nacelle != null) updates.heures_nacelle = p.heures_nacelle;
+        if (!existing.localite && p.localite) updates.localite = p.localite;
+        if (!existing.numero_dossier && p.numero_dossier) updates.numero_dossier = p.numero_dossier;
+        if (existing.prix_fr == null && p.prix_fr != null) updates.prix_fr = p.prix_fr;
+
+        if (Object.keys(updates).length > 0) {
+          updates.updatedAt = now;
+          try {
+            await updateDoc(doc(db, "machines_vo", p.docId), updates);
+            merged++;
+            details.push({ ref: p.source, action: "complétée" });
+          } catch (e) {
+            skipped++;
+            details.push({ ref: p.source, action: "erreur MAJ" });
+            continue;
+          }
+        } else {
+          skipped++;
+          details.push({ ref: p.source, action: "déjà complète" });
+        }
+        const prix = existing.prix_fr ?? updates.prix_fr;
+        if (prix) await syncHubspotProduct("upsert", p.docId, modeleLabel(existing), prix);
+      } else {
+        // Nouvelle machine
+        const newDoc: any = {
+          immat: p.immat || p.docId,
+          modele_porteur: p.modele_porteur,
+          type_nacelle: p.type_nacelle,
+          annee_circulation: p.annee_circulation,
+          statut: "disponible",
+          date_ajout: Timestamp.fromDate(new Date()),
+          recuperation_ok: true,
+          expertise_ok: true,
+          createdAt: now,
+          updatedAt: now,
+        };
+        if (p.numero_dossier) newDoc.numero_dossier = p.numero_dossier;
+        if (p.km_porteur != null) newDoc.km_porteur = p.km_porteur;
+        if (p.heures_nacelle != null) newDoc.heures_nacelle = p.heures_nacelle;
+        if (p.localite) newDoc.localite = p.localite;
+        if (p.prix_fr != null) newDoc.prix_fr = p.prix_fr;
+
+        try {
+          await setDoc(doc(db, "machines_vo", p.docId), newDoc);
+          created++;
+          details.push({ ref: p.source, action: "créée" });
+          if (p.prix_fr != null) {
+            await syncHubspotProduct(
+              "upsert",
+              p.docId,
+              `${p.type_nacelle} ${p.modele_porteur}`.trim(),
+              p.prix_fr
+            );
+          }
+        } catch (e) {
+          skipped++;
+          details.push({ ref: p.source, action: "erreur création" });
+        }
+      }
+    }
+
+    return { created, merged, skipped, details };
   }
 
   async function configureEnCours(
@@ -1032,6 +1129,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       setEtapeNonNecessaire,
       addEtapePrepa,
       removeEtapePrepa,
+      importStockMachines,
       configureEnCours,
       cancelEnCours,
       marquerFacturee,

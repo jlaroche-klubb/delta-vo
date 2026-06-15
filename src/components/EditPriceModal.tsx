@@ -5,7 +5,7 @@ interface EditPriceModalProps {
   machine: Machine;
   userName: string;
   onClose: () => void;
-  onSave: (id: string, prixFr: number | undefined, prixDealer: number | undefined) => void;
+  onSave: (id: string, prixFr: number | undefined, prixDealer: number | undefined, numeroDossier?: string) => void;
 }
 
 export default function EditPriceModal({ machine, userName, onClose, onSave }: EditPriceModalProps) {
@@ -14,6 +14,9 @@ export default function EditPriceModal({ machine, userName, onClose, onSave }: E
   );
   const [prixDealer, setPrixDealer] = useState<string>(
     machine.prix_dealer !== undefined ? String(machine.prix_dealer) : ""
+  );
+  const [numeroDossier, setNumeroDossier] = useState<string>(
+    machine.numero_dossier || ""
   );
 
   function handleSave() {
@@ -29,7 +32,7 @@ export default function EditPriceModal({ machine, userName, onClose, onSave }: E
       return;
     }
 
-    onSave(machine.id, fr, dealer);
+    onSave(machine.id, fr, dealer, numeroDossier);
     onClose();
   }
 
@@ -94,6 +97,19 @@ export default function EditPriceModal({ machine, userName, onClose, onSave }: E
 
           <div className="hint-box">
             💡 Laisse un champ vide pour effacer ce prix
+          </div>
+
+          <div className="price-field" style={{ marginTop: 14 }}>
+            <label>Numéro de dossier (interne)</label>
+            <input
+              type="text"
+              placeholder="Ex. 1956KF"
+              value={numeroDossier}
+              onChange={(e) => setNumeroDossier(e.target.value)}
+            />
+            {machine.numero_dossier && (
+              <div className="price-current">Actuel : {machine.numero_dossier}</div>
+            )}
           </div>
         </div>
 

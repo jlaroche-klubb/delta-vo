@@ -145,6 +145,7 @@ export interface Machine {
   date_mise_stock?: string;
   prix_fr?: number;
   prix_dealer?: number;
+  numero_dossier?: string;     // N° de dossier interne (saisi par le PDG avec le prix)
   prix_modifie_le?: string;
   prix_modifie_par?: string;
   prix_modifie_manuellement?: boolean;

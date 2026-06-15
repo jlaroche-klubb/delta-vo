@@ -137,6 +137,9 @@ export default function DisponibleCard({
           <div className="dispo-modele">
             {machine.type_nacelle} · {machine.modele_porteur}
             <span className="dispo-annee"> · {machine.annee_circulation}</span>
+            {machine.numero_dossier && (
+              <span className="dispo-annee"> · Dossier {machine.numero_dossier}</span>
+            )}
           </div>
         </div>
         <div className="dispo-header-right">

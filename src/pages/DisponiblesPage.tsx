@@ -27,6 +27,7 @@ import DisponiblesFilters, {
 } from "../components/DisponiblesFilters";
 import { exportPricingToExcel } from "../utils/exportPricing";
 import { importPricingFromExcel, ImportResult } from "../utils/importPricing";
+import { parseStockExcel } from "../utils/importStock";
 import { generateFichePdf } from "../utils/generateFichePdf";
 import { exportListePrix } from "../utils/exportListePrix";
 import {
@@ -83,6 +84,7 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
     deleteMachine,
     creerOffre,
     annulerOffre,
+    importStockMachines,
   } = useMachinesFiltered(showArchived);
 
   // Pour le compteur des archivées
@@ -109,6 +111,8 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
   const [panier, setPanier] = useState<Machine[]>([]);
   const [offreModalOpen, setOffreModalOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const stockInputRef = useRef<HTMLInputElement>(null);
+  const [importingStock, setImportingStock] = useState(false);
 
   const isAdmin = userRole === "admin";
   const canLld = canCreateLLD(userRole as any);
@@ -173,9 +177,10 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
   function handlePriceUpdate(
     id: string,
     prixFr: number | undefined,
-    prixDealer: number | undefined
+    prixDealer: number | undefined,
+    numeroDossier?: string
   ) {
-    updatePrice(id, prixFr, prixDealer, userName, true);
+    updatePrice(id, prixFr, prixDealer, userName, true, numeroDossier);
   }
 
   function handleExportPricing() {
@@ -442,6 +447,43 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
     }
   }
 
+  async function handleStockFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportingStock(true);
+    try {
+      const { parsed, skipped, totalRows } = await parseStockExcel(file);
+      if (parsed.length === 0) {
+        alert(
+          `Aucune machine "à vendre" trouvée dans le fichier (${totalRows} lignes lues).`
+        );
+        return;
+      }
+      const ok = window.confirm(
+        `Import du stock VOG :\n\n` +
+          `• ${parsed.length} machine(s) à vendre détectée(s)\n` +
+          `• ${skipped.length} ligne(s) ignorée(s) (pas à vendre)\n\n` +
+          `Les machines déjà présentes seront complétées (sans écraser prix/fiche).\n\n` +
+          `Lancer l'import ?`
+      );
+      if (!ok) return;
+
+      const res = await importStockMachines(parsed);
+      alert(
+        `✅ Import terminé :\n\n` +
+          `• ${res.created} machine(s) créée(s)\n` +
+          `• ${res.merged} machine(s) complétée(s)\n` +
+          `• ${res.skipped} inchangée(s) / ignorée(s)`
+      );
+    } catch (err: any) {
+      alert("Erreur lors de l'import du stock : " + err.message);
+    } finally {
+      setImportingStock(false);
+      if (stockInputRef.current) stockInputRef.current.value = "";
+    }
+  }
+
   return (
     <div className="page-disponibles">
       <div className="page-header">
@@ -506,6 +548,17 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
 
         {isAdmin && (
           <button
+            className="btn-import"
+            onClick={() => stockInputRef.current?.click()}
+            disabled={importingStock}
+            title="Importer le tableau de stock VOG (Excel)"
+          >
+            {importingStock ? "⏳ Import stock..." : "📦 Importer stock VOG"}
+          </button>
+        )}
+
+        {isAdmin && (
+          <button
             className={`toggle-archived ${showArchived ? "active" : ""}`}
             onClick={() => setShowArchived(!showArchived)}
             title="Voir les machines archivées"
@@ -522,6 +575,13 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
           accept=".xlsx,.xls"
           style={{ display: "none" }}
           onChange={handleFileChange}
+        />
+        <input
+          ref={stockInputRef}
+          type="file"
+          accept=".xlsx,.xls"
+          style={{ display: "none" }}
+          onChange={handleStockFileChange}
         />
       </div>
 

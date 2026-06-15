@@ -127,7 +127,7 @@ export default function DisponibleCard({
       <div className="dispo-header">
         <div>
           <div className="dispo-immat">
-            {machine.immat}
+            {machine.type_nacelle || machine.immat}
             {machine.fiche_commerciale?.numero_fiche && (
               <span className="dispo-fiche-num">
                 · Fiche N°{machine.fiche_commerciale.numero_fiche}
@@ -135,11 +135,14 @@ export default function DisponibleCard({
             )}
           </div>
           <div className="dispo-modele">
-            {machine.type_nacelle} · {machine.modele_porteur}
-            <span className="dispo-annee"> · {machine.annee_circulation}</span>
-            {machine.numero_dossier && (
-              <span className="dispo-annee"> · Dossier {machine.numero_dossier}</span>
-            )}
+            {[
+              machine.type_nacelle ? machine.immat : null,
+              machine.modele_porteur,
+              machine.annee_circulation,
+              machine.numero_dossier ? `Dossier ${machine.numero_dossier}` : null,
+            ]
+              .filter((x) => x && String(x).trim())
+              .join(" · ")}
           </div>
         </div>
         <div className="dispo-header-right">

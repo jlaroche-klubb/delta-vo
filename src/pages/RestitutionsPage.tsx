@@ -59,10 +59,13 @@ export default function RestitutionsPage() {
   const [form, setForm] = useState<NewMachineForm>(EMPTY_FORM);
 
   // === Filtrage par statut restitution puis search + filtres avancés ===
+  // ⚠️ Les machines issues de l'import du stock VOG (import_vog) sont du STOCK :
+  // elles ne doivent JAMAIS apparaître ici, quels que soient leurs autres indicateurs.
   const restitutionMachines = useMemo(
     () => allMachines.filter((m) =>
-      m.statut === "restitution" ||
-      (m.expertise_recue && !m.facture_reglee_ok)
+      !m.import_vog &&
+      (m.statut === "restitution" ||
+        (m.expertise_recue && !m.facture_reglee_ok))
     ),
     [allMachines]
   );

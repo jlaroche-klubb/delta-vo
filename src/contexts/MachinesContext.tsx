@@ -216,6 +216,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             facture_reglee_ok: data.facture_reglee_ok ?? false,
             fiche_vo_creee: ficheVoCreee,
             expertise_recue: true,
+            import_vog: data.import_vog ?? false,
             
             // ✅ date_mise_stock pour les machines visibles en Disponibles
             // (disponible OU restitution avec expertise reçue) — sinon "Stock depuis le —"
@@ -615,10 +616,14 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
         if (!existing.localite && p.localite) updates.localite = p.localite;
         if (!existing.numero_dossier && p.numero_dossier) updates.numero_dossier = p.numero_dossier;
         if (existing.prix_fr == null && p.prix_fr != null) updates.prix_fr = p.prix_fr;
+
+        // ✅ Marqueur définitif : cette machine vient du stock VOG.
+        // La page Restitution exclut catégoriquement les machines import_vog.
+        updates.import_vog = true;
+
         // Ces machines sont en STOCK (présentes dans le VOG "à vendre").
-        // Si elles ont été tirées en restitution par la synchro, on les remet disponibles
-        // et on les marque "réglées" pour qu'elles sortent de la liste de restitution
-        // (la page Restitution garde les machines dont l'expertise n'est pas réglée).
+        // Si elles ont été tirées en restitution par la synchro, on les remet disponibles.
+        // On ne touche PAS aux machines en prépa / louées / vendues.
         if (existing.statut === "restitution" || existing.statut === "disponible") {
           updates.statut = "disponible";
           updates.fiche_vo_creee = true;
@@ -653,6 +658,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
           type_nacelle: p.type_nacelle,
           annee_fab: p.annee_circulation,
           statut: "disponible",
+          import_vog: true,
           date_ajout: Timestamp.fromDate(new Date()),
           recuperation_ok: true,
           expertise_ok: true,

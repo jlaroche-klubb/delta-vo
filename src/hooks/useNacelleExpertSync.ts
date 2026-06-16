@@ -209,6 +209,7 @@ export function useNacelleExpertSync() {
               facture_ok: false,        // ⏳ Nouvelle facture expertise à faire
               facture_reglee_ok: false, // ⏳ Nouveau règlement à recevoir
               fiche_vo_creee: false,    // ⏳ Refaire la fiche VO si besoin
+              import_vog: false,        // ⏳ Vraie restitution : on lève le marqueur stock VOG
 
               // Conserver les données Delta VO existantes
               fiche_commerciale: existingData.fiche_commerciale,

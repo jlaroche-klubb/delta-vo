@@ -33,11 +33,11 @@ export interface EtapePrepa {
   id: string;
   label: string;
   done: boolean;
-  non_necessaire?: boolean;  // Pour CT et VGP : marqué comme non nécessaire
-  has_na?: boolean;          // true si l'étape peut être "non nécessaire" (CT, VGP)
+  non_necessaire?: boolean;
+  has_na?: boolean;
   done_by?: string;
   done_at?: string;
-  custom?: boolean;          // true si étape ajoutée à la main (supprimable)
+  custom?: boolean;
 }
 
 export interface FicheCommerciale {
@@ -54,18 +54,17 @@ export interface FicheCommerciale {
 export interface PhotoSupplementaire {
   url: string;
   nom?: string;
-  source: "upload" | "nacelle_expert"; // origine : upload manuel ou piochée dans Nacelle-Expert
+  source: "upload" | "nacelle_expert";
   ajout_at?: string;
   ajout_par?: string;
 }
 
-// Document déposé sur une machine en cours (CT, VGP, ou libellé libre)
 export interface DocumentVO {
   id: string;
-  label: string;        // "CT", "VGP" ou libellé saisi à la main
-  nom?: string;         // nom du fichier d'origine
+  label: string;
+  nom?: string;
   url: string;
-  path: string;         // chemin Storage (pour suppression)
+  path: string;
   uploaded_at?: string;
   uploaded_by?: string;
 }
@@ -111,8 +110,6 @@ export interface Machine {
   agent_expertise?: string;
   rapport_expertise?: RapportExpertise;
 
-  // ⚠️ NE PAS TOUCHER : 4 photos 3/4 alimentées automatiquement par Nacelle-Expert,
-  // elles construisent la fiche VO (pages 1-2). Aucun écran Delta VO ne les modifie.
   photos_commerciales?: {
     av_droit?: string;
     av_gauche?: string;
@@ -120,33 +117,24 @@ export interface Machine {
     ar_gauche?: string;
   };
 
-  // Photos supplémentaires OPTIONNELLES (jamais obligatoires).
-  // Alimentent la page 3 optionnelle de la fiche + la galerie/partage client.
   photos_supplementaires?: PhotoSupplementaire[];
 
-  // Pool de photos déjà remontées de Nacelle-Expert, dans lequel on peut piocher
-  // pour alimenter les photos supplémentaires (lecture seule, ne touche pas la fiche).
   photos_ne_depart?: string[];
   photos_ne_retour?: string[];
 
-  // Inspection complète remontée de Nacelle-Expert (zones, dégâts, note, photos).
   dossier_nacelle_expert?: DossierNacelleExpert;
 
-  // Site physique où se trouve la nacelle.
   localite?: string;
 
-  // Documents déposés pendant la préparation (CT, VGP, devis/factures travaux, etc.)
   documents_vo?: DocumentVO[];
 
-  // Jeton du lien de partage galerie client actif (collection Firestore "shares").
-  // Présent = un lien actif existe ; absent/undefined = aucun lien.
   share_token?: string;
 
   date_mise_stock?: string;
   prix_fr?: number;
   prix_dealer?: number;
-  numero_dossier?: string;     // N° de dossier interne (saisi par le PDG avec le prix)
-  import_vog?: boolean;        // Machine issue de l'import du stock VOG (= stock, jamais en restitution)
+  numero_dossier?: string;
+  import_vog?: boolean;
   prix_modifie_le?: string;
   prix_modifie_par?: string;
   prix_modifie_manuellement?: boolean;
@@ -176,18 +164,16 @@ export interface Machine {
   archived_by?: string;
   ne_dossier_id?: string;
 
-  // ✅ Offre en cours / HubSpot
-  offre_en_cours?: boolean;        // badge "Offre en cours"
-  client_offre?: string;           // nom du client de l'offre
-  montant_offre?: number;          // montant proposé (modifiable)
-  hubspot_deal_id?: string;        // ID du Deal HubSpot (rempli en Livraison 2)
-  date_offre?: string;             // date de création de l'offre
+  offre_en_cours?: boolean;
+  client_offre?: string;
+  montant_offre?: number;
+  hubspot_deal_id?: string;
+  date_offre?: string;
 
   is_test?: boolean;
   createdAt: string;
   updatedAt?: string;
 
-  // === CHAMPS SYNCHRONISATION NACELLE-EXPERT ===
   expertise_recue?: boolean;
   date_expertise_recue?: string;
   agent_expert?: string;
@@ -218,8 +204,6 @@ export function getAgeStockColor(jours: number, seuilRepricer: number = 60): {
   }
 }
 
-// Étapes prépa NORMALE (ordre d'affichage : CT, VGP, Révision, Lavage)
-// has_na = true → l'étape peut être marquée "Non nécessaire"
 const ETAPES_PREPA_NORMALE = [
   { label: "Contrôle technique", has_na: true },
   { label: "VGP", has_na: true },
@@ -227,7 +211,6 @@ const ETAPES_PREPA_NORMALE = [
   { label: "Lavage", has_na: false },
 ];
 
-// Étapes prépa EN L'ÉTAT (export) : juste un lavage léger
 const ETAPES_PREPA_EN_ETAT = [
   { label: "Lavage léger", has_na: false },
 ];
@@ -345,7 +328,6 @@ export function getNextFicheNumber(machines: Machine[]): string {
 
 export function prepaTerminee(etapesPrepa: EtapePrepa[] | undefined): boolean {
   if (!etapesPrepa || etapesPrepa.length === 0) return false;
-  // Une étape est "validée" si elle est faite (done) OU marquée non nécessaire
   return etapesPrepa.every((e) => e.done || e.non_necessaire);
 }
 

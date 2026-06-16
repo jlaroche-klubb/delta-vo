@@ -33,6 +33,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (userDoc.exists()) {
             console.log("✅ Profil trouvé");
             setProfile(userDoc.data() as UserProfile);
+            // Nettoyage : si un ancien doc pending_users traîne encore, on le supprime
+            const pendingId = currentUser.email!.replace(/[@.]/g, "_");
+            deleteDoc(doc(db, "pending_users", pendingId)).catch(() => {});
           } else {
             // Pas trouvé dans users → chercher dans pending_users
             const pendingId = currentUser.email!.replace(/[@.]/g, "_");

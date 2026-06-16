@@ -59,12 +59,33 @@ export default function AdminPage() {
         ...doc.data()
       })) as User[];
 
-      setPendingUsers(pending);
+      // ⚠️ Un utilisateur déjà actif (présent dans "users") ne doit pas rester
+      // dans la liste d'attente. On filtre par email, et on nettoie les docs
+      // "pending_users" devenus obsolètes (doublons).
+      const activeEmails = new Set(
+        activeUsers.map(u => (u.email || "").trim().toLowerCase())
+      );
+      const stillPending = pending.filter(
+        u => !activeEmails.has((u.email || "").trim().toLowerCase())
+      );
+      const stalePending = pending.filter(
+        u => activeEmails.has((u.email || "").trim().toLowerCase())
+      );
+      // Suppression best-effort des doublons (déjà actifs)
+      for (const u of stalePending) {
+        try {
+          await deleteDoc(doc(db, "pending_users", u.id));
+        } catch (e) {
+          console.warn("Nettoyage pending impossible:", u.id, e);
+        }
+      }
+
+      setPendingUsers(stillPending);
       setUsers(activeUsers);
 
       // Initialize default roles for pending users
       const defaultRoles: Record<string, UserRole> = {};
-      pending.forEach(u => {
+      stillPending.forEach(u => {
         defaultRoles[u.id] = "atelier";
       });
       setSelectedRole(defaultRoles);

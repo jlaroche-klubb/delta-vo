@@ -47,12 +47,31 @@ export interface StockParseResult {
 
 function toNum(v: any): number | undefined {
   if (v === null || v === undefined || v === "") return undefined;
-  const n = Number(String(v).replace(/[^\d.,-]/g, "").replace(/\s/g, "").replace(",", "."));
+  const cleaned = String(v).replace(/[^\d.,-]/g, "").replace(/\s/g, "").replace(",", ".");
+  if (cleaned === "" || cleaned === "-" || cleaned === ".") return undefined;
+  const n = Number(cleaned);
   return isNaN(n) ? undefined : n;
 }
 
 function str(v: any): string {
   return v === null || v === undefined ? "" : String(v).trim();
+}
+
+// Lecture d'une colonne tolérante aux espaces / différences de casse dans l'en-tête
+// (le VOG contient par ex. " KM porteur" avec un espace en tête).
+function col(row: any, header: string): any {
+  if (header in row) return row[header];
+  const target = header.trim().toLowerCase();
+  for (const k of Object.keys(row)) {
+    if (k.trim().toLowerCase() === target) return row[k];
+  }
+  return null;
+}
+
+function hasCol(sampleRow: any, header: string): boolean {
+  return col(sampleRow, header) !== null || Object.keys(sampleRow).some(
+    (k) => k.trim().toLowerCase() === header.trim().toLowerCase()
+  );
 }
 
 export async function parseStockExcel(file: File): Promise<StockParseResult> {
@@ -68,8 +87,7 @@ export async function parseStockExcel(file: File): Promise<StockParseResult> {
 
   // Vérification du modèle : colonnes clés présentes ?
   if (rows.length > 0) {
-    const cols = Object.keys(rows[0]);
-    if (!cols.includes(H.dossier) || !cols.includes(H.immat)) {
+    if (!hasCol(rows[0], H.dossier) || !hasCol(rows[0], H.immat)) {
       throw new Error(
         "Le fichier ne correspond pas au modèle VOG (colonnes « Dossier Delta ou KLUBB France » / « IMMAT » introuvables)."
       );
@@ -80,20 +98,20 @@ export async function parseStockExcel(file: File): Promise<StockParseResult> {
   const skipped: { ref: string; raison: string }[] = [];
 
   rows.forEach((row) => {
-    const dossier = str(row[H.dossier]);
+    const dossier = str(col(row, H.dossier));
     if (!dossier) return; // ligne vide -> ignorée silencieusement
 
-    const etat = str(row[H.etatNacelle]);
+    const etat = str(col(row, H.etatNacelle));
     if (!etat.toLowerCase().includes("vendre")) {
       skipped.push({ ref: dossier, raison: `Pas à vendre (${etat || "état vide"})` });
       return;
     }
 
-    const immat = str(row[H.immat]).toUpperCase();
+    const immat = str(col(row, H.immat)).toUpperCase();
     const docId = immat || dossier.toUpperCase();
 
-    const marque = str(row[H.marque]);
-    const porteur = str(row[H.porteur]);
+    const marque = str(col(row, H.marque));
+    const porteur = str(col(row, H.porteur));
     const modele = `${marque} ${porteur}`.trim();
 
     parsed.push({
@@ -101,12 +119,12 @@ export async function parseStockExcel(file: File): Promise<StockParseResult> {
       immat,
       numero_dossier: dossier,
       modele_porteur: modele,
-      type_nacelle: str(row[H.typeNacelle]),
-      annee_circulation: str(row[H.annee]),
-      km_porteur: toNum(row[H.km]),
-      heures_nacelle: toNum(row[H.heures]),
-      localite: str(row[H.lieu]) || undefined,
-      prix_fr: toNum(row[H.prix]),
+      type_nacelle: str(col(row, H.typeNacelle)),
+      annee_circulation: str(col(row, H.annee)),
+      km_porteur: toNum(col(row, H.km)),
+      heures_nacelle: toNum(col(row, H.heures)),
+      localite: str(col(row, H.lieu)) || undefined,
+      prix_fr: toNum(col(row, H.prix)),
       source: immat ? `immat ${immat}` : `dossier ${dossier}`,
     });
   });

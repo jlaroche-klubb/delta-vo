@@ -619,7 +619,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
         // Si elles ont été tirées en restitution par la synchro, on les remet disponibles
         // et on les marque "réglées" pour qu'elles sortent de la liste de restitution
         // (la page Restitution garde les machines dont l'expertise n'est pas réglée).
-        if (existing.statut === "restitution") {
+        if (existing.statut === "restitution" || existing.statut === "disponible") {
           updates.statut = "disponible";
           updates.fiche_vo_creee = true;
           updates.facture_reglee_ok = true;

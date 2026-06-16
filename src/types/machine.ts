@@ -1,348 +1,385 @@
-import { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, doc, updateDoc, setDoc, onSnapshot, getDoc } from 'firebase/firestore';
-import { db, dbNacelleExpert } from '../firebase';
+export type MachineStatut =
+  | "restitution"
+  | "disponible"
+  | "en_cours"
+  | "cloturee"
+  | "louee_lld";
 
-interface NacelleExpertDossier {
-  immat: string;
-  info?: {
-    immat?: string;
-    type_nacelle?: string;
-    modele?: string;
-    annee_fab?: string;
-    client?: string;
-    contrat?: string;
-    email?: string;
-    date?: string;
-    heures?: string;
-    km_porteur?: string;
-    agent?: string;
-  };
-  depart?: {
-    zones?: any[];
-    photos?: string[];
-    date?: string;
-    heures?: string;
-    km_porteur?: string;
-    agent?: string;
-  };
-  retour?: {
-    zones?: any[];
-    photos?: string[];
-    degats?: string[];
-    note?: string;
-    date?: string;
-    heures?: string;
-    km_porteur?: string;
-    agent?: string;
-    commercialPhotos?: string[];
-    rapport_url?: string;
-    pdf_url?: string;
-  };
-  rapport_url?: string;
-  synced_to_delta_vo?: boolean;
-  createdAt?: any;
-  createdBy?: string;
+export type TypePrepa = "normale" | "en_etat";
+export type TypeSortie = "vente" | "lld";
+export type StatutPaiement = "en_attente" | "payee" | "retard";
+
+export interface DegatExpertise {
+  zone: string;
+  description: string;
+  montant: number;
+  sur_devis?: boolean;
 }
 
-interface MachineVO {
+export interface RapportExpertise {
+  date_expertise?: string;
+  agent?: string;
+  heures_nacelle?: number;
+  km_porteur?: number;
+  duree_location_jours?: number;
+  taux_vetuste?: number;
+  degats: DegatExpertise[];
+  total_retenue_ht: number;
+  notes?: string;
+  rapport_url?: string;
+}
+
+export interface EtapePrepa {
+  id: string;
+  label: string;
+  done: boolean;
+  non_necessaire?: boolean;  // Pour CT et VGP : marqué comme non nécessaire
+  has_na?: boolean;          // true si l'étape peut être "non nécessaire" (CT, VGP)
+  done_by?: string;
+  done_at?: string;
+  custom?: boolean;          // true si étape ajoutée à la main (supprimable)
+}
+
+export interface FicheCommerciale {
+  numero_fiche?: string;
+  date_creation_fiche?: string;
+  hauteur_travail_m?: number;
+  deport_travail_m?: number;
+  nb_personnes_panier?: number;
+  puissance_porteur?: string;
+  options?: string[];
+  amenagement_interieur?: string;
+}
+
+export interface PhotoSupplementaire {
+  url: string;
+  nom?: string;
+  source: "upload" | "nacelle_expert"; // origine : upload manuel ou piochée dans Nacelle-Expert
+  ajout_at?: string;
+  ajout_par?: string;
+}
+
+// Document déposé sur une machine en cours (CT, VGP, ou libellé libre)
+export interface DocumentVO {
+  id: string;
+  label: string;        // "CT", "VGP" ou libellé saisi à la main
+  nom?: string;         // nom du fichier d'origine
+  url: string;
+  path: string;         // chemin Storage (pour suppression)
+  uploaded_at?: string;
+  uploaded_by?: string;
+}
+
+export interface DossierNacelleExpert {
+  client?: string;
+  contrat?: string;
+  email?: string;
+  date_depart?: string;
+  date_retour?: string;
+  agent_depart?: string;
+  agent_retour?: string;
+  zones_depart?: any[];
+  zones_retour?: any[];
+  photos_depart?: string[];
+  photos_retour?: string[];
+  degats?: string[];
+  note_expert?: string;
+  rapport_url?: string;
+}
+
+export interface Machine {
+  id: string;
   immat: string;
-  modele: string;
+  modele_porteur: string;
   type_nacelle: string;
-  annee_fab: string;
-  heures: string;
-  km_porteur: string;
-  
-  // Données du dossier nacelle-expert
-  dossier_nacelle_expert?: {
-    client: string;
-    contrat: string;
-    email: string;
-    date_depart: string;
-    date_retour: string;
-    agent_depart: string;
-    agent_retour: string;
-    zones_depart: any[];
-    zones_retour: any[];
-    photos_depart: string[];
-    photos_retour: string[];
-    photos_commerciales: any;  // Peut être objet {av_droit: {url}, ...} ou tableau (legacy)
-    degats: string[];
-    note_expert: string;
-  };
-  
-  // ✅ CORRECTION: Statut initial "restitution" avec phases
-  statut: 'restitution';
+  annee_circulation: string;
+  statut: MachineStatut;
+
+  date_demande_recuperation?: string;
   recuperation_ok: boolean;
   expertise_ok: boolean;
   facture_ok: boolean;
   facture_reglee_ok: boolean;
   fiche_vo_creee: boolean;
-  
-  date_ajout: any;
-  date_modification: any;
-  createdBy?: string;
+
+  client_precedent: string;
+  date_retour: string;
+  contrat: string;
+
+  heures_nacelle?: number;
+  km_porteur?: number;
+  agent_expertise?: string;
+  rapport_expertise?: RapportExpertise;
+
+  // ⚠️ NE PAS TOUCHER : 4 photos 3/4 alimentées automatiquement par Nacelle-Expert,
+  // elles construisent la fiche VO (pages 1-2). Aucun écran Delta VO ne les modifie.
+  photos_commerciales?: {
+    av_droit?: string;
+    av_gauche?: string;
+    ar_droit?: string;
+    ar_gauche?: string;
+  };
+
+  // Photos supplémentaires OPTIONNELLES (jamais obligatoires).
+  // Alimentent la page 3 optionnelle de la fiche + la galerie/partage client.
+  photos_supplementaires?: PhotoSupplementaire[];
+
+  // Pool de photos déjà remontées de Nacelle-Expert, dans lequel on peut piocher
+  // pour alimenter les photos supplémentaires (lecture seule, ne touche pas la fiche).
+  photos_ne_depart?: string[];
+  photos_ne_retour?: string[];
+
+  // Inspection complète remontée de Nacelle-Expert (zones, dégâts, note, photos).
+  dossier_nacelle_expert?: DossierNacelleExpert;
+
+  // Site physique où se trouve la nacelle.
+  localite?: string;
+
+  // Documents déposés pendant la préparation (CT, VGP, devis/factures travaux, etc.)
+  documents_vo?: DocumentVO[];
+
+  // Jeton du lien de partage galerie client actif (collection Firestore "shares").
+  // Présent = un lien actif existe ; absent/undefined = aucun lien.
+  share_token?: string;
+
+  date_mise_stock?: string;
+  prix_fr?: number;
+  prix_dealer?: number;
+  numero_dossier?: string;     // N° de dossier interne (saisi par le PDG avec le prix)
+  import_vog?: boolean;        // Machine issue de l'import du stock VOG (= stock, jamais en restitution)
+  prix_modifie_le?: string;
+  prix_modifie_par?: string;
+  prix_modifie_manuellement?: boolean;
+
+  fiche_commerciale?: FicheCommerciale;
+
+  type_prepa?: TypePrepa;
+  acheteur?: string;
+  commercial_vendeur?: string;
+  prix_vente_final?: number;
+  date_vente?: string;
+  date_livraison_prevue?: string;
+  date_mise_en_cours?: string;
+  etapes_prepa?: EtapePrepa[];
+
+  type_sortie?: TypeSortie;
+  client_lld?: string;
+  date_mise_dispo_lld?: string;
+
+  date_facturation?: string;
+  numero_facture?: string;
+  date_reglement?: string;
+  marche?: "fr" | "dealer";
+
+  archived?: boolean;
+  archived_at?: string;
+  archived_by?: string;
+  ne_dossier_id?: string;
+
+  // ✅ Offre en cours / HubSpot
+  offre_en_cours?: boolean;        // badge "Offre en cours"
+  client_offre?: string;           // nom du client de l'offre
+  montant_offre?: number;          // montant proposé (modifiable)
+  hubspot_deal_id?: string;        // ID du Deal HubSpot (rempli en Livraison 2)
+  date_offre?: string;             // date de création de l'offre
+
+  is_test?: boolean;
+  createdAt: string;
+  updatedAt?: string;
+
+  // === CHAMPS SYNCHRONISATION NACELLE-EXPERT ===
+  expertise_recue?: boolean;
+  date_expertise_recue?: string;
+  agent_expert?: string;
 }
 
-export function useNacelleExpertSync() {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [syncedCount, setSyncedCount] = useState(0);
+// ========== FONCTIONS HELPER ==========
 
-  const syncDossiers = async () => {
-    setIsLoading(true);
-    setError(null);
-    setSyncedCount(0);
+export function calculAgeStock(dateStock: string): number {
+  if (!dateStock) return 0;
+  const now = new Date();
+  const stock = new Date(dateStock);
+  return Math.floor((now.getTime() - stock.getTime()) / (1000 * 60 * 60 * 24));
+}
 
-    try {
-      console.log('🔄 Démarrage de la synchronisation Nacelle-Expert → Delta VO');
-      
-      // ✅ Chercher dans Nacelle-Expert
-      const dossiersQuery = query(
-        collection(dbNacelleExpert, 'dossiers'),
-        where('synced_to_delta_vo', '==', false)
-      );
-      
-      const dossiersSnapshot = await getDocs(dossiersQuery);
-      console.log(`📋 ${dossiersSnapshot.size} dossiers à synchroniser`);
+export function getAgeStockColor(jours: number, seuilRepricer: number = 60): {
+  color: string;
+  bg: string;
+  label: string;
+} {
+  if (jours <= 30) {
+    return { color: "text-green-700", bg: "bg-green-100", label: "Frais" };
+  } else if (jours <= seuilRepricer) {
+    return { color: "text-yellow-700", bg: "bg-yellow-100", label: "Bon" };
+  } else if (jours <= 90) {
+    return { color: "text-orange-700", bg: "bg-orange-100", label: "À repricer" };
+  } else {
+    return { color: "text-red-700", bg: "bg-red-100", label: "Urgent" };
+  }
+}
 
-      if (dossiersSnapshot.empty) {
-        console.log('✅ Aucun dossier à synchroniser');
-        setIsLoading(false);
-        return;
-      }
+// Étapes prépa NORMALE (ordre d'affichage : CT, VGP, Révision, Lavage)
+// has_na = true → l'étape peut être marquée "Non nécessaire"
+const ETAPES_PREPA_NORMALE = [
+  { label: "Contrôle technique", has_na: true },
+  { label: "VGP", has_na: true },
+  { label: "Révision", has_na: false },
+  { label: "Lavage", has_na: false },
+];
 
-      let successCount = 0;
-      let errorCount = 0;
+// Étapes prépa EN L'ÉTAT (export) : juste un lavage léger
+const ETAPES_PREPA_EN_ETAT = [
+  { label: "Lavage léger", has_na: false },
+];
 
-      for (const dossierDoc of dossiersSnapshot.docs) {
-        const dossier = dossierDoc.data() as NacelleExpertDossier;
-        
-        try {
-          console.log(`\n📦 Traitement du dossier: ${dossier.immat}`);
-          
-          if (!dossier.info?.immat) {
-            console.warn(`⚠️ Dossier sans immatriculation, ignoré`);
-            continue;
-          }
+export function creerEtapesPrepa(typePrepa: TypePrepa = "normale"): EtapePrepa[] {
+  const etapes = typePrepa === "normale" ? ETAPES_PREPA_NORMALE : ETAPES_PREPA_EN_ETAT;
+  return etapes.map((etape, idx) => ({
+    id: `etape-${idx + 1}`,
+    label: etape.label,
+    done: false,
+    non_necessaire: false,
+    has_na: etape.has_na,
+  }));
+}
 
-          if (!dossier.info?.modele) {
-            console.warn(`⚠️ Dossier ${dossier.immat} sans modèle, ignoré`);
-            continue;
-          }
+// ========== FONCTIONS POUR DISPONIBLES ==========
 
-          // Créer la fiche VO dans Delta VO
-          const machineVORef = doc(db, 'machines_vo', dossier.immat);
-          
-          // ✅ Date demande récupération = date de retour (la machine est arrivée)
-          const dateRecup = dossier.retour?.date || dossier.depart?.date || new Date().toISOString().slice(0, 10);
-          
-          const machineVOData: any = {
-            // Données de base
-            immat: dossier.info.immat,
-            modele: dossier.info.modele || '',
-            type_nacelle: dossier.info.type_nacelle || '',
-            annee_fab: dossier.info.annee_fab || '',
-            
-            // ✅ Date demande récupération auto-remplie (machine déjà arrivée)
-            date_demande_recuperation: dateRecup,
-            heures: dossier.retour?.heures || dossier.depart?.heures || '',
-            km_porteur: dossier.retour?.km_porteur || dossier.depart?.km_porteur || '',
-            
-            // Données du dossier nacelle-expert
-            dossier_nacelle_expert: {
-              client: dossier.info.client || '',
-              contrat: dossier.info.contrat || '',
-              email: dossier.info.email || '',
-              date_depart: dossier.depart?.date || '',
-              date_retour: dossier.retour?.date || '',
-              agent_depart: dossier.depart?.agent || '',
-              agent_retour: dossier.retour?.agent || '',
-              zones_depart: dossier.depart?.zones || [],
-              zones_retour: dossier.retour?.zones || [],
-              photos_depart: dossier.depart?.photos || [],
-              photos_retour: dossier.retour?.photos || [],
-              photos_commerciales: dossier.retour?.commercialPhotos || {},
-              degats: dossier.retour?.degats || [],
-              note_expert: dossier.retour?.note || '',
-              rapport_url: dossier.retour?.pdf_url || dossier.rapport_url || dossier.retour?.rapport_url || '',
-            },
-            
-            // ✅ CORRECTION: Statut "restitution" avec phase "expertise"
-            statut: 'restitution',
-            recuperation_ok: true,   // ✅ Déjà récupérée (expertise faite)
-            expertise_ok: true,       // ✅ Expertise faite dans Nacelle-Expert
-            facture_ok: false,        // ⏳ Reste à faire
-            facture_reglee_ok: false, // ⏳ Reste à faire
-            fiche_vo_creee: false,    // ⏳ À créer manuellement
-            
-            date_ajout: new Date(),
-            date_modification: new Date(),
-            createdBy: dossier.createdBy,
-          };
+export interface FiltreDisponibles {
+  searchText: string;
+  section: "attente_prix" | "repricer" | "normal" | "tous";
+  marche: "tous" | "fr" | "dealer";
+  modele: string;
+  ageMin: number;
+  ageMax: number;
+}
 
-          // ✅ ANTI-ÉCRASEMENT : Vérifier si la machine existe déjà
-          const existingDoc = await getDoc(machineVORef);
-          
-          if (existingDoc.exists()) {
-            // 🔄 RELOCATION : La nacelle revient pour une nouvelle expertise
-            console.log(`🔄 Machine ${dossier.immat} existe déjà - mise à jour intelligente`);
-            const existingData = existingDoc.data();
-            
-            // ✅ Préserver les données importantes Delta VO :
-            // - Fiche commerciale (hauteur, déport, etc.)
-            // - Prix précédents (à titre indicatif, pourront être révisés)
-            // - Historique
-            const smartUpdate: any = {
-              // Nouvelles données d'expertise (remontent toujours)
-              heures: machineVOData.heures,
-              km_porteur: machineVOData.km_porteur,
-              dossier_nacelle_expert: machineVOData.dossier_nacelle_expert,
+export function filtrerDisponibles(
+  machines: Machine[],
+  filtre: FiltreDisponibles,
+  seuilRepricer: number = 60
+): Machine[] {
+  let result = machines.filter((m) => m.statut === "disponible");
 
-              // ✅ Nouvelle date de récupération pour ce cycle de relocation
-              date_demande_recuperation: dateRecup,
-
-              // ✅ Une machine qui revient (dossier Nacelle-Expert resynchronisé)
-              // repasse en cycle restitution pour nouvelle expertise/facturation.
-              statut: 'restitution',
-              recuperation_ok: true,
-              expertise_ok: true,
-              facture_ok: false,        // ⏳ Nouvelle facture expertise à faire
-              facture_reglee_ok: false, // ⏳ Nouveau règlement à recevoir
-              fiche_vo_creee: false,    // ⏳ Refaire la fiche VO si besoin
-              import_vog: false,        // ⏳ Vraie restitution : on lève le marqueur stock VOG
-
-              // Conserver les données Delta VO existantes
-              fiche_commerciale: existingData.fiche_commerciale,
-              prix_fr: existingData.prix_fr,
-              prix_dealer: existingData.prix_dealer,
-              prix_modifie_le: existingData.prix_modifie_le,
-              prix_modifie_par: existingData.prix_modifie_par,
-
-              date_modification: new Date(),
-            };
-            
-            // Nettoyer les undefined avant Firebase
-            Object.keys(smartUpdate).forEach(key => {
-              if (smartUpdate[key] === undefined) {
-                delete smartUpdate[key];
-              }
-            });
-            
-            await updateDoc(machineVORef, smartUpdate);
-            console.log(`✅ Machine ${dossier.immat} mise à jour (relocation détectée)`);
-          } else {
-            // 🆕 Nouvelle nacelle : création normale
-            console.log(`💾 Création nouvelle fiche pour ${dossier.immat}`);
-            await setDoc(machineVORef, machineVOData);
-            console.log(`✅ Fiche créée avec succès`);
-          }
-
-          // Marquer comme synchronisé dans Nacelle-Expert
-          const dossierRef = doc(dbNacelleExpert, 'dossiers', dossierDoc.id);
-          await updateDoc(dossierRef, {
-            synced_to_delta_vo: true
-          });
-          console.log(`✅ Dossier marqué comme synchronisé`);
-
-          successCount++;
-        } catch (err) {
-          console.error(`❌ Erreur lors de la synchronisation de ${dossier.immat}:`, err);
-          errorCount++;
-        }
-      }
-
-      console.log(`\n🎉 Synchronisation terminée:`);
-      console.log(`  ✅ Succès: ${successCount}`);
-      console.log(`  ❌ Erreurs: ${errorCount}`);
-
-      setSyncedCount(successCount);
-      
-      if (errorCount > 0) {
-        setError(`${errorCount} dossier(s) n'ont pas pu être synchronisés`);
-      }
-
-    } catch (err) {
-      console.error('❌ Erreur générale lors de la synchronisation:', err);
-      setError(err instanceof Error ? err.message : 'Erreur inconnue');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // ✅ ÉCOUTE TEMPS RÉEL des nouveaux dossiers Nacelle-Expert
-  useEffect(() => {
-    console.log('🔄 Démarrage de l\'écoute temps réel Nacelle-Expert');
-    
-    const dossiersQuery = query(
-      collection(dbNacelleExpert, 'dossiers'),
-      where('synced_to_delta_vo', '==', false)
+  if (filtre.searchText.trim()) {
+    const text = filtre.searchText.toLowerCase();
+    result = result.filter(
+      (m) =>
+        m.immat.toLowerCase().includes(text) ||
+        m.modele_porteur.toLowerCase().includes(text) ||
+        m.type_nacelle.toLowerCase().includes(text)
     );
-    
-    const unsubscribe = onSnapshot(
-      dossiersQuery,
-      (snapshot) => {
-        if (snapshot.empty) {
-          console.log('ℹ️ Aucun nouveau dossier à synchroniser');
-          return;
-        }
-        
-        console.log(`🆕 ${snapshot.size} nouveau(x) dossier(s) détecté(s) - sync automatique`);
-        syncDossiers();
-      },
-      (error) => {
-        console.error('❌ Erreur écoute Nacelle-Expert:', error);
-      }
-    );
-    
-    return () => {
-      console.log('🛑 Arrêt de l\'écoute Nacelle-Expert');
-      unsubscribe();
-    };
-  }, []);
+  }
 
-  // ✅ RATTRAPAGE AUTOMATIQUE du lien PDF de restitution
-  // Pour les machines déjà synchronisées AVANT l'ajout du PDF (flag synced_to_delta_vo
-  // resté à true) : on lit retour.pdf_url directement dans Nacelle-Expert et on remplit
-  // dossier_nacelle_expert.rapport_url dans machines_vo si absent/différent.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const snap = await getDocs(collection(dbNacelleExpert, 'dossiers'));
-        for (const d of snap.docs) {
-          if (cancelled) return;
-          const data: any = d.data();
-          const pdfUrl = data?.retour?.pdf_url;
-          if (!pdfUrl) continue;
-          const immat = data?.immat || data?.info?.immat || d.id;
-          if (!immat) continue;
-          try {
-            const ref = doc(db, 'machines_vo', immat);
-            const mSnap = await getDoc(ref);
-            if (!mSnap.exists()) continue;
-            const m: any = mSnap.data();
-            const current = m?.dossier_nacelle_expert?.rapport_url || '';
-            if (current !== pdfUrl) {
-              await updateDoc(ref, {
-                'dossier_nacelle_expert.rapport_url': pdfUrl,
-              });
-              console.log(`🔗 Lien PDF rattrapé pour ${immat}`);
-            }
-          } catch (e) {
-            console.error('Rattrapage PDF échoué pour', immat, e);
-          }
-        }
-      } catch (e) {
-        console.error('Rattrapage PDF : lecture des dossiers échouée', e);
+  if (filtre.section !== "tous") {
+    result = result.filter((m) => {
+      const age = calculAgeStock(m.date_mise_stock || "");
+      if (filtre.section === "attente_prix") {
+        return !m.prix_fr && !m.prix_dealer;
       }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+      if (filtre.section === "repricer") {
+        return (m.prix_fr || m.prix_dealer) && age > seuilRepricer;
+      }
+      if (filtre.section === "normal") {
+        return (m.prix_fr || m.prix_dealer) && age <= seuilRepricer;
+      }
+      return true;
+    });
+  }
 
-  return {
-    syncDossiers,
-    isLoading,
-    error,
-    syncedCount,
-  };
+  if (filtre.marche !== "tous") {
+    result = result.filter((m) => m.marche === filtre.marche);
+  }
+
+  if (filtre.modele) {
+    result = result.filter((m) => m.modele_porteur === filtre.modele);
+  }
+
+  if (filtre.ageMin !== undefined) {
+    result = result.filter((m) => {
+      const age = calculAgeStock(m.date_mise_stock || "");
+      return age >= filtre.ageMin;
+    });
+  }
+
+  if (filtre.ageMax !== undefined) {
+    result = result.filter((m) => {
+      const age = calculAgeStock(m.date_mise_stock || "");
+      return age <= filtre.ageMax;
+    });
+  }
+
+  return result;
+}
+
+export function isFicheComplete(machine: Machine): boolean {
+  const f = machine.fiche_commerciale;
+  if (!f) return false;
+  return !!(
+    f.hauteur_travail_m &&
+    f.deport_travail_m &&
+    f.nb_personnes_panier &&
+    f.puissance_porteur
+  );
+}
+
+export function getNextFicheNumber(machines: Machine[]): string {
+  const currentYear = new Date().getFullYear();
+  const fiches = machines
+    .filter((m) => m.fiche_commerciale?.numero_fiche)
+    .map((m) => m.fiche_commerciale!.numero_fiche!);
+
+  const thisYearFiches = fiches.filter((num) => num.startsWith(`${currentYear}-`));
+  if (thisYearFiches.length === 0) {
+    return `${currentYear}-001`;
+  }
+
+  const maxNum = Math.max(
+    ...thisYearFiches.map((num) => parseInt(num.split("-")[1], 10))
+  );
+  const next = maxNum + 1;
+  return `${currentYear}-${next.toString().padStart(3, "0")}`;
+}
+
+// ========== FONCTIONS POUR EN COURS ==========
+
+export function prepaTerminee(etapesPrepa: EtapePrepa[] | undefined): boolean {
+  if (!etapesPrepa || etapesPrepa.length === 0) return false;
+  // Une étape est "validée" si elle est faite (done) OU marquée non nécessaire
+  return etapesPrepa.every((e) => e.done || e.non_necessaire);
+}
+
+export function isLivraisonEnRetard(dateLivraisonPrevue: string | undefined): boolean {
+  if (!dateLivraisonPrevue) return false;
+  const today = new Date().toISOString().slice(0, 10);
+  return dateLivraisonPrevue < today;
+}
+
+export function isMiseDispoEnRetard(dateMiseDispo: string | undefined): boolean {
+  if (!dateMiseDispo) return false;
+  const today = new Date().toISOString().slice(0, 10);
+  return dateMiseDispo < today;
+}
+
+// ========== FONCTIONS POUR CLÔTURÉES ==========
+
+export function getStatutPaiement(machine: Machine): StatutPaiement {
+  if (machine.date_reglement) return "payee";
+  if (!machine.date_facturation) return "en_attente";
+
+  const jours = joursDepuisFacturation(machine.date_facturation);
+  if (jours > 60) return "retard";
+  return "en_attente";
+}
+
+export function joursDepuisFacturation(dateFacturation: string | undefined): number {
+  if (!dateFacturation) return 0;
+  const now = new Date();
+  const facturation = new Date(dateFacturation);
+  return Math.floor((now.getTime() - facturation.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+export function getAnneeFacturation(machine: Machine): number {
+  if (!machine.date_facturation) return 0;
+  return parseInt(machine.date_facturation.slice(0, 4), 10);
 }

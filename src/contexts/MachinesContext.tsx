@@ -13,6 +13,7 @@ import { MOCK_DISPONIBLES } from "../data/mockDisponibles";
 import { MOCK_EN_COURS } from "../data/mockEnCours";
 import { MOCK_CLOTUREES } from "../data/mockCloturees";
 import { syncHubspotProduct } from "../services/hubspotService";
+import { getAllExpertises } from "../services/nacelleExpertService";
 import type { ParsedStockMachine } from "../utils/importStock";
 
 export interface StockImportSummary {
@@ -73,6 +74,7 @@ interface MachinesContextType {
   addEtapePrepa: (machineId: string, label: string) => void;
   removeEtapePrepa: (machineId: string, etapeId: string) => void;
   importStockMachines: (parsed: ParsedStockMachine[]) => Promise<StockImportSummary>;
+  refreshExpertiseMontants: () => Promise<{ updated: number; matched: number; total: number }>;
   configureEnCours: (
     machineId: string,
     typePrepa: "normale" | "en_etat",
@@ -592,6 +594,55 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
         )
       );
     }
+  }
+
+  async function refreshExpertiseMontants(): Promise<{ updated: number; matched: number; total: number }> {
+    const expertises = await getAllExpertises();
+
+    // Index par immatriculation (MAJUSCULES)
+    const byImmat = new Map<string, any>();
+    for (const e of expertises) {
+      const im = (e.immatriculation || "").trim().toUpperCase();
+      if (im) byImmat.set(im, e);
+    }
+
+    let updated = 0;
+    let matched = 0;
+
+    for (const m of machines) {
+      const im = (m.immat || "").trim().toUpperCase();
+      if (!im) continue;
+      const exp = byImmat.get(im);
+      if (!exp) continue;
+      matched++;
+
+      const rapport = {
+        total_retenue_ht: typeof exp.total_retenue_ht === "number" ? exp.total_retenue_ht : 0,
+        degats: Array.isArray(exp.degats)
+          ? exp.degats.map((d: any) => ({
+              zone: d.zone || "",
+              description: d.description || "",
+              montant: typeof d.montant === "number" ? d.montant : 0,
+            }))
+          : [],
+        agent: exp.agent,
+        heures_nacelle: exp.heures_nacelle,
+        km_porteur: exp.km_porteur,
+        notes: exp.notes,
+      };
+
+      try {
+        await updateDoc(doc(db, "machines_vo", m.id), {
+          rapport_expertise: rapport,
+          updatedAt: new Date().toISOString(),
+        });
+        updated++;
+      } catch (e) {
+        console.warn("MAJ expertise impossible pour", m.id, e);
+      }
+    }
+
+    return { updated, matched, total: machines.length };
   }
 
   async function importStockMachines(parsed: ParsedStockMachine[]): Promise<StockImportSummary> {
@@ -1149,6 +1200,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       addEtapePrepa,
       removeEtapePrepa,
       importStockMachines,
+      refreshExpertiseMontants,
       configureEnCours,
       cancelEnCours,
       marquerFacturee,

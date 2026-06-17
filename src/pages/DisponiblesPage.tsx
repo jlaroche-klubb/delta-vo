@@ -85,6 +85,7 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
     creerOffre,
     annulerOffre,
     importStockMachines,
+    refreshExpertiseMontants,
   } = useMachinesFiltered(showArchived);
 
   // Pour le compteur des archivées
@@ -113,6 +114,7 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
   const fileInputRef = useRef<HTMLInputElement>(null);
   const stockInputRef = useRef<HTMLInputElement>(null);
   const [importingStock, setImportingStock] = useState(false);
+  const [refreshingExpertise, setRefreshingExpertise] = useState(false);
 
   const isAdmin = userRole === "admin";
   const canLld = canCreateLLD(userRole as any);
@@ -484,6 +486,23 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
     }
   }
 
+  async function handleRefreshExpertise() {
+    setRefreshingExpertise(true);
+    try {
+      const res = await refreshExpertiseMontants();
+      alert(
+        `✅ Montants d'expertise récupérés :\n\n` +
+          `• ${res.matched} machine(s) avec une expertise trouvée\n` +
+          `• ${res.updated} machine(s) mise(s) à jour\n` +
+          `(sur ${res.total} machines au total)`
+      );
+    } catch (err: any) {
+      alert("Erreur lors de la récupération des expertises : " + err.message);
+    } finally {
+      setRefreshingExpertise(false);
+    }
+  }
+
   return (
     <div className="page-disponibles">
       <div className="page-header">
@@ -554,6 +573,17 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
             title="Importer le tableau de stock VOG (Excel)"
           >
             {importingStock ? "⏳ Import stock..." : "📦 Importer stock VOG"}
+          </button>
+        )}
+
+        {isAdmin && (
+          <button
+            className="btn-import"
+            onClick={handleRefreshExpertise}
+            disabled={refreshingExpertise}
+            title="Récupérer les montants d'expertise depuis Nacelle-Expert"
+          >
+            {refreshingExpertise ? "⏳ Expertises..." : "🧰 Montants expertise"}
           </button>
         )}
 

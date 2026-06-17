@@ -29,6 +29,23 @@ export interface NacelleExpertExpertise {
 }
 
 /**
+ * Récupérer TOUTES les expertises depuis nacelle-expert (pour rattachement par immat)
+ */
+export async function getAllExpertises(): Promise<NacelleExpertExpertise[]> {
+  try {
+    const expertisesRef = collection(dbNacelleExpert, "expertises");
+    const snapshot = await getDocs(expertisesRef);
+    return snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as NacelleExpertExpertise[];
+  } catch (error) {
+    console.error("Erreur lors de la récupération des expertises:", error);
+    return [];
+  }
+}
+
+/**
  * Récupérer les expertises récentes depuis nacelle-expert
  */
 export async function getRecentExpertises(

@@ -32,6 +32,7 @@ export function exportPricingToExcel({ machines }: ExportPricingOptions) {
 
   const rows = disponibles.map((m) => {
     const row: any = {
+      "N° Dossier": m.numero_dossier || "",
       Immatriculation: m.immat || "",
       "Type nacelle": m.type_nacelle || "",
       "Modèle porteur": m.modele_porteur || "",
@@ -54,6 +55,7 @@ export function exportPricingToExcel({ machines }: ExportPricingOptions) {
   const ws = XLSX.utils.json_to_sheet(rows);
 
   ws["!cols"] = [
+    { wch: 12 }, // N° Dossier
     { wch: 15 }, // Immat
     { wch: 12 }, // Type nacelle
     { wch: 20 }, // Modèle porteur

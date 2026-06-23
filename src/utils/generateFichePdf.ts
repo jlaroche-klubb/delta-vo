@@ -68,19 +68,17 @@ export async function generateFichePdf({
   prixChoisi,
   commercial,
 }: GenerateFicheOptions): Promise<void> {
-  // On va capturer les 2 pages HTML de la fiche, puis les transformer en PDF A4
+  // Fiche sur une seule page A4
   const page1 = document.getElementById("fiche-vo-page-1");
-  const page2 = document.getElementById("fiche-vo-page-2");
 
-  if (!page1 || !page2) {
-    throw new Error("Les pages de la fiche ne sont pas trouvées dans le DOM");
+  if (!page1) {
+    throw new Error("La page de la fiche n'est pas trouvée dans le DOM");
   }
 
   // 🆕 Préchargement des photos distantes (Firebase Storage) en base64
   // pour contourner les restrictions CORS de html2canvas
   console.log("[generateFichePdf] Préchargement des images distantes...");
   await preloadImagesAsBase64(page1);
-  await preloadImagesAsBase64(page2);
   console.log("[generateFichePdf] Préchargement terminé, génération du PDF...");
 
   // Création du PDF A4 portrait
@@ -94,7 +92,7 @@ export async function generateFichePdf({
   const PAGE_WIDTH = 210;
   const PAGE_HEIGHT = 297;
 
-  // PAGE 1
+  // PAGE UNIQUE
   const canvas1 = await html2canvas(page1, {
     scale: 2,
     useCORS: true,
@@ -104,16 +102,6 @@ export async function generateFichePdf({
   const imgData1 = canvas1.toDataURL("image/png");
   pdf.addImage(imgData1, "PNG", 0, 0, PAGE_WIDTH, PAGE_HEIGHT, undefined, "FAST");
 
-  // PAGE 2
-  pdf.addPage();
-  const canvas2 = await html2canvas(page2, {
-    scale: 2,
-    useCORS: true,
-    logging: false,
-    backgroundColor: "#ffffff",
-  });
-  const imgData2 = canvas2.toDataURL("image/png");
-  pdf.addImage(imgData2, "PNG", 0, 0, PAGE_WIDTH, PAGE_HEIGHT, undefined, "FAST");
 
   // Nom du fichier
   const today = new Date().toISOString().slice(0, 10);

@@ -625,26 +625,33 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
         seuilRepricer={SEUIL_REPRICER}
       />
 
-      {sansPrix.length > 0 && (
-        <section className="dispo-section section-pricing">
+      {enVente.length > 0 && (
+        <section className="dispo-section">
           <div className="section-header">
             <h2>
-              <span className="section-dot section-dot-pending"></span>
-              En attente de pricing
-              <span className="section-count">{sansPrix.length}</span>
+              <span className="section-dot section-dot-ok"></span>
+              En vente
+              <span className="section-count">{enVente.length}</span>
             </h2>
-            <p className="section-desc">
-              Ces machines attendent que le PDG fixe leurs prix de vente
-            </p>
           </div>
           <div className="dispo-list">
-            {sansPrix.map((m) => (
+            {enVente.map((m) => (
               <DisponibleCard
                 key={m.id}
                 machine={m}
                 seuilRepricer={SEUIL_REPRICER}
                 isAdmin={isAdmin}
+                canLld={canLld}
+                canFiche={canFiche}
+                canGenerateFiche={canGenFiche}
+                canOffre={canOffre}
+                isInPanier={isInPanier(m.id)}
+                onTogglePanier={togglePanier}
+                onAnnulerOffre={handleAnnulerOffre}
                 onEditPrice={setEditingMachine}
+                onLld={setLldMachine}
+                onEditFiche={setFicheMachine}
+                onGenerateFiche={handleGenerateFiche}
                 onViewExpertise={setExpertiseMachine}
                 onViewNacelleExpert={setNeMachine}
                 onLocaliteChange={updateLocalite}
@@ -699,33 +706,26 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
         </section>
       )}
 
-      {enVente.length > 0 && (
-        <section className="dispo-section">
+      {sansPrix.length > 0 && (
+        <section className="dispo-section section-pricing">
           <div className="section-header">
             <h2>
-              <span className="section-dot section-dot-ok"></span>
-              En vente
-              <span className="section-count">{enVente.length}</span>
+              <span className="section-dot section-dot-pending"></span>
+              En attente de pricing
+              <span className="section-count">{sansPrix.length}</span>
             </h2>
+            <p className="section-desc">
+              Ces machines attendent que le PDG fixe leurs prix de vente
+            </p>
           </div>
           <div className="dispo-list">
-            {enVente.map((m) => (
+            {sansPrix.map((m) => (
               <DisponibleCard
                 key={m.id}
                 machine={m}
                 seuilRepricer={SEUIL_REPRICER}
                 isAdmin={isAdmin}
-                canLld={canLld}
-                canFiche={canFiche}
-                canGenerateFiche={canGenFiche}
-                canOffre={canOffre}
-                isInPanier={isInPanier(m.id)}
-                onTogglePanier={togglePanier}
-                onAnnulerOffre={handleAnnulerOffre}
                 onEditPrice={setEditingMachine}
-                onLld={setLldMachine}
-                onEditFiche={setFicheMachine}
-                onGenerateFiche={handleGenerateFiche}
                 onViewExpertise={setExpertiseMachine}
                 onViewNacelleExpert={setNeMachine}
                 onLocaliteChange={updateLocalite}

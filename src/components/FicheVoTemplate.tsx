@@ -21,12 +21,8 @@ export default function FicheVoTemplate({
   const prix = prixChoisi === "fr" ? machine.prix_fr : machine.prix_dealer;
   const prixLabel = prixChoisi === "fr" ? "PRIX HT" : "PRIX HT DEALER";
 
-  // === Photos commerciales ===
+  // === Photos commerciales (détourées) ===
   const photos = machine.photos_commerciales || {};
-  const photoPrincipale = photos.av_droit; // Photo principale
-  const photo3qAvant = photos.av_gauche || photos.av_droit;
-  const photoArriere = photos.ar_droit || photos.av_droit;
-  const photoProfil = photos.ar_gauche || photos.av_droit;
 
   return (
     <>
@@ -53,21 +49,12 @@ export default function FicheVoTemplate({
           <div style={separatorStyle}></div>
 
           <div style={gridStyle}>
-            {/* Photo principale */}
-            <div style={photoMainStyle}>
-              {photoPrincipale ? (
-                <img
-                  src={photoPrincipale}
-                  alt="Vue principale"
-                  style={photoMainImgStyle}
-                />
-              ) : (
-                <div style={photoPlaceholderStyle}>
-                  <div style={photoIconStyle}>📷</div>
-                  <div style={photoLabelStyle}>Photo à venir</div>
-                  <div style={photoSubStyle}>depuis nacelle-expert</div>
-                </div>
-              )}
+            {/* Les 4 photos détourées regroupées sur la même page */}
+            <div style={photoQuadStyle}>
+              <PhotoSlot label="Avant droit" src={photos.av_droit} />
+              <PhotoSlot label="Avant gauche" src={photos.av_gauche} />
+              <PhotoSlot label="Arrière droit" src={photos.ar_droit} />
+              <PhotoSlot label="Arrière gauche" src={photos.ar_gauche} />
             </div>
 
             <div style={specsStyle}>
@@ -127,26 +114,6 @@ export default function FicheVoTemplate({
                   )}
                 </ul>
               </div>
-
-              {fc.options && fc.options.length > 0 && (
-                <div style={specBlockStyle}>
-                  <div style={specTitleStyle}>OPTIONS</div>
-                  <ul style={specListPlainStyle}>
-                    {fc.options.map((opt, idx) => (
-                      <li key={idx} style={specItemPlainStyle}>
-                        {opt}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {fc.amenagement_interieur && (
-                <div style={specBlockStyle}>
-                  <div style={specTitleStyle}>AMÉNAGEMENT INTÉRIEUR</div>
-                  <p style={specTextStyle}>{fc.amenagement_interieur}</p>
-                </div>
-              )}
             </div>
           </div>
 
@@ -158,6 +125,16 @@ export default function FicheVoTemplate({
               </div>
             </div>
           )}
+
+          {/* Coordonnées vendeur sur une ligne, en bas */}
+          <div style={sellerLineStyle}>
+            <span style={sellerLineLabelStyle}>VOTRE INTERLOCUTEUR</span>
+            <span style={sellerLineNameStyle}>{commercial.nom}</span>
+            <span style={sellerLineSepStyle}>·</span>
+            <span style={sellerLineItemStyle}>📞 {commercial.phone}</span>
+            <span style={sellerLineSepStyle}>·</span>
+            <span style={sellerLineItemStyle}>✉️ {commercial.email}</span>
+          </div>
 
           <div style={footerStyle}>
             <div style={footerLineStyle}></div>
@@ -182,12 +159,26 @@ export default function FicheVoTemplate({
 
           <div style={separatorStyle}></div>
 
-          {/* Grille de 3 photos (utilise les vraies photos détourées si dispo) */}
-          <div style={photosGridStyle}>
-            <PhotoSlot label="Vue 3/4 avant" src={photo3qAvant} />
-            <PhotoSlot label="Vue arrière" src={photoArriere} />
-            <PhotoSlot label="Vue de profil" src={photoProfil} />
+          {/* Aménagement intérieur (espace réservé) */}
+          <div style={page2BlockStyle}>
+            <div style={specTitleStyle}>AMÉNAGEMENT INTÉRIEUR</div>
+            <p style={specTextStyle}>
+              {fc.amenagement_interieur || "—"}
+            </p>
           </div>
+
+          {fc.options && fc.options.length > 0 && (
+            <div style={page2BlockStyle}>
+              <div style={specTitleStyle}>OPTIONS</div>
+              <ul style={specListPlainStyle}>
+                {fc.options.map((opt, idx) => (
+                  <li key={idx} style={specItemPlainStyle}>
+                    - {opt}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <div style={commercialBlockStyle}>
             <div style={commercialTitleStyle}>VOTRE INTERLOCUTEUR</div>
@@ -417,6 +408,54 @@ const photoSubStyle: React.CSSProperties = {
   fontSize: "12px",
   fontStyle: "italic",
   marginTop: "4px",
+};
+
+const photoQuadStyle: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr",
+  gridTemplateRows: "1fr 1fr",
+  gap: "8px",
+  height: "320px",
+};
+
+const sellerLineStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  flexWrap: "wrap",
+  gap: "10px",
+  background: "#f3f5fb",
+  border: "1px solid #d9deee",
+  borderRadius: "8px",
+  padding: "12px 18px",
+  marginBottom: "16px",
+};
+
+const sellerLineLabelStyle: React.CSSProperties = {
+  fontSize: "11px",
+  fontWeight: 900,
+  letterSpacing: "1px",
+  color: "#c8102e",
+};
+
+const sellerLineNameStyle: React.CSSProperties = {
+  fontSize: "15px",
+  fontWeight: 900,
+  color: "#1a2a6e",
+};
+
+const sellerLineItemStyle: React.CSSProperties = {
+  fontSize: "13px",
+  fontWeight: 700,
+  color: "#1a2030",
+};
+
+const sellerLineSepStyle: React.CSSProperties = {
+  color: "#c8102e",
+  fontWeight: 700,
+};
+
+const page2BlockStyle: React.CSSProperties = {
+  marginBottom: "24px",
 };
 
 const specsStyle: React.CSSProperties = {

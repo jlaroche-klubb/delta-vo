@@ -122,9 +122,9 @@ export default function FicheVoTemplate({
                 <p style={specTextStyle}>{fc.amenagement_interieur || "—"}</p>
               </div>
 
-              {fc.options && fc.options.length > 0 && (
-                <div style={specBlockStyle}>
-                  <div style={specTitleStyle}>OPTIONS</div>
+              <div style={specBlockStyle}>
+                <div style={specTitleStyle}>OPTIONS</div>
+                {fc.options && fc.options.length > 0 ? (
                   <ul style={specListPlainStyle}>
                     {fc.options.map((opt, idx) => (
                       <li key={idx} style={specItemPlainStyle}>
@@ -132,8 +132,10 @@ export default function FicheVoTemplate({
                       </li>
                     ))}
                   </ul>
-                </div>
-              )}
+                ) : (
+                  <p style={specTextStyle}>—</p>
+                )}
+              </div>
             </div>
           </div>
 
@@ -373,9 +375,9 @@ const photoSubStyle: React.CSSProperties = {
 
 const photoColStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateRows: "230px 128px",
+  gridTemplateRows: "230px 150px",
   gap: "8px",
-  height: "366px",
+  height: "388px",
 };
 
 const photoRow3Style: React.CSSProperties = {

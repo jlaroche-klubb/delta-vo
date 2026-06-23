@@ -666,7 +666,13 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
         if (existing.heures_nacelle == null && p.heures_nacelle != null) updates.heures = p.heures_nacelle;
         if (!existing.localite && p.localite) updates.localite = p.localite;
         if (!existing.numero_dossier && p.numero_dossier) updates.numero_dossier = p.numero_dossier;
-        if (existing.prix_fr == null && p.prix_fr != null) updates.prix_fr = p.prix_fr;
+        // 💶 Prix de vente : le fichier VOG fait foi -> on MET À JOUR le prix
+        // dès que le VOG en fournit un (même si la machine en avait déjà un).
+        if (p.prix_fr != null && p.prix_fr !== existing.prix_fr) {
+          updates.prix_fr = p.prix_fr;
+          updates.prix_modifie_le = new Date().toISOString().slice(0, 10);
+          updates.prix_modifie_par = "Import VOG";
+        }
 
         // ✅ Marqueur définitif : cette machine vient du stock VOG.
         // La page Restitution exclut catégoriquement les machines import_vog.
@@ -696,7 +702,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
           skipped++;
           details.push({ ref: p.source, action: "déjà complète" });
         }
-        const prix = existing.prix_fr ?? updates.prix_fr;
+        const prix = updates.prix_fr ?? existing.prix_fr;
         if (prix) {
           const label = `${existing.type_nacelle || p.type_nacelle} ${existing.modele_porteur || p.modele_porteur}`.trim();
           await syncHubspotProduct("upsert", p.docId, label, prix);

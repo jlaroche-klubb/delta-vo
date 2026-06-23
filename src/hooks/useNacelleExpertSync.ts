@@ -363,56 +363,6 @@ export function useNacelleExpertSync() {
     return () => { cancelled = true; };
   }, []);
 
-  // ⚠️⚠️ TEMPORAIRE — REPRISE FORCÉE DE TOUTES LES PHOTOS DÉTOURÉES (une seule fois)
-  // À retirer après usage. Force la réécriture de retour.commercialPhotos sur chaque
-  // machine, même si l'URL semble identique. Gardé en mémoire navigateur pour ne
-  // tourner qu'une fois (clé localStorage).
-  useEffect(() => {
-    const FLAG = "repull_photos_v1";
-    if (typeof localStorage !== "undefined" && localStorage.getItem(FLAG)) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        console.log("🔁 [TEMP] Reprise forcée de toutes les photos détourées…");
-        const snap = await getDocs(collection(dbNacelleExpert, "dossiers"));
-        let avecPhotos = 0;
-        let updated = 0;
-        let noMatch = 0;
-        for (const d of snap.docs) {
-          if (cancelled) return;
-          const data: any = d.data();
-          const immat = data?.immat || data?.info?.immat || d.id;
-          const cp = data?.retour?.commercialPhotos;
-          if (!immat || !cp || Object.keys(cp).length === 0) continue;
-          avecPhotos++;
-          try {
-            const ref = doc(db, "machines_vo", String(immat).trim());
-            const m = await getDoc(ref);
-            if (!m.exists()) {
-              const ref2 = doc(db, "machines_vo", String(immat).trim().toUpperCase());
-              const m2 = await getDoc(ref2);
-              if (!m2.exists()) { noMatch++; continue; }
-              await updateDoc(ref2, { "dossier_nacelle_expert.photos_commerciales": cp });
-            } else {
-              await updateDoc(ref, { "dossier_nacelle_expert.photos_commerciales": cp });
-            }
-            updated++;
-            console.log(`🔁 [TEMP] Photos reprises : ${immat}`);
-          } catch (e) {
-            console.error("[TEMP] reprise échouée pour", immat, e);
-          }
-        }
-        console.log(
-          `✅ [TEMP] Reprise terminée — dossiers avec photos: ${avecPhotos}, machines mises à jour: ${updated}, sans correspondance: ${noMatch}`
-        );
-        if (typeof localStorage !== "undefined") localStorage.setItem(FLAG, "1");
-      } catch (e) {
-        console.error("[TEMP] reprise globale échouée", e);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
   return {
     syncDossiers,
     isLoading,

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { collection, getDocs, doc, setDoc, deleteDoc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
+import { useAuth } from "../AuthContext";
 
 interface PendingUser {
   id: string;
@@ -32,6 +33,12 @@ const ROLES: { value: UserRole; label: string }[] = [
 ];
 
 export default function AdminPage() {
+  const { user } = useAuth();
+  // 🔒 Seul le propriétaire du compte peut approuver/rejeter les nouveaux entrants.
+  // (Les autres admins gèrent les rôles des utilisateurs existants, mais pas les arrivées.)
+  const OWNER_EMAIL = "jlaroche@klubb.com";
+  const isOwner = (user?.email || "").trim().toLowerCase() === OWNER_EMAIL;
+
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,6 +105,10 @@ export default function AdminPage() {
   }
 
   async function approveUser(pending: PendingUser) {
+    if (!isOwner) {
+      alert("🔒 Seul Jonathan peut approuver un nouvel utilisateur.");
+      return;
+    }
     const role = selectedRole[pending.id];
     if (!role) return;
 
@@ -122,6 +133,10 @@ export default function AdminPage() {
   }
 
   async function deleteUser(userId: string, isPending: boolean) {
+    if (isPending && !isOwner) {
+      alert("🔒 Seul Jonathan peut refuser/supprimer un nouvel entrant.");
+      return;
+    }
     const user = isPending 
       ? pendingUsers.find(u => u.id === userId)
       : users.find(u => u.id === userId);
@@ -204,30 +219,38 @@ export default function AdminPage() {
                   </div>
                 </div>
                 <div className="admin-card-actions">
-                  <select
-                    className="role-select"
-                    value={selectedRole[user.id] || "atelier"}
-                    onChange={(e) => setSelectedRole({
-                      ...selectedRole,
-                      [user.id]: e.target.value as UserRole
-                    })}
-                  >
-                    {ROLES.map(r => (
-                      <option key={r.value} value={r.value}>{r.label}</option>
-                    ))}
-                  </select>
-                  <button
-                    className="btn-approve"
-                    onClick={() => approveUser(user)}
-                  >
-                    ✅ Approuver
-                  </button>
-                  <button
-                    className="btn-delete"
-                    onClick={() => deleteUser(user.id, true)}
-                  >
-                    🗑️
-                  </button>
+                  {isOwner ? (
+                    <>
+                      <select
+                        className="role-select"
+                        value={selectedRole[user.id] || "atelier"}
+                        onChange={(e) => setSelectedRole({
+                          ...selectedRole,
+                          [user.id]: e.target.value as UserRole
+                        })}
+                      >
+                        {ROLES.map(r => (
+                          <option key={r.value} value={r.value}>{r.label}</option>
+                        ))}
+                      </select>
+                      <button
+                        className="btn-approve"
+                        onClick={() => approveUser(user)}
+                      >
+                        ✅ Approuver
+                      </button>
+                      <button
+                        className="btn-delete"
+                        onClick={() => deleteUser(user.id, true)}
+                      >
+                        🗑️
+                      </button>
+                    </>
+                  ) : (
+                    <span className="section-desc" style={{ fontStyle: "italic" }}>
+                      🔒 Validation réservée à Jonathan
+                    </span>
+                  )}
                 </div>
               </div>
             ))}

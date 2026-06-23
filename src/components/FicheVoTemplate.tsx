@@ -49,12 +49,14 @@ export default function FicheVoTemplate({
           <div style={separatorStyle}></div>
 
           <div style={gridStyle}>
-            {/* Les 4 photos détourées regroupées sur la même page */}
-            <div style={photoQuadStyle}>
+            {/* 1 grande photo + 3 photos en dessous */}
+            <div style={photoColStyle}>
               <PhotoSlot label="Avant droit" src={photos.av_droit} />
-              <PhotoSlot label="Avant gauche" src={photos.av_gauche} />
-              <PhotoSlot label="Arrière droit" src={photos.ar_droit} />
-              <PhotoSlot label="Arrière gauche" src={photos.ar_gauche} />
+              <div style={photoRow3Style}>
+                <PhotoSlot label="Avant gauche" src={photos.av_gauche} />
+                <PhotoSlot label="Arrière droit" src={photos.ar_droit} />
+                <PhotoSlot label="Arrière gauche" src={photos.ar_gauche} />
+              </div>
             </div>
 
             <div style={specsStyle}>
@@ -114,6 +116,24 @@ export default function FicheVoTemplate({
                   )}
                 </ul>
               </div>
+
+              <div style={specBlockStyle}>
+                <div style={specTitleStyle}>AMÉNAGEMENT INTÉRIEUR</div>
+                <p style={specTextStyle}>{fc.amenagement_interieur || "—"}</p>
+              </div>
+
+              {fc.options && fc.options.length > 0 && (
+                <div style={specBlockStyle}>
+                  <div style={specTitleStyle}>OPTIONS</div>
+                  <ul style={specListPlainStyle}>
+                    {fc.options.map((opt, idx) => (
+                      <li key={idx} style={specItemPlainStyle}>
+                        - {opt}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
           </div>
 
@@ -134,65 +154,6 @@ export default function FicheVoTemplate({
             <span style={sellerLineItemStyle}>📞 {commercial.phone}</span>
             <span style={sellerLineSepStyle}>·</span>
             <span style={sellerLineItemStyle}>✉️ {commercial.email}</span>
-          </div>
-
-          <div style={footerStyle}>
-            <div style={footerLineStyle}></div>
-            <div style={footerContentStyle}>
-              <span>84 Bd Courcerin, 77183 Croissy-Beaubourg</span>
-              <span style={footerSepStyle}>·</span>
-              <span style={footerSiteStyle}>delta-services.fr</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* PAGE 2 */}
-      <div id="fiche-vo-page-2" style={pageStyle}>
-        <SideBanner numero={numero} />
-
-        <div style={mainContentStyle}>
-          <div style={headerPage2Style}>
-            <img src={DELTA_LOGO_BASE64} alt="Delta Services" style={logoSmallStyle} />
-            <div style={pageRefStyle}>FICHE D'OCCASION N°{numero}</div>
-          </div>
-
-          <div style={separatorStyle}></div>
-
-          {/* Aménagement intérieur (espace réservé) */}
-          <div style={page2BlockStyle}>
-            <div style={specTitleStyle}>AMÉNAGEMENT INTÉRIEUR</div>
-            <p style={specTextStyle}>
-              {fc.amenagement_interieur || "—"}
-            </p>
-          </div>
-
-          {fc.options && fc.options.length > 0 && (
-            <div style={page2BlockStyle}>
-              <div style={specTitleStyle}>OPTIONS</div>
-              <ul style={specListPlainStyle}>
-                {fc.options.map((opt, idx) => (
-                  <li key={idx} style={specItemPlainStyle}>
-                    - {opt}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          <div style={commercialBlockStyle}>
-            <div style={commercialTitleStyle}>VOTRE INTERLOCUTEUR</div>
-            <div style={commercialNameStyle}>{commercial.nom}</div>
-            <div style={commercialInfoStyle}>
-              <div style={commercialRowStyle}>
-                <span style={commercialIconStyle}>📞</span>
-                <span style={commercialValueStyle}>{commercial.phone}</span>
-              </div>
-              <div style={commercialRowStyle}>
-                <span style={commercialIconStyle}>✉️</span>
-                <span style={commercialValueStyle}>{commercial.email}</span>
-              </div>
-            </div>
           </div>
 
           <div style={footerStyle}>
@@ -410,12 +371,17 @@ const photoSubStyle: React.CSSProperties = {
   marginTop: "4px",
 };
 
-const photoQuadStyle: React.CSSProperties = {
+const photoColStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1fr 1fr",
-  gridTemplateRows: "1fr 1fr",
+  gridTemplateRows: "230px 128px",
   gap: "8px",
-  height: "320px",
+  height: "366px",
+};
+
+const photoRow3Style: React.CSSProperties = {
+  display: "grid",
+  gridTemplateColumns: "1fr 1fr 1fr",
+  gap: "6px",
 };
 
 const sellerLineStyle: React.CSSProperties = {

@@ -49,11 +49,12 @@ export default function FicheVoTemplate({
           <div style={separatorStyle}></div>
 
           <div style={gridStyle}>
-            {/* 1 grande photo + 3 photos en dessous (sans légende) */}
+            {/* 3 photos : 1 grande + 2 en dessous, proportions conservées */}
             <div style={photoColStyle}>
-              <PhotoSlot label="Avant droit" src={photos.av_droit} caption={false} />
-              <div style={photoRow3Style}>
-                <PhotoSlot label="Avant gauche" src={photos.av_gauche} caption={false} />
+              <div style={photoBigStyle}>
+                <PhotoSlot label="Avant droit" src={photos.av_droit} caption={false} />
+              </div>
+              <div style={photoRow2Style}>
                 <PhotoSlot label="Arrière droit" src={photos.ar_droit} caption={false} />
                 <PhotoSlot label="Arrière gauche" src={photos.ar_gauche} caption={false} />
               </div>
@@ -328,7 +329,7 @@ const separatorStyle: React.CSSProperties = {
 
 const gridStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1fr 1fr",
+  gridTemplateColumns: "1.2fr 1fr",
   gap: "30px",
   flex: 1,
 };
@@ -374,18 +375,21 @@ const photoSubStyle: React.CSSProperties = {
 };
 
 const photoColStyle: React.CSSProperties = {
-  display: "grid",
-  gridTemplateRows: "1.7fr 1fr",
+  display: "flex",
+  flexDirection: "column",
   gap: "12px",
-  height: "100%",
-  minHeight: 0,
 };
 
-const photoRow3Style: React.CSSProperties = {
+const photoBigStyle: React.CSSProperties = {
+  height: "240px",
+  display: "flex",
+};
+
+const photoRow2Style: React.CSSProperties = {
   display: "grid",
-  gridTemplateColumns: "1fr 1fr 1fr",
-  gap: "8px",
-  minHeight: 0,
+  gridTemplateColumns: "1fr 1fr",
+  gap: "10px",
+  height: "120px",
 };
 
 const sellerLineStyle: React.CSSProperties = {

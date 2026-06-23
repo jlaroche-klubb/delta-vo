@@ -49,13 +49,13 @@ export default function FicheVoTemplate({
           <div style={separatorStyle}></div>
 
           <div style={gridStyle}>
-            {/* 1 grande photo + 3 photos en dessous */}
+            {/* 1 grande photo + 3 photos en dessous (sans légende) */}
             <div style={photoColStyle}>
-              <PhotoSlot label="Avant droit" src={photos.av_droit} />
+              <PhotoSlot label="Avant droit" src={photos.av_droit} caption={false} />
               <div style={photoRow3Style}>
-                <PhotoSlot label="Avant gauche" src={photos.av_gauche} />
-                <PhotoSlot label="Arrière droit" src={photos.ar_droit} />
-                <PhotoSlot label="Arrière gauche" src={photos.ar_gauche} />
+                <PhotoSlot label="Avant gauche" src={photos.av_gauche} caption={false} />
+                <PhotoSlot label="Arrière droit" src={photos.ar_droit} caption={false} />
+                <PhotoSlot label="Arrière gauche" src={photos.ar_gauche} caption={false} />
               </div>
             </div>
 
@@ -190,12 +190,12 @@ function SideBanner({ numero }: { numero: string }) {
  * Emplacement photo qui affiche la vraie photo détourée si disponible,
  * sinon un placeholder.
  */
-function PhotoSlot({ label, src }: { label: string; src?: string }) {
+function PhotoSlot({ label, src, caption = true }: { label: string; src?: string; caption?: boolean }) {
   if (src) {
     return (
       <div style={photoGridItemFilledStyle}>
         <img src={src} alt={label} style={photoGridImgStyle} />
-        <div style={photoGridCaptionStyle}>{label}</div>
+        {caption && <div style={photoGridCaptionStyle}>{label}</div>}
       </div>
     );
   }
@@ -375,15 +375,17 @@ const photoSubStyle: React.CSSProperties = {
 
 const photoColStyle: React.CSSProperties = {
   display: "grid",
-  gridTemplateRows: "230px 150px",
-  gap: "8px",
-  height: "388px",
+  gridTemplateRows: "1.7fr 1fr",
+  gap: "12px",
+  height: "100%",
+  minHeight: 0,
 };
 
 const photoRow3Style: React.CSSProperties = {
   display: "grid",
   gridTemplateColumns: "1fr 1fr 1fr",
-  gap: "6px",
+  gap: "8px",
+  minHeight: 0,
 };
 
 const sellerLineStyle: React.CSSProperties = {
@@ -565,6 +567,7 @@ const photoGridItemFilledStyle: React.CSSProperties = {
   flexDirection: "column",
   overflow: "hidden",
   position: "relative",
+  minHeight: 0,
 };
 
 const photoGridImgStyle: React.CSSProperties = {

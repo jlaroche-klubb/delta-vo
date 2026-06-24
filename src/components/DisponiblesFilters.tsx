@@ -4,21 +4,29 @@ export type PriceType = "fr" | "dealer" | "both";
 export type StatutPrix = "tous" | "avec_prix" | "sans_prix" | "a_repricer";
 
 export interface DispoFilterState {
-  typeNacelle: string;
+  typeNacelle: string[]; // multi-sélection
   priceType: PriceType;
   prixMin: string;
   prixMax: string;
   statutPrix: StatutPrix;
+  kmMin: string;
+  kmMax: string;
+  anneeMin: string;
+  anneeMax: string;
   ageMin: string;
   ageMax: string;
 }
 
 export const EMPTY_DISPO_FILTERS: DispoFilterState = {
-  typeNacelle: "",
+  typeNacelle: [],
   priceType: "both",
   prixMin: "",
   prixMax: "",
   statutPrix: "tous",
+  kmMin: "",
+  kmMax: "",
+  anneeMin: "",
+  anneeMax: "",
   ageMin: "",
   ageMax: "",
 };
@@ -71,6 +79,7 @@ export default function DisponiblesFilters({
   // Rôle : les commerciaux sont verrouillés sur leur type de prix
   const isVendeurFr = userRole === "vendeur_fr";
   const isVendeurDealer = userRole === "dealer";
+  const isAdmin = userRole === "admin";
   const lockedPriceType = isVendeurFr || isVendeurDealer;
 
   // Si le commercial est verrouillé, forcer priceType
@@ -100,25 +109,58 @@ export default function DisponiblesFilters({
       {isOpen && (
         <div className="filters-panel">
           <div className="filters-grid filters-grid-dispo">
-            {/* Type de nacelle (dynamique) */}
+            {/* Type de nacelle (multi-sélection) */}
             <div className="filter-field">
-              <label>Type de nacelle</label>
-              <select
-                value={filters.typeNacelle}
-                onChange={(e) => onChange({ ...filters, typeNacelle: e.target.value })}
+              <label>
+                Type de nacelle
+                {filters.typeNacelle.length > 0 && ` (${filters.typeNacelle.length})`}
+              </label>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 6,
+                  maxHeight: 120,
+                  overflowY: "auto",
+                  padding: "4px 0",
+                }}
               >
-                <option value="">
-                  Tous types ({typesDispo.length})
-                </option>
+                {typesDispo.length === 0 && <span style={{ fontSize: 12, color: "#888" }}>—</span>}
                 {typesDispo.map((t) => {
                   const count = machines.filter((m) => m.type_nacelle === t).length;
+                  const checked = filters.typeNacelle.includes(t);
                   return (
-                    <option key={t} value={t}>
+                    <label
+                      key={t}
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 4,
+                        fontSize: 12,
+                        border: "1px solid " + (checked ? "#1a2a6e" : "#d0d4da"),
+                        background: checked ? "#e8edff" : "#fff",
+                        color: checked ? "#1a2a6e" : "#4a5468",
+                        borderRadius: 4,
+                        padding: "3px 8px",
+                        cursor: "pointer",
+                        fontWeight: checked ? 700 : 400,
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => {
+                          const next = checked
+                            ? filters.typeNacelle.filter((x) => x !== t)
+                            : [...filters.typeNacelle, t];
+                          onChange({ ...filters, typeNacelle: next });
+                        }}
+                      />
                       {t} ({count})
-                    </option>
+                    </label>
                   );
                 })}
-              </select>
+              </div>
             </div>
 
             {/* Statut de prix */}
@@ -209,29 +251,80 @@ export default function DisponiblesFilters({
               />
             </div>
 
-            {/* Âge stock min */}
+            {/* KM min */}
             <div className="filter-field">
-              <label>Âge stock min (j)</label>
+              <label>KM min</label>
               <input
                 type="number"
-                placeholder={ageMinReal > 0 ? String(ageMinReal) : "0"}
-                value={filters.ageMin}
-                onChange={(e) => onChange({ ...filters, ageMin: e.target.value })}
+                placeholder="0"
+                value={filters.kmMin}
+                onChange={(e) => onChange({ ...filters, kmMin: e.target.value })}
                 min="0"
               />
             </div>
 
-            {/* Âge stock max */}
+            {/* KM max */}
             <div className="filter-field">
-              <label>Âge stock max (j)</label>
+              <label>KM max</label>
               <input
                 type="number"
-                placeholder={ageMaxReal > 0 ? String(ageMaxReal) : "0"}
-                value={filters.ageMax}
-                onChange={(e) => onChange({ ...filters, ageMax: e.target.value })}
+                placeholder="—"
+                value={filters.kmMax}
+                onChange={(e) => onChange({ ...filters, kmMax: e.target.value })}
                 min="0"
               />
             </div>
+
+            {/* Année MEC min */}
+            <div className="filter-field">
+              <label>Année MEC min</label>
+              <input
+                type="number"
+                placeholder="ex. 2010"
+                value={filters.anneeMin}
+                onChange={(e) => onChange({ ...filters, anneeMin: e.target.value })}
+                min="0"
+              />
+            </div>
+
+            {/* Année MEC max */}
+            <div className="filter-field">
+              <label>Année MEC max</label>
+              <input
+                type="number"
+                placeholder="ex. 2024"
+                value={filters.anneeMax}
+                onChange={(e) => onChange({ ...filters, anneeMax: e.target.value })}
+                min="0"
+              />
+            </div>
+
+            {/* Âge stock — admin uniquement */}
+            {isAdmin && (
+              <>
+                <div className="filter-field">
+                  <label>Âge stock min (j)</label>
+                  <input
+                    type="number"
+                    placeholder={ageMinReal > 0 ? String(ageMinReal) : "0"}
+                    value={filters.ageMin}
+                    onChange={(e) => onChange({ ...filters, ageMin: e.target.value })}
+                    min="0"
+                  />
+                </div>
+
+                <div className="filter-field">
+                  <label>Âge stock max (j)</label>
+                  <input
+                    type="number"
+                    placeholder={ageMaxReal > 0 ? String(ageMaxReal) : "0"}
+                    value={filters.ageMax}
+                    onChange={(e) => onChange({ ...filters, ageMax: e.target.value })}
+                    min="0"
+                  />
+                </div>
+              </>
+            )}
 
             {/* Reset */}
             {activeCount > 0 && (
@@ -253,7 +346,7 @@ export default function DisponiblesFilters({
                   <strong>{prixMaxReal.toLocaleString("fr-FR")} €</strong>
                 </span>
               )}
-              {ages.length > 0 && (
+              {isAdmin && ages.length > 0 && (
                 <span>
                   📅 Âge stock : <strong>{ageMinReal} j</strong> à{" "}
                   <strong>{ageMaxReal} j</strong>
@@ -269,11 +362,15 @@ export default function DisponiblesFilters({
 
 function countActiveFilters(f: DispoFilterState, lockedPriceType: boolean): number {
   let n = 0;
-  if (f.typeNacelle) n++;
+  if (f.typeNacelle.length > 0) n++;
   if (!lockedPriceType && f.priceType !== "both") n++;
   if (f.prixMin) n++;
   if (f.prixMax) n++;
   if (f.statutPrix !== "tous") n++;
+  if (f.kmMin) n++;
+  if (f.kmMax) n++;
+  if (f.anneeMin) n++;
+  if (f.anneeMax) n++;
   if (f.ageMin) n++;
   if (f.ageMax) n++;
   return n;
@@ -296,12 +393,17 @@ export function applyDispoFilters(
 
   const prixMinNum = f.prixMin ? parseInt(f.prixMin, 10) : null;
   const prixMaxNum = f.prixMax ? parseInt(f.prixMax, 10) : null;
-  const ageMinNum = f.ageMin ? parseInt(f.ageMin, 10) : null;
-  const ageMaxNum = f.ageMax ? parseInt(f.ageMax, 10) : null;
+  const kmMinNum = f.kmMin ? parseInt(f.kmMin, 10) : null;
+  const kmMaxNum = f.kmMax ? parseInt(f.kmMax, 10) : null;
+  const anneeMinNum = f.anneeMin ? parseInt(f.anneeMin, 10) : null;
+  const anneeMaxNum = f.anneeMax ? parseInt(f.anneeMax, 10) : null;
+  const isAdmin = userRole === "admin";
+  const ageMinNum = isAdmin && f.ageMin ? parseInt(f.ageMin, 10) : null;
+  const ageMaxNum = isAdmin && f.ageMax ? parseInt(f.ageMax, 10) : null;
 
   return machines.filter((m) => {
-    // Type
-    if (f.typeNacelle && m.type_nacelle !== f.typeNacelle) return false;
+    // Type (multi-sélection : OK si vide OU si le type est coché)
+    if (f.typeNacelle.length > 0 && !f.typeNacelle.includes(m.type_nacelle)) return false;
 
     // Statut prix
     const hasPrice = m.prix_fr !== undefined || m.prix_dealer !== undefined;
@@ -319,7 +421,23 @@ export function applyDispoFilters(
       if (prixMaxNum !== null && priceToCheck > prixMaxNum) return false;
     }
 
-    // Âge stock
+    // Kilométrage (porteur)
+    if (kmMinNum !== null || kmMaxNum !== null) {
+      const km = m.km_porteur;
+      if (km == null) return false;
+      if (kmMinNum !== null && km < kmMinNum) return false;
+      if (kmMaxNum !== null && km > kmMaxNum) return false;
+    }
+
+    // Année de mise en circulation
+    if (anneeMinNum !== null || anneeMaxNum !== null) {
+      const annee = parseInt(m.annee_circulation, 10);
+      if (isNaN(annee)) return false;
+      if (anneeMinNum !== null && annee < anneeMinNum) return false;
+      if (anneeMaxNum !== null && annee > anneeMaxNum) return false;
+    }
+
+    // Âge stock (admin uniquement)
     if (ageMinNum !== null && age < ageMinNum) return false;
     if (ageMaxNum !== null && age > ageMaxNum) return false;
 

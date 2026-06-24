@@ -21,8 +21,17 @@ export default function FicheVoTemplate({
   const prix = prixChoisi === "fr" ? machine.prix_fr : machine.prix_dealer;
   const prixLabel = prixChoisi === "fr" ? "PRIX HT" : "PRIX HT DEALER";
 
-  // === Photos commerciales (détourées) ===
-  const photos = machine.photos_commerciales || {};
+  // === Photos de la fiche : priorité aux photos de ventes, fallback legacy ===
+  const pv = machine.photos_ventes || {};
+  const legacy = machine.photos_commerciales || {};
+  const photos = {
+    // grande photo (hero) : 3/4 avant droit détourée
+    principale: pv.trois_quart_av_droit ?? legacy.av_droit,
+    // 3/4 arrière gauche détourée
+    secondaire: pv.trois_quart_ar_gauche ?? legacy.ar_gauche,
+    // habitacle avant (brute)
+    habitacle: pv.habitacle_av ?? legacy.ar_droit,
+  };
 
   return (
     <>
@@ -52,11 +61,11 @@ export default function FicheVoTemplate({
             {/* 3 photos : 1 grande + 2 en dessous, proportions conservées */}
             <div style={photoColStyle}>
               <div style={photoBigStyle}>
-                <PhotoSlot label="Avant droit" src={photos.av_droit} caption={false} />
+                <PhotoSlot label="3/4 avant droit" src={photos.principale} caption={false} />
               </div>
               <div style={photoRow2Style}>
-                <PhotoSlot label="Arrière droit" src={photos.ar_droit} caption={false} />
-                <PhotoSlot label="Arrière gauche" src={photos.ar_gauche} caption={false} />
+                <PhotoSlot label="3/4 arrière gauche" src={photos.secondaire} caption={false} />
+                <PhotoSlot label="Habitacle avant" src={photos.habitacle} caption={false} />
               </div>
             </div>
 

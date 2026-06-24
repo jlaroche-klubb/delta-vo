@@ -6,6 +6,7 @@ import LoginPage from "./LoginPage";
 import GaleriePage from "./pages/GaleriePage";
 import RestitutionsPage from "./pages/RestitutionsPage";
 import DisponiblesPage from "./pages/DisponiblesPage";
+import ExportPage from "./pages/ExportPage";
 import EnCoursPage from "./pages/EnCoursPage";
 import ClotureesPage from "./pages/ClotureesPage";
 import StatsPage from "./pages/StatsPage";
@@ -24,7 +25,7 @@ const FAKE_PROFILE = {
   createdAt: new Date().toISOString(),
 };
 
-type Page = "restitutions" | "disponibles" | "encours" | "cloturees" | "stats" | "admin";
+type Page = "restitutions" | "disponibles" | "export" | "encours" | "cloturees" | "stats" | "admin";
 
 function AppContent() {
   const { user, profile, loading, logout } = useAuth();
@@ -70,6 +71,7 @@ function AppContent() {
     switch (p) {
       case "restitutions": return "Restitutions";
       case "disponibles": return "Disponibles";
+      case "export": return "🌍 Export";
       case "encours": return "En cours de préparation";
       case "cloturees": return "Clôturées";
       case "stats": return "📊 Stats";
@@ -80,7 +82,7 @@ function AppContent() {
   // ✅ Liste des onglets selon les permissions du rôle
   const accessiblePages = getAccessiblePages(userRole as any);
   // Ordre d'affichage souhaité
-  const pageOrder: Page[] = ["restitutions", "disponibles", "encours", "cloturees", "stats", "admin"];
+  const pageOrder: Page[] = ["restitutions", "disponibles", "export", "encours", "cloturees", "stats", "admin"];
   const tabs: Page[] = pageOrder.filter((p) => accessiblePages.includes(p));
   
   // ✅ Si la page active n'est pas accessible pour ce rôle, basculer sur la première dispo
@@ -178,6 +180,9 @@ function AppContent() {
         {effectivePage === "restitutions" && <RestitutionsPage />}
         {effectivePage === "disponibles" && (
           <DisponiblesPage userRole={userRole} userName={userName} userEmail={userEmail} />
+        )}
+        {effectivePage === "export" && (
+          <ExportPage userName={userName} userEmail={userEmail} />
         )}
         {effectivePage === "encours" && (
           <EnCoursPage userRole={userRole} userName={userName} />

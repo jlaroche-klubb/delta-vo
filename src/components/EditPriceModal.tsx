@@ -10,10 +10,10 @@ interface EditPriceModalProps {
 
 export default function EditPriceModal({ machine, userName, onClose, onSave }: EditPriceModalProps) {
   const [prixFr, setPrixFr] = useState<string>(
-    machine.prix_fr !== undefined ? String(machine.prix_fr) : ""
+    machine.prix_fr != null ? String(machine.prix_fr) : ""
   );
   const [prixDealer, setPrixDealer] = useState<string>(
-    machine.prix_dealer !== undefined ? String(machine.prix_dealer) : ""
+    machine.prix_dealer != null ? String(machine.prix_dealer) : ""
   );
   const [numeroDossier, setNumeroDossier] = useState<string>(
     machine.numero_dossier || ""
@@ -23,11 +23,11 @@ export default function EditPriceModal({ machine, userName, onClose, onSave }: E
     const fr = prixFr.trim() ? parseInt(prixFr.replace(/\s/g, ""), 10) : undefined;
     const dealer = prixDealer.trim() ? parseInt(prixDealer.replace(/\s/g, ""), 10) : undefined;
 
-    if (fr !== undefined && isNaN(fr)) {
+    if (fr != null && isNaN(fr)) {
       alert("Le prix FR doit être un nombre");
       return;
     }
-    if (dealer !== undefined && isNaN(dealer)) {
+    if (dealer != null && isNaN(dealer)) {
       alert("Le prix Dealer doit être un nombre");
       return;
     }
@@ -71,7 +71,7 @@ export default function EditPriceModal({ machine, userName, onClose, onSave }: E
                 onChange={(e) => setPrixFr(e.target.value)}
                 autoFocus
               />
-              {machine.prix_fr !== undefined && (
+              {machine.prix_fr != null && (
                 <div className="price-current">
                   Actuel : {machine.prix_fr.toLocaleString("fr-FR")} €
                 </div>
@@ -87,7 +87,7 @@ export default function EditPriceModal({ machine, userName, onClose, onSave }: E
                 value={prixDealer}
                 onChange={(e) => setPrixDealer(e.target.value)}
               />
-              {machine.prix_dealer !== undefined && (
+              {machine.prix_dealer != null && (
                 <div className="price-current">
                   Actuel : {machine.prix_dealer.toLocaleString("fr-FR")} €
                 </div>

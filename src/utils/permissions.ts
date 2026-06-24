@@ -31,8 +31,8 @@ export function canAccessAdmin(role: UserRole): boolean {
   return role === "admin";
 }
 
-export function canAccessExport(role: UserRole): boolean {
-  return ["admin", "dealer", "vendeur_fr"].includes(role);
+export function canAccessExport(_role: UserRole): boolean {
+  return true; // Onglet Export visible par tous les rôles
 }
 
 // ==================== RESTITUTIONS ====================

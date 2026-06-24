@@ -54,7 +54,7 @@ export default function DisponibleCard({
 }: DisponibleCardProps) {
   const age = machine.date_mise_stock ? calculAgeStock(machine.date_mise_stock) : 0;
   const ageInfo = getAgeStockColor(age, seuilRepricer);
-  const hasPrice = machine.prix_fr !== undefined || machine.prix_dealer !== undefined;
+  const hasPrice = machine.prix_fr != null || machine.prix_dealer != null;
   const ficheComplete = isFicheComplete(machine);
 
   const offreEnCours = machine.offre_en_cours === true;
@@ -235,13 +235,13 @@ export default function DisponibleCard({
       </div>
 
       <div className="dispo-info-bar">
-        {machine.heures_nacelle !== undefined && (
+        {machine.heures_nacelle != null && (
           <span className="dispo-info-item">
             <span className="info-icon">⏱</span>
             <strong>{machine.heures_nacelle.toLocaleString("fr-FR")} h</strong>
           </span>
         )}
-        {machine.km_porteur !== undefined && (
+        {machine.km_porteur != null && (
           <span className="dispo-info-item">
             <span className="info-icon">🛣</span>
             <strong>{machine.km_porteur.toLocaleString("fr-FR")} km</strong>
@@ -305,7 +305,7 @@ export default function DisponibleCard({
             }}
           >
             🔍 Expertise Nacelle-Expert
-            {machine.rapport_expertise?.total_retenue_ht !== undefined
+            {machine.rapport_expertise?.total_retenue_ht != null
               ? ` — ${machine.rapport_expertise.total_retenue_ht.toLocaleString("fr-FR")} €`
               : ""}
           </button>
@@ -323,7 +323,7 @@ export default function DisponibleCard({
             <div className="fre-item">
               <span className="fre-label">Retenue HT:</span>
               <span className="fre-value">
-                {machine.rapport_expertise.total_retenue_ht !== undefined
+                {machine.rapport_expertise.total_retenue_ht != null
                   ? `${machine.rapport_expertise.total_retenue_ht.toLocaleString("fr-FR")} €`
                   : "—"}
               </span>
@@ -353,7 +353,7 @@ export default function DisponibleCard({
               <div className="price-block">
                 <div className="price-label">Prix FR</div>
                 <div className="price-value">
-                  {machine.prix_fr !== undefined
+                  {machine.prix_fr != null
                     ? machine.prix_fr.toLocaleString("fr-FR") + " €"
                     : "—"}
                 </div>
@@ -364,7 +364,7 @@ export default function DisponibleCard({
               <div className="price-block">
                 <div className="price-label">Prix Dealer</div>
                 <div className="price-value price-dealer">
-                  {machine.prix_dealer !== undefined
+                  {machine.prix_dealer != null
                     ? machine.prix_dealer.toLocaleString("fr-FR") + " €"
                     : "—"}
                 </div>

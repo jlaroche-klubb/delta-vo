@@ -246,9 +246,11 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
                    new Date().toISOString().slice(0, 10))
                 : undefined,
               
-            // ✅ Conserver les prix si présents
-            prix_fr: data.prix_fr,
-            prix_dealer: data.prix_dealer,
+            // ✅ Conserver les prix si présents — normaliser null -> undefined
+            // (updatePrice écrit `null` quand un prix est effacé ; sans ça les
+            //  composants qui gardent par `!== undefined` planteraient sur null.toLocaleString())
+            prix_fr: data.prix_fr ?? undefined,
+            prix_dealer: data.prix_dealer ?? undefined,
             numero_dossier: data.numero_dossier || undefined,
             prix_modifie_le: data.prix_modifie_le,
             prix_modifie_par: data.prix_modifie_par,

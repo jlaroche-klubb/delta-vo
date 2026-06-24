@@ -120,8 +120,8 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
   // ✅ Visible par TOUS les rôles (demande) : Mise en location, Compléter fiche, Photos
   const canLld = true;
   const canFiche = true;
-  // Générer le PDF : admin, vendeur_fr, dealer (PAS secrétaire)
-  const canGenFiche = canGenerateFicheVO(userRole as any);
+  // ✅ Générer le PDF (fiche VO) : visible par tous (demande)
+  const canGenFiche = true;
   const canManagePhotos = true;
   // ✅ Créer une offre HubSpot : admin, vendeur_fr, dealer
   const canOffre = ["admin", "vendeur_fr", "dealer"].includes(userRole);
@@ -741,10 +741,14 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
       {filtered.length === 0 && (
         <div className="empty-state">
           {search ||
-          filters.typeNacelle ||
+          filters.typeNacelle.length > 0 ||
           filters.prixMin ||
           filters.prixMax ||
           filters.statutPrix !== "tous" ||
+          filters.kmMin ||
+          filters.kmMax ||
+          filters.anneeMin ||
+          filters.anneeMax ||
           filters.ageMin ||
           filters.ageMax
             ? "Aucune machine ne correspond à vos critères"

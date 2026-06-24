@@ -196,6 +196,23 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
               return undefined;
             })(),
 
+            // ✅ Photos de ventes (Nacelle-Expert "vente_*", remplies après l'expertise).
+            // Source canonique = dossier_nacelle_expert.photos_commerciales (même map que ci-dessus).
+            // 3/4 av droit + 3/4 ar gauche détourées ; habitacles av/ar bruts.
+            photos_ventes: (() => {
+              const cp = data.dossier_nacelle_expert?.photos_commerciales;
+              if (!cp || typeof cp !== 'object' || Array.isArray(cp)) return undefined;
+              const toUrl = (v: any): string | undefined =>
+                !v ? undefined : (typeof v === 'string' ? v : (v.url || undefined));
+              const result = {
+                trois_quart_av_droit: toUrl(cp.vente_3_4_av_droit),
+                trois_quart_ar_gauche: toUrl(cp.vente_3_4_ar_gauche),
+                habitacle_av: toUrl(cp.vente_habitacle_av),
+                habitacle_ar: toUrl(cp.vente_habitacle_ar),
+              };
+              return Object.values(result).some(Boolean) ? result : undefined;
+            })(),
+
             // ✅ Photos supplémentaires (optionnelles) stockées dans Delta VO
             photos_supplementaires: Array.isArray(data.photos_supplementaires)
               ? data.photos_supplementaires

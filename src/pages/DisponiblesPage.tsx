@@ -117,13 +117,12 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
   const [refreshingExpertise, setRefreshingExpertise] = useState(false);
 
   const isAdmin = userRole === "admin";
-  const canLld = canCreateLLD(userRole as any);
-  // Éditer la fiche commerciale : admin, secretaire, vendeur_fr, dealer
-  const canFiche = canEditFicheCommerciale(userRole as any);
+  // ✅ Visible par TOUS les rôles (demande) : Mise en location, Compléter fiche, Photos
+  const canLld = true;
+  const canFiche = true;
   // Générer le PDF : admin, vendeur_fr, dealer (PAS secrétaire)
   const canGenFiche = canGenerateFicheVO(userRole as any);
-  // Gérer les photos supplémentaires : admin, secretaire, vendeur_fr, dealer
-  const canManagePhotos = canManagePhotosSupplementaires(userRole as any);
+  const canManagePhotos = true;
   // ✅ Créer une offre HubSpot : admin, vendeur_fr, dealer
   const canOffre = ["admin", "vendeur_fr", "dealer"].includes(userRole);
 

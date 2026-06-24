@@ -31,6 +31,10 @@ export function canAccessAdmin(role: UserRole): boolean {
   return role === "admin";
 }
 
+export function canAccessExport(role: UserRole): boolean {
+  return ["admin", "dealer", "vendeur_fr"].includes(role);
+}
+
 // ==================== RESTITUTIONS ====================
 
 export function canCreateRestitution(role: UserRole): boolean {
@@ -172,6 +176,7 @@ export function getAccessiblePages(role: UserRole): string[] {
   
   if (canAccessRestitutions(role)) pages.push("restitutions");
   if (canAccessDisponibles(role)) pages.push("disponibles");
+  if (canAccessExport(role)) pages.push("export");
   if (canAccessEnCours(role)) pages.push("encours");
   if (canAccessCloturees(role)) pages.push("cloturees");
   if (canAccessStats(role)) pages.push("stats");

@@ -84,6 +84,11 @@ export interface DossierNacelleExpert {
   degats?: string[];
   note_expert?: string;
   rapport_url?: string;
+  // Map brute des photos commerciales/ventes telle que stockée par Nacelle-Expert.
+  // Clés ventes : vente_3_4_av_droit / vente_3_4_ar_gauche / vente_habitacle_av / vente_habitacle_ar.
+  // Clés legacy (anciens dossiers) : av_droit / av_gauche / ar_droit / ar_gauche.
+  // Valeur : objet { url, type } ; exceptionnellement une string (très vieux dossiers).
+  photos_commerciales?: Record<string, { url?: string; type?: string } | string>;
 }
 
 export interface Machine {
@@ -115,6 +120,15 @@ export interface Machine {
     av_gauche?: string;
     ar_droit?: string;
     ar_gauche?: string;
+  };
+
+  // Photos de ventes (Nacelle-Expert, clés "vente_*", remplies APRÈS l'expertise).
+  // Les deux 3/4 sont détourées (fond + logo + immat), les habitacles sont bruts.
+  photos_ventes?: {
+    trois_quart_av_droit?: string;
+    trois_quart_ar_gauche?: string;
+    habitacle_av?: string;
+    habitacle_ar?: string;
   };
 
   photos_supplementaires?: PhotoSupplementaire[];

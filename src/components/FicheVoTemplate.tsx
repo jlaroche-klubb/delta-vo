@@ -93,7 +93,7 @@ export default function FicheVoTemplate({
                       </strong>
                     </li>
                   )}
-                  {machine.heures_nacelle !== undefined && (
+                  {machine.heures_nacelle != null && (
                     <li style={specItemStyle}>
                       - Nombre d'heures :{" "}
                       <strong>{machine.heures_nacelle.toLocaleString("fr-FR")}H</strong>
@@ -118,7 +118,7 @@ export default function FicheVoTemplate({
                       <strong>{machine.annee_circulation.split("/").pop()}</strong>
                     </li>
                   )}
-                  {machine.km_porteur !== undefined && (
+                  {machine.km_porteur != null && (
                     <li style={specItemStyle}>
                       - Kilométrage :{" "}
                       <strong>{machine.km_porteur.toLocaleString("fr-FR")} km</strong>
@@ -149,7 +149,7 @@ export default function FicheVoTemplate({
             </div>
           </div>
 
-          {prix !== undefined && (
+          {prix != null && (
             <div style={priceBlockStyle}>
               <div style={priceLabelStyle}>{prixLabel}</div>
               <div style={priceValueStyle}>

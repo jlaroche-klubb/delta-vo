@@ -180,6 +180,10 @@ button {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   flex-wrap: wrap;
   gap: 12px;
+  /* Barre du haut toujours visible au défilement (sous les modals/drawer, au-dessus du contenu) */
+  position: sticky;
+  top: 0;
+  z-index: 50;
 }
 
 .brand {

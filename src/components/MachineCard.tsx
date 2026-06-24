@@ -157,18 +157,18 @@ export default function MachineCard({
         </div>
 
         {/* Bandeau infos techniques */}
-        {(machine.heures_nacelle !== undefined ||
-          machine.km_porteur !== undefined ||
+        {(machine.heures_nacelle != null ||
+          machine.km_porteur != null ||
           machine.agent_expertise) && (
           <div className="tech-bar">
             <div className="tech-items">
-              {machine.heures_nacelle !== undefined && (
+              {machine.heures_nacelle != null && (
                 <span className="tech-item">
                   <span className="tech-icon">⏱</span>
                   <strong>{machine.heures_nacelle.toLocaleString("fr-FR")} h</strong> nacelle
                 </span>
               )}
-              {machine.km_porteur !== undefined && (
+              {machine.km_porteur != null && (
                 <span className="tech-item">
                   <span className="tech-icon">🛣</span>
                   <strong>{machine.km_porteur.toLocaleString("fr-FR")} km</strong> porteur

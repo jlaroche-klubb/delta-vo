@@ -136,7 +136,13 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     console.log('🔄 Démarrage de l\'écoute Firebase machines_vo');
     
-    const unsubscribe = onSnapshot(
+    let unsubscribe: (() => void) | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let cancelled = false;
+
+    const subscribe = () => {
+      if (cancelled) return;
+      unsubscribe = onSnapshot(
       collection(db, 'machines_vo'),
       (snapshot) => {
         const machinesFromFirebase = snapshot.docs.map(d => {
@@ -301,11 +307,23 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
         setFirebaseMachines(machinesFromFirebase);
       },
       (error) => {
-        console.error('❌ Erreur lors de l\'écoute Firebase:', error);
+        // ⚠️ Le listener peut mourir définitivement lors d'une transition d'auth
+        // (migration de domaine, deux comptes Google simultanés). On le relance
+        // après 2s pour éviter une UI figée jusqu'au rechargement manuel.
+        console.error('❌ Écoute Firebase interrompue — réabonnement dans 2s:', error);
+        if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+        if (!cancelled) retryTimer = setTimeout(subscribe, 2000);
       }
-    );
+      );
+    };
 
-    return () => unsubscribe();
+    subscribe();
+
+    return () => {
+      cancelled = true;
+      if (retryTimer) clearTimeout(retryTimer);
+      if (unsubscribe) unsubscribe();
+    };
   }, []);
 
   // ✅ FUSIONNER MOCK + Firebase
@@ -672,7 +690,11 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
 
     for (const p of parsed) {
       const now = new Date().toISOString();
-      const existing = machines.find((m) => m.id === p.docId);
+      // Match par ID de document OU par immatriculation (MAJUSCULES) : un ancien
+      // document à ID non normalisé doit fusionner, jamais créer un doublon.
+      const existing = machines.find(
+        (m) => m.id === p.docId || m.immat.toUpperCase() === p.docId
+      );
 
       if (existing) {
         // Machine déjà connue -> on ne complète QUE les champs vides (jamais d'écrasement)
@@ -709,7 +731,9 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
         if (Object.keys(updates).length > 0) {
           updates.updatedAt = now;
           try {
-            await updateDoc(doc(db, "machines_vo", p.docId), updates);
+            // On écrit sur l'ID du doc RÉELLEMENT trouvé (existing.id), pas sur
+            // p.docId : sinon un match par immat sur un doc legacy créerait un doublon.
+            await updateDoc(doc(db, "machines_vo", existing.id), updates);
             merged++;
             details.push({ ref: p.source, action: "complétée" });
           } catch (e) {

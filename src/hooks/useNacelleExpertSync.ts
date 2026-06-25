@@ -131,14 +131,21 @@ export function useNacelleExpertSync() {
           }
 
           // Créer la fiche VO dans Delta VO
-          const machineVORef = doc(db, 'machines_vo', dossier.immat);
+          // L'ID du document machines_vo DOIT être l'immatriculation en MAJUSCULES :
+          // c'est la clé de jointure avec l'import VOG. Sinon, doublon à la fusion.
+          const immatId = (dossier.info?.immat || dossier.immat || '').trim().toUpperCase();
+          if (!immatId) {
+            console.warn('⚠️ Dossier sans immatriculation exploitable, ignoré');
+            continue;
+          }
+          const machineVORef = doc(db, 'machines_vo', immatId);
           
           // ✅ Date demande récupération = date de retour (la machine est arrivée)
           const dateRecup = dossier.retour?.date || dossier.depart?.date || new Date().toISOString().slice(0, 10);
           
           const machineVOData: any = {
             // Données de base
-            immat: dossier.info.immat,
+            immat: immatId,
             modele: dossier.info.modele || '',
             type_nacelle: dossier.info.type_nacelle || '',
             annee_fab: dossier.info.annee_fab || '',
@@ -312,7 +319,7 @@ export function useNacelleExpertSync() {
         for (const d of snap.docs) {
           if (cancelled) return;
           const data: any = d.data();
-          const immat = data?.immat || data?.info?.immat || d.id;
+          const immat = (data?.immat || data?.info?.immat || d.id || '').trim().toUpperCase();
           if (!immat) continue;
 
           const pdfUrl = data?.retour?.pdf_url;

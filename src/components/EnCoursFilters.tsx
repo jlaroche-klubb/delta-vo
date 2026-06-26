@@ -1,4 +1,5 @@
 import { Machine, prepaTerminee, isLivraisonEnRetard } from "../types/machine";
+import { useTranslation } from "react-i18next";
 
 export type TypePrepaFilter = "tous" | "normale" | "en_etat";
 export type StatutEnCoursFilter =
@@ -51,6 +52,7 @@ export default function EnCoursFilters({
   isOpen,
   onToggle,
 }: EnCoursFiltersProps) {
+  const { t } = useTranslation();
   // Listes dynamiques
   const commerciaux = Array.from(
     new Set(machines.map((m) => m.commercial_vendeur).filter(Boolean) as string[])
@@ -72,7 +74,7 @@ export default function EnCoursFilters({
     <div className={`filters-wrap ${isOpen ? "open" : ""}`}>
       <button className="filters-toggle" onClick={onToggle}>
         <span className="filter-icon">▾</span>
-        <span>Filtres</span>
+        <span>{t("encf.filters")}</span>
         {activeCount > 0 && <span className="filters-count">{activeCount}</span>}
       </button>
 
@@ -81,44 +83,44 @@ export default function EnCoursFilters({
           <div className="filters-grid filters-grid-encours">
             {/* Statut */}
             <div className="filter-field">
-              <label>Statut</label>
+              <label>{t("encf.status")}</label>
               <select
                 value={filters.statut}
                 onChange={(e) =>
                   onChange({ ...filters, statut: e.target.value as StatutEnCoursFilter })
                 }
               >
-                <option value="tous">Toutes</option>
-                <option value="a_configurer">⚙️ À configurer</option>
-                <option value="en_prepa">🔧 En prépa</option>
-                <option value="pretes">✓ Prêtes à facturer</option>
-                <option value="en_retard">⚠ En retard</option>
+                <option value="tous">{t("encf.all")}</option>
+                <option value="a_configurer">⚙️ {t("encf.stConfigure")}</option>
+                <option value="en_prepa">🔧 {t("encf.stPrep")}</option>
+                <option value="pretes">✓ {t("encf.stReady")}</option>
+                <option value="en_retard">⚠ {t("encf.late")}</option>
               </select>
             </div>
 
             {/* Type de prépa */}
             <div className="filter-field">
-              <label>Type de prépa</label>
+              <label>{t("encf.prepType")}</label>
               <select
                 value={filters.typePrepa}
                 onChange={(e) =>
                   onChange({ ...filters, typePrepa: e.target.value as TypePrepaFilter })
                 }
               >
-                <option value="tous">Tous</option>
-                <option value="normale">🔧 Prépa normale</option>
-                <option value="en_etat">📦 Vendue en l'état</option>
+                <option value="tous">{t("encf.allM")}</option>
+                <option value="normale">🔧 {t("encf.prepNormal")}</option>
+                <option value="en_etat">📦 {t("encf.soldAsIs")}</option>
               </select>
             </div>
 
             {/* Type nacelle */}
             <div className="filter-field">
-              <label>Type de nacelle</label>
+              <label>{t("encf.platformType")}</label>
               <select
                 value={filters.typeNacelle}
                 onChange={(e) => onChange({ ...filters, typeNacelle: e.target.value })}
               >
-                <option value="">Tous types ({types.length})</option>
+                <option value="">{t("encf.allTypes")} ({types.length})</option>
                 {types.map((t) => {
                   const count = machines.filter((m) => m.type_nacelle === t).length;
                   return (
@@ -132,12 +134,12 @@ export default function EnCoursFilters({
 
             {/* Commercial */}
             <div className="filter-field">
-              <label>Commercial vendeur</label>
+              <label>{t("encf.salesperson")}</label>
               <select
                 value={filters.commercial}
                 onChange={(e) => onChange({ ...filters, commercial: e.target.value })}
               >
-                <option value="">Tous commerciaux</option>
+                <option value="">{t("encf.allSalespeople")}</option>
                 {commerciaux.map((c) => {
                   const count = machines.filter((m) => m.commercial_vendeur === c).length;
                   return (
@@ -151,12 +153,12 @@ export default function EnCoursFilters({
 
             {/* Acheteur */}
             <div className="filter-field">
-              <label>Acheteur</label>
+              <label>{t("encf.buyer")}</label>
               <select
                 value={filters.acheteur}
                 onChange={(e) => onChange({ ...filters, acheteur: e.target.value })}
               >
-                <option value="">Tous acheteurs</option>
+                <option value="">{t("encf.allBuyers")}</option>
                 {acheteurs.map((a) => (
                   <option key={a} value={a}>
                     {a}
@@ -167,7 +169,7 @@ export default function EnCoursFilters({
 
             {/* Livraison rapide */}
             <div className="filter-field">
-              <label>Livraison (rapide)</label>
+              <label>{t("encf.deliveryQuick")}</label>
               <select
                 value={filters.livraisonRapide}
                 onChange={(e) =>
@@ -180,17 +182,17 @@ export default function EnCoursFilters({
                   })
                 }
               >
-                <option value="toutes">Toutes</option>
-                <option value="cette_semaine">📅 Cette semaine</option>
-                <option value="ce_mois">📅 Ce mois</option>
-                <option value="en_retard">⚠ En retard</option>
-                <option value="depassees_7j">⚠ Dépassées de + de 7 jours</option>
+                <option value="toutes">{t("encf.all")}</option>
+                <option value="cette_semaine">📅 {t("encf.thisWeek")}</option>
+                <option value="ce_mois">📅 {t("encf.thisMonth")}</option>
+                <option value="en_retard">⚠ {t("encf.late")}</option>
+                <option value="depassees_7j">⚠ {t("encf.over7d")}</option>
               </select>
             </div>
 
             {/* Livraison de */}
             <div className="filter-field">
-              <label>Livraison du</label>
+              <label>{t("encf.deliveryFrom")}</label>
               <input
                 type="date"
                 value={filters.livraisonDe}
@@ -206,7 +208,7 @@ export default function EnCoursFilters({
 
             {/* Livraison à */}
             <div className="filter-field">
-              <label>Livraison au</label>
+              <label>{t("encf.deliveryTo")}</label>
               <input
                 type="date"
                 value={filters.livraisonA}
@@ -224,7 +226,7 @@ export default function EnCoursFilters({
             {activeCount > 0 && (
               <div className="filter-field filter-reset">
                 <button className="btn-reset" onClick={reset}>
-                  ✕ Réinitialiser
+                  ✕ {t("encf.reset")}
                 </button>
               </div>
             )}

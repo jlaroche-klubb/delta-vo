@@ -28,8 +28,6 @@ import DisponiblesFilters, {
 import { exportPricingToExcel } from "../utils/exportPricing";
 import { importPricingFromExcel, ImportResult } from "../utils/importPricing";
 import { parseStockExcel } from "../utils/importStock";
-import { runNacelleExpertRattrapage } from "../hooks/useNacelleExpertSync";
-import { useTranslation } from "react-i18next";
 import { generateFichePdf } from "../utils/generateFichePdf";
 import { exportListePrix } from "../utils/exportListePrix";
 import {
@@ -117,8 +115,6 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
   const stockInputRef = useRef<HTMLInputElement>(null);
   const [importingStock, setImportingStock] = useState(false);
   const [refreshingExpertise, setRefreshingExpertise] = useState(false);
-  const [rattrapage, setRattrapage] = useState(false);
-  const { t } = useTranslation();
 
   const isAdmin = userRole === "admin";
   // ✅ Visible par TOUS les rôles (demande) : Mise en location, Compléter fiche, Photos
@@ -194,7 +190,7 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
 
   function handleExportListePrix() {
     if (filtered.length === 0) {
-      alert(t("dispo.errNoExport"));
+      alert("Aucune machine à exporter avec les filtres actuels");
       return;
     }
     exportListePrix(filtered, userRole as any);
@@ -313,7 +309,7 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
   }
 
   function handleAnnulerOffre(machine: Machine) {
-    if (window.confirm(t("dispo.confirmCancelOffer", { immat: machine.immat }))) {
+    if (window.confirm(`Annuler l'offre en cours sur ${machine.immat} ?`)) {
       annulerOffre(machine.id);
     }
   }
@@ -411,7 +407,7 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
           },
         });
       } catch (err: any) {
-        alert(t("dispo.errPdf") + err.message);
+        alert("❌ Erreur lors de la génération du PDF : " + err.message);
         console.error(err);
       } finally {
         setGenerating(false);
@@ -445,7 +441,7 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
       }
       setImportResult(result);
     } catch (err: any) {
-      alert(t("dispo.errImport") + err.message);
+      alert("Erreur lors de l'import : " + err.message);
     } finally {
       setImporting(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -482,7 +478,7 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
           `• ${res.skipped} inchangée(s) / ignorée(s)`
       );
     } catch (err: any) {
-      alert(t("dispo.errImportStock") + err.message);
+      alert("Erreur lors de l'import du stock : " + err.message);
     } finally {
       setImportingStock(false);
       if (stockInputRef.current) stockInputRef.current.value = "";
@@ -500,25 +496,9 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
           `(sur ${res.total} machines au total)`
       );
     } catch (err: any) {
-      alert(t("dispo.errExpertises") + err.message);
+      alert("Erreur lors de la récupération des expertises : " + err.message);
     } finally {
       setRefreshingExpertise(false);
-    }
-  }
-
-  async function handleRattrapage() {
-    setRattrapage(true);
-    try {
-      const res = await runNacelleExpertRattrapage();
-      alert(
-        `✅ Rattrapage terminé :\n\n` +
-          `• ${res.scanned} dossier(s) Nacelle-Expert scanné(s)\n` +
-          `• ${res.updated} machine(s) mise(s) à jour (photos / PDF)`
-      );
-    } catch (err: any) {
-      alert(t("dispo.errRattrapage") + err.message);
-    } finally {
-      setRattrapage(false);
     }
   }
 
@@ -526,21 +506,21 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
     <div className="page-disponibles">
       <div className="page-header">
         <div>
-          <h1>{t("dispo.title")}</h1>
-          <p className="subtitle">{t("dispo.subtitle")}</p>
+          <h1>Disponibles</h1>
+          <p className="subtitle">Nacelles d'occasion en vente</p>
         </div>
         <div className="page-stats">
           <div className="stat">
             <span className="stat-value">{filtered.length}</span>
-            <span className="stat-label">{t("dispo.statShown")}</span>
+            <span className="stat-label">affichées</span>
           </div>
           <div className="stat stat-pending">
             <span className="stat-value">{sansPrix.length}</span>
-            <span className="stat-label">{t("dispo.statToPrice")}</span>
+            <span className="stat-label">à pricer</span>
           </div>
           <div className="stat stat-warn">
             <span className="stat-value">{aRepricer.length}</span>
-            <span className="stat-label">{t("dispo.statToReprice")}</span>
+            <span className="stat-label">à repricer</span>
           </div>
         </div>
       </div>
@@ -549,7 +529,7 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
         <input
           className="search-input"
           type="text"
-          placeholder={t("dispo.searchPlaceholder")}
+          placeholder="Rechercher par immatriculation, modèle, type..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -560,9 +540,9 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
             className="btn-pricing"
             onClick={handleExportPricing}
             disabled={totalPricing === 0}
-            title={t("dispo.exportPricingTitle")}
+            title="Export technique pour modification PDG"
           >
-            📊 {t("dispo.exportPricingPdg")}
+            📊 Export Pricing PDG
             {totalPricing > 0 && <span className="pricing-count">{totalPricing}</span>}
           </button>
         )}
@@ -572,15 +552,15 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
           <button
             className="btn-export-liste"
             onClick={handleExportListePrix}
-            title={t("dispo.exportListTitle")}
+            title="Liste de prix pour envoi clients"
           >
-            📄 {t("dispo.exportList")}
+            📄 Export Liste Prix
           </button>
         )}
 
         {canImportExcelPricing(userRole as any) && (
           <button className="btn-import" onClick={handleImportClick} disabled={importing}>
-            {importing ? `⏳ ${t("dispo.importing")}` : `📤 ${t("dispo.importPricing")}`}
+            {importing ? "⏳ Import..." : "📤 Importer pricing"}
           </button>
         )}
 
@@ -589,9 +569,9 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
             className="btn-import"
             onClick={() => stockInputRef.current?.click()}
             disabled={importingStock}
-            title={t("dispo.importStockTitle")}
+            title="Importer le tableau de stock VOG (Excel)"
           >
-            {importingStock ? `⏳ ${t("dispo.importingStock")}` : `📦 ${t("dispo.importStock")}`}
+            {importingStock ? "⏳ Import stock..." : "📦 Importer stock VOG"}
           </button>
         )}
 
@@ -600,20 +580,9 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
             className="btn-import"
             onClick={handleRefreshExpertise}
             disabled={refreshingExpertise}
-            title={t("dispo.expertiseTitle")}
+            title="Récupérer les montants d'expertise depuis Nacelle-Expert"
           >
-            {refreshingExpertise ? `⏳ ${t("dispo.refreshingExpertise")}` : `🧰 ${t("dispo.expertiseAmounts")}`}
-          </button>
-        )}
-
-        {isAdmin && (
-          <button
-            className="btn-import"
-            onClick={handleRattrapage}
-            disabled={rattrapage}
-            title={t("dispo.rattrapageTitle")}
-          >
-            {rattrapage ? `⏳ ${t("dispo.rattrapaging")}` : `🖼️ ${t("dispo.rattrapage")}`}
+            {refreshingExpertise ? "⏳ Expertises..." : "🧰 Montants expertise"}
           </button>
         )}
 
@@ -621,9 +590,9 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
           <button
             className={`toggle-archived ${showArchived ? "active" : ""}`}
             onClick={() => setShowArchived(!showArchived)}
-            title={t("dispo.archivedTitle")}
+            title="Voir les machines archivées"
           >
-            🗑️ {showArchived ? t("dispo.hideArchived") : t("dispo.showArchived")}
+            🗑️ {showArchived ? "Masquer archivées" : "Voir archivées"}
             {totalArchived > 0 && !showArchived && (
               <span style={{ marginLeft: 4, opacity: 0.7 }}>({totalArchived})</span>
             )}
@@ -660,7 +629,7 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
           <div className="section-header">
             <h2>
               <span className="section-dot section-dot-ok"></span>
-              {t("dispo.sectionForSale")}
+              En vente
               <span className="section-count">{enVente.length}</span>
             </h2>
           </div>
@@ -700,10 +669,10 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
           <div className="section-header">
             <h2>
               <span className="section-dot section-dot-warn"></span>
-              {t("dispo.sectionToReprice", { days: SEUIL_REPRICER })}
+              À repricer (plus de {SEUIL_REPRICER} jours en stock)
               <span className="section-count">{aRepricer.length}</span>
             </h2>
-            <p className="section-desc">{t("dispo.sectionToRepriceDesc")}</p>
+            <p className="section-desc">Stock long — suggérer une baisse de prix au PDG</p>
           </div>
           <div className="dispo-list">
             {aRepricer.map((m) => (
@@ -741,11 +710,11 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
           <div className="section-header">
             <h2>
               <span className="section-dot section-dot-pending"></span>
-              {t("dispo.sectionPending")}
+              En attente de pricing
               <span className="section-count">{sansPrix.length}</span>
             </h2>
             <p className="section-desc">
-              {t("dispo.sectionPendingDesc")}
+              Ces machines attendent que le PDG fixe leurs prix de vente
             </p>
           </div>
           <div className="dispo-list">
@@ -782,10 +751,10 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
           filters.anneeMax ||
           filters.ageMin ||
           filters.ageMax
-            ? t("dispo.emptyNoMatch")
+            ? "Aucune machine ne correspond à vos critères"
             : showArchived
-            ? t("dispo.emptyArchived")
-            : t("dispo.emptyAvailable")}
+            ? "Aucune machine archivée"
+            : "Aucune machine disponible"}
         </div>
       )}
 
@@ -869,8 +838,8 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
         <div className="pdf-loader-overlay">
           <div className="pdf-loader-box">
             <div className="pdf-loader-spinner">📄</div>
-            <div className="pdf-loader-text">{t("dispo.pdfGenerating")}</div>
-            <div className="pdf-loader-sub">{t("dispo.pdfGeneratingSub")}</div>
+            <div className="pdf-loader-text">Génération du PDF en cours...</div>
+            <div className="pdf-loader-sub">Le téléchargement va démarrer dans quelques secondes</div>
           </div>
         </div>
       )}
@@ -917,8 +886,7 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
           }}
         >
           <span style={{ fontWeight: 600 }}>
-            🛒 {panier.length}{" "}
-            {panier.length > 1 ? t("dispo.platformsSelected") : t("dispo.platformSelected")}
+            🛒 {panier.length} nacelle{panier.length > 1 ? "s" : ""} sélectionnée{panier.length > 1 ? "s" : ""}
           </span>
           <button
             onClick={() => setOffreModalOpen(true)}
@@ -932,11 +900,11 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
               cursor: "pointer",
             }}
           >
-            📤 {t("dispo.createOffer")}
+            📤 Créer l'offre
           </button>
           <button
             onClick={() => setPanier([])}
-            title={t("dispo.clearSelection")}
+            title="Vider la sélection"
             style={{
               background: "transparent",
               color: "white",

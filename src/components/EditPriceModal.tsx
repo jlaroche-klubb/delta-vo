@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Machine } from "../types/machine";
+import { useTranslation } from "react-i18next";
 
 interface EditPriceModalProps {
   machine: Machine;
@@ -9,6 +10,7 @@ interface EditPriceModalProps {
 }
 
 export default function EditPriceModal({ machine, userName, onClose, onSave }: EditPriceModalProps) {
+  const { t } = useTranslation();
   const [prixFr, setPrixFr] = useState<string>(
     machine.prix_fr != null ? String(machine.prix_fr) : ""
   );
@@ -46,7 +48,7 @@ export default function EditPriceModal({ machine, userName, onClose, onSave }: E
       <div className="modal modal-edit-price">
         <div className="modal-header">
           <div>
-            <h2>Modifier les prix</h2>
+            <h2>{t("modals.editPriceTitle")}</h2>
             <div className="modal-subtitle">
               {machine.immat} · {machine.type_nacelle} {machine.modele_porteur}
             </div>
@@ -56,13 +58,13 @@ export default function EditPriceModal({ machine, userName, onClose, onSave }: E
 
         <div className="edit-price-body">
           <div className="warning-banner">
-            ⚠️ Modification manuelle hors workflow Excel.<br />
-            Tracée dans l'historique avec ton nom : <strong>{userName}</strong>
+            ⚠️ {t("modals.editPriceWarn1")}<br />
+            {t("modals.editPriceWarn2")} <strong>{userName}</strong>
           </div>
 
           <div className="price-fields">
             <div className="price-field">
-              <label>Prix FR (en €)</label>
+              <label>{t("modals.priceFr")}</label>
               <input
                 type="text"
                 inputMode="numeric"
@@ -73,13 +75,13 @@ export default function EditPriceModal({ machine, userName, onClose, onSave }: E
               />
               {machine.prix_fr != null && (
                 <div className="price-current">
-                  Actuel : {machine.prix_fr.toLocaleString("fr-FR")} €
+                  {t("modals.current")} {machine.prix_fr.toLocaleString("fr-FR")} €
                 </div>
               )}
             </div>
 
             <div className="price-field">
-              <label>Prix Dealer (en €)</label>
+              <label>{t("modals.priceDealer")}</label>
               <input
                 type="text"
                 inputMode="numeric"
@@ -89,18 +91,18 @@ export default function EditPriceModal({ machine, userName, onClose, onSave }: E
               />
               {machine.prix_dealer != null && (
                 <div className="price-current">
-                  Actuel : {machine.prix_dealer.toLocaleString("fr-FR")} €
+                  {t("modals.current")} {machine.prix_dealer.toLocaleString("fr-FR")} €
                 </div>
               )}
             </div>
           </div>
 
           <div className="hint-box">
-            💡 Laisse un champ vide pour effacer ce prix
+            💡 {t("modals.priceHint")}
           </div>
 
           <div className="price-field" style={{ marginTop: 14 }}>
-            <label>Numéro de dossier (interne)</label>
+            <label>{t("modals.fileNumber")}</label>
             <input
               type="text"
               placeholder="Ex. 1956KF"
@@ -108,17 +110,17 @@ export default function EditPriceModal({ machine, userName, onClose, onSave }: E
               onChange={(e) => setNumeroDossier(e.target.value)}
             />
             {machine.numero_dossier && (
-              <div className="price-current">Actuel : {machine.numero_dossier}</div>
+              <div className="price-current">{t("modals.current")} {machine.numero_dossier}</div>
             )}
           </div>
         </div>
 
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onClose}>
-            Annuler
+            {t("modals.cancel")}
           </button>
           <button className="btn-primary" onClick={handleSave}>
-            Enregistrer
+            {t("modals.save")}
           </button>
         </div>
       </div>

@@ -18,13 +18,13 @@ export default function PhoneSetupModal({
   function handleSave() {
     const cleaned = phone.trim();
     if (!cleaned) {
-      alert("Le téléphone est obligatoire");
+      alert(t("modals.errPhoneReq"));
       return;
     }
     // Validation simple : au moins 10 chiffres
     const digits = cleaned.replace(/\D/g, "");
     if (digits.length < 10) {
-      alert("Numéro de téléphone invalide (10 chiffres minimum)");
+      alert(t("modals.errPhoneInvalid"));
       return;
     }
     onSave(cleaned);

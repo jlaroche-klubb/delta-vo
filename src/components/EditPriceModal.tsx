@@ -26,11 +26,11 @@ export default function EditPriceModal({ machine, userName, onClose, onSave }: E
     const dealer = prixDealer.trim() ? parseInt(prixDealer.replace(/\s/g, ""), 10) : undefined;
 
     if (fr != null && isNaN(fr)) {
-      alert("Le prix FR doit être un nombre");
+      alert(t("modals.errPriceFrNum"));
       return;
     }
     if (dealer != null && isNaN(dealer)) {
-      alert("Le prix Dealer doit être un nombre");
+      alert(t("modals.errPriceDealerNum"));
       return;
     }
 

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Machine, TypePrepa, creerEtapesPrepa } from "../types/machine";
+import { useTranslation } from "react-i18next";
 
 interface ConfigEnCoursModalProps {
   machine: Machine;
@@ -20,6 +21,7 @@ export default function ConfigEnCoursModal({
   onClose,
   onSave,
 }: ConfigEnCoursModalProps) {
+  const { t } = useTranslation();
   const [typePrepa, setTypePrepa] = useState<TypePrepa>(
     machine.type_prepa || "normale"
   );
@@ -66,7 +68,7 @@ export default function ConfigEnCoursModal({
       <div className="modal modal-config">
         <div className="modal-header">
           <div>
-            <h2>Configurer la machine</h2>
+            <h2>{t("modals.cfgTitle")}</h2>
             <div className="modal-subtitle">
               {machine.immat} · {machine.type_nacelle} {machine.modele_porteur}
             </div>
@@ -77,7 +79,7 @@ export default function ConfigEnCoursModal({
         <div className="config-body">
           {/* Type de prépa */}
           <div className="config-field">
-            <label className="config-label-strong">Type de mise en cours</label>
+            <label className="config-label-strong">{t("modals.cfgType")}</label>
             <div className="prepa-choice">
               <button
                 type="button"
@@ -85,9 +87,9 @@ export default function ConfigEnCoursModal({
                 onClick={() => setTypePrepa("normale")}
               >
                 <div className="choice-icon">🔧</div>
-                <div className="choice-title">Prépa normale</div>
+                <div className="choice-title">{t("encard.prepNormal")}</div>
                 <div className="choice-desc">
-                  Préparation atelier requise avant livraison
+                  {t("modals.cfgNormalDesc")}
                 </div>
               </button>
               <button
@@ -96,9 +98,9 @@ export default function ConfigEnCoursModal({
                 onClick={() => setTypePrepa("en_etat")}
               >
                 <div className="choice-icon">📦</div>
-                <div className="choice-title">Vendue en l'état</div>
+                <div className="choice-title">{t("encard.soldAsIs")}</div>
                 <div className="choice-desc">
-                  Pas de prépa, livraison directe
+                  {t("modals.cfgAsIsDesc")}
                 </div>
               </button>
             </div>
@@ -107,7 +109,7 @@ export default function ConfigEnCoursModal({
           {/* Acheteur */}
           <div className="config-field">
             <label>
-              Acheteur <span className="required">*</span>
+              {t("modals.buyer")} <span className="required">*</span>
             </label>
             <input
               type="text"
@@ -121,7 +123,7 @@ export default function ConfigEnCoursModal({
           {/* Commercial */}
           <div className="config-field">
             <label>
-              Commercial vendeur <span className="required">*</span>
+              {t("modals.cfgSalesperson")} <span className="required">*</span>
             </label>
             <input
               type="text"
@@ -130,7 +132,7 @@ export default function ConfigEnCoursModal({
               onChange={(e) => setCommercial(e.target.value)}
             />
             <div className="config-hint">
-              💡 Champ libre pour l'instant — sera remplacé par une liste déroulante quand la liste des commerciaux sera configurée dans le panel admin
+              💡 {t("modals.cfgSalesHint")}
             </div>
           </div>
 
@@ -138,7 +140,7 @@ export default function ConfigEnCoursModal({
           <div className="config-row">
             <div className="config-field">
               <label>
-                Date de vente <span className="required">*</span>
+                {t("modals.saleDate")} <span className="required">*</span>
               </label>
               <input
                 type="date"
@@ -147,7 +149,7 @@ export default function ConfigEnCoursModal({
               />
             </div>
             <div className="config-field">
-              <label>Date de livraison prévue</label>
+              <label>{t("modals.cfgDeliveryDate")}</label>
               <input
                 type="date"
                 value={dateLivraison}
@@ -155,7 +157,7 @@ export default function ConfigEnCoursModal({
                 min={dateVente}
               />
               <div className="config-hint">
-                Facultatif — peut être renseigné plus tard
+                {t("modals.cfgOptional")}
               </div>
             </div>
           </div>
@@ -164,10 +166,9 @@ export default function ConfigEnCoursModal({
           <div className="config-info-box">
             <div className="info-icon-large">💰</div>
             <div>
-              <strong>Prix de vente final</strong>
+              <strong>{t("modals.cfgFinalPrice")}</strong>
               <div className="info-text">
-                Le prix sera synchronisé automatiquement depuis HubSpot (à venir).
-                Pour l'instant le prix affiché reste celui défini par le PDG.
+                {t("modals.cfgPriceInfo")}
               </div>
             </div>
           </div>
@@ -177,11 +178,11 @@ export default function ConfigEnCoursModal({
             <div className="config-info-box config-info-box-success">
               <div className="info-icon-large">📋</div>
               <div>
-                <strong>6 étapes de prépa seront créées automatiquement</strong>
+                <strong>{t("modals.cfgStepsTitle")}</strong>
                 <div className="info-text">
-                  Nettoyage · Réparations · CT · VGP · Marquage · Vérification finale
+                  {t("modals.cfgStepsList")}
                   <br />
-                  L'atelier pourra cocher chaque étape au fur et à mesure.
+                  {t("modals.cfgStepsHint")}
                 </div>
               </div>
             </div>
@@ -190,10 +191,10 @@ export default function ConfigEnCoursModal({
 
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onClose}>
-            Annuler
+            {t("modals.cancel")}
           </button>
           <button className="btn-primary" onClick={handleSave}>
-            Valider et créer la fiche
+            {t("modals.cfgConfirm")}
           </button>
         </div>
       </div>

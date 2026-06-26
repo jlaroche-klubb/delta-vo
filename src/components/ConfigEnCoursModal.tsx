@@ -36,15 +36,15 @@ export default function ConfigEnCoursModal({
 
   function handleSave() {
     if (!acheteur.trim()) {
-      alert("L'acheteur est obligatoire");
+      alert(t("modals.errBuyerReq"));
       return;
     }
     if (!commercial.trim()) {
-      alert("Le commercial vendeur est obligatoire");
+      alert(t("modals.errSalespersonReq"));
       return;
     }
     if (!dateVente) {
-      alert("La date de vente est obligatoire");
+      alert(t("modals.errSaleDateReq"));
       return;
     }
 

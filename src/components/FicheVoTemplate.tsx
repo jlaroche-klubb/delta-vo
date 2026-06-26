@@ -1,5 +1,6 @@
 import { Machine } from "../types/machine";
 import { DELTA_LOGO_BASE64 } from "../assets/deltaLogo";
+import { useTranslation } from "react-i18next";
 
 interface FicheVoTemplateProps {
   machine: Machine;
@@ -16,10 +17,16 @@ export default function FicheVoTemplate({
   prixChoisi,
   commercial,
 }: FicheVoTemplateProps) {
+  const { t, i18n } = useTranslation();
+  const isEn = i18n.language?.startsWith("en");
+  const numLocale = isEn ? "en-GB" : "fr-FR";
+  const dec = (v: number | string) =>
+    isEn ? v.toString() : v.toString().replace(".", ",");
+
   const fc = machine.fiche_commerciale || {};
   const numero = fc.numero_fiche || "—";
   const prix = prixChoisi === "fr" ? machine.prix_fr : machine.prix_dealer;
-  const prixLabel = prixChoisi === "fr" ? "PRIX HT" : "PRIX HT DEALER";
+  const prixLabel = prixChoisi === "fr" ? t("fiche.prixHT") : t("fiche.prixHTDealer");
 
   // === Photos de la fiche : priorité aux photos de ventes, fallback legacy ===
   const pv = machine.photos_ventes || {};
@@ -44,13 +51,11 @@ export default function FicheVoTemplate({
             <img src={DELTA_LOGO_BASE64} alt="Delta Services" style={logoStyle} />
             <div style={titleBlockStyle}>
               <div style={titleStyle}>
-                NACELLE ÉLÉVATRICE{" "}
-                {fc.hauteur_travail_m
-                  ? `${fc.hauteur_travail_m.toString().replace(".", ",")} m`
-                  : ""}
+                {t("fiche.titreType")}{" "}
+                {fc.hauteur_travail_m ? `${dec(fc.hauteur_travail_m)} m` : ""}
               </div>
               <div style={subtitleStyle}>
-                SUR FOURGON {machine.modele_porteur.toUpperCase()}
+                {t("fiche.surFourgon")} {machine.modele_porteur.toUpperCase()}
               </div>
             </div>
           </div>
@@ -61,52 +66,53 @@ export default function FicheVoTemplate({
             {/* 3 photos : 1 grande + 2 en dessous, proportions conservées */}
             <div style={photoColStyle}>
               <div style={photoBigStyle}>
-                <PhotoSlot label="3/4 avant droit" src={photos.principale} caption={false} />
+                <PhotoSlot label={t("fiche.photo34AvantDroit")} src={photos.principale} caption={false} />
               </div>
               <div style={photoRow2Style}>
-                <PhotoSlot label="3/4 arrière gauche" src={photos.secondaire} caption={false} />
-                <PhotoSlot label="Habitacle avant" src={photos.habitacle} caption={false} />
+                <PhotoSlot label={t("fiche.photo34ArriereGauche")} src={photos.secondaire} caption={false} />
+                <PhotoSlot label={t("fiche.habitacleAvant")} src={photos.habitacle} caption={false} />
               </div>
             </div>
 
             <div style={specsStyle}>
               <div style={specBlockStyle}>
-                <div style={specTitleStyle}>NACELLE ÉLÉVATRICE {machine.type_nacelle}</div>
+                <div style={specTitleStyle}>{t("fiche.titreType")} {machine.type_nacelle}</div>
                 <ul style={specListStyle}>
                   {fc.hauteur_travail_m && (
                     <li style={specItemStyle}>
-                      - Hauteur de travail :{" "}
-                      <strong>{fc.hauteur_travail_m.toString().replace(".", ",")} m</strong>
+                      - {t("fiche.hauteurTravail")} :{" "}
+                      <strong>{dec(fc.hauteur_travail_m)} m</strong>
                     </li>
                   )}
                   {fc.deport_travail_m && (
                     <li style={specItemStyle}>
-                      - Déport de travail :{" "}
-                      <strong>{fc.deport_travail_m.toString().replace(".", ",")} m</strong>
+                      - {t("fiche.deportTravail")} :{" "}
+                      <strong>{dec(fc.deport_travail_m)} m</strong>
                     </li>
                   )}
                   {fc.nb_personnes_panier && (
                     <li style={specItemStyle}>
-                      - Panier isolé :{" "}
+                      - {t("fiche.panierIsole")} :{" "}
                       <strong>
-                        {fc.nb_personnes_panier} personne{fc.nb_personnes_panier > 1 ? "s" : ""}
+                        {fc.nb_personnes_panier}{" "}
+                        {fc.nb_personnes_panier > 1 ? t("fiche.personnes") : t("fiche.personne")}
                       </strong>
                     </li>
                   )}
                   {machine.heures_nacelle != null && (
                     <li style={specItemStyle}>
-                      - Nombre d'heures :{" "}
-                      <strong>{machine.heures_nacelle.toLocaleString("fr-FR")}H</strong>
+                      - {t("fiche.nbHeures")} :{" "}
+                      <strong>{machine.heures_nacelle.toLocaleString(numLocale)}{t("fiche.hUnit")}</strong>
                     </li>
                   )}
                 </ul>
               </div>
 
               <div style={specBlockStyle}>
-                <div style={specTitleStyle}>PORTEUR</div>
+                <div style={specTitleStyle}>{t("fiche.porteur")}</div>
                 <ul style={specListStyle}>
                   <li style={specItemStyle}>
-                    - Modèle :{" "}
+                    - {t("fiche.modele")} :{" "}
                     <strong>
                       {machine.modele_porteur}
                       {fc.puissance_porteur ? ` ${fc.puissance_porteur}` : ""}
@@ -114,26 +120,26 @@ export default function FicheVoTemplate({
                   </li>
                   {machine.annee_circulation && (
                     <li style={specItemStyle}>
-                      - Année de mise en circulation :{" "}
+                      - {t("fiche.anneeCirculation")} :{" "}
                       <strong>{machine.annee_circulation.split("/").pop()}</strong>
                     </li>
                   )}
                   {machine.km_porteur != null && (
                     <li style={specItemStyle}>
-                      - Kilométrage :{" "}
-                      <strong>{machine.km_porteur.toLocaleString("fr-FR")} km</strong>
+                      - {t("fiche.kilometrage")} :{" "}
+                      <strong>{machine.km_porteur.toLocaleString(numLocale)} km</strong>
                     </li>
                   )}
                 </ul>
               </div>
 
               <div style={specBlockStyle}>
-                <div style={specTitleStyle}>AMÉNAGEMENT INTÉRIEUR</div>
+                <div style={specTitleStyle}>{t("fiche.amenagementInterieur")}</div>
                 <p style={specTextStyle}>{fc.amenagement_interieur || "—"}</p>
               </div>
 
               <div style={specBlockStyle}>
-                <div style={specTitleStyle}>OPTIONS</div>
+                <div style={specTitleStyle}>{t("fiche.options")}</div>
                 {fc.options && fc.options.length > 0 ? (
                   <ul style={specListPlainStyle}>
                     {fc.options.map((opt, idx) => (
@@ -153,14 +159,14 @@ export default function FicheVoTemplate({
             <div style={priceBlockStyle}>
               <div style={priceLabelStyle}>{prixLabel}</div>
               <div style={priceValueStyle}>
-                {prix.toLocaleString("fr-FR")} € <span style={priceUnitStyle}>HT</span>
+                {prix.toLocaleString("fr-FR")} € <span style={priceUnitStyle}>{t("fiche.ht")}</span>
               </div>
             </div>
           )}
 
           {/* Coordonnées vendeur sur une ligne, en bas */}
           <div style={sellerLineStyle}>
-            <span style={sellerLineLabelStyle}>VOTRE INTERLOCUTEUR</span>
+            <span style={sellerLineLabelStyle}>{t("fiche.interlocuteur")}</span>
             <span style={sellerLineNameStyle}>{commercial.nom}</span>
             <span style={sellerLineSepStyle}>·</span>
             <span style={sellerLineItemStyle}>📞 {commercial.phone}</span>
@@ -185,11 +191,12 @@ export default function FicheVoTemplate({
 // =============== Sous-composants ===============
 
 function SideBanner({ numero }: { numero: string }) {
+  const { t } = useTranslation();
   return (
     <div style={sideBannerStyle}>
       <div style={sideBannerTextStyle}>
-        <div style={bannerWordStyle}>FICHE</div>
-        <div style={bannerWordBigStyle}>D'OCCASION</div>
+        <div style={bannerWordStyle}>{t("fiche.bannerLine1")}</div>
+        <div style={bannerWordBigStyle}>{t("fiche.bannerLine2")}</div>
         <div style={bannerNumStyle}>N°{numero}</div>
       </div>
     </div>
@@ -201,6 +208,7 @@ function SideBanner({ numero }: { numero: string }) {
  * sinon un placeholder.
  */
 function PhotoSlot({ label, src, caption = true }: { label: string; src?: string; caption?: boolean }) {
+  const { t } = useTranslation();
   if (src) {
     return (
       <div style={photoGridItemFilledStyle}>
@@ -213,7 +221,7 @@ function PhotoSlot({ label, src, caption = true }: { label: string; src?: string
     <div style={photoGridItemStyle}>
       <div style={photoGridIconStyle}>📷</div>
       <div style={photoGridLabelStyle}>{label}</div>
-      <div style={photoGridSubStyle}>Photo à venir</div>
+      <div style={photoGridSubStyle}>{t("fiche.photoAVenir")}</div>
     </div>
   );
 }

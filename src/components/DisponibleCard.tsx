@@ -1,4 +1,5 @@
 import { Machine, calculAgeStock, getAgeStockColor, isFicheComplete } from "../types/machine";
+import { useTranslation } from "react-i18next";
 
 interface DisponibleCardProps {
   machine: Machine;
@@ -56,6 +57,11 @@ export default function DisponibleCard({
   const ageInfo = getAgeStockColor(age, seuilRepricer);
   const hasPrice = machine.prix_fr != null || machine.prix_dealer != null;
   const ficheComplete = isFicheComplete(machine);
+  const { t } = useTranslation();
+  const ageKey =
+    ({ "Frais": "fresh", "Bon": "good", "À repricer": "toReprice", "Urgent": "urgent" } as Record<string, string>)[
+      ageInfo.label
+    ] || "fresh";
 
   const offreEnCours = machine.offre_en_cours === true;
 
@@ -85,7 +91,7 @@ export default function DisponibleCard({
               href={`https://app.hubspot.com/contacts/144239378/deal/${machine.hubspot_deal_id}`}
               target="_blank"
               rel="noopener noreferrer"
-              title="Ouvrir le deal dans HubSpot"
+              title={t("card.openDealTitle")}
               style={{
                 color: "#1a73e8",
                 textDecoration: "none",
@@ -95,11 +101,11 @@ export default function DisponibleCard({
               onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
               onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
             >
-              🔵 Offre en cours{machine.client_offre ? ` — ${machine.client_offre}` : ""} 🔗
+              🔵 {t("card.offerInProgress")}{machine.client_offre ? ` — ${machine.client_offre}` : ""} 🔗
             </a>
           ) : (
             <span style={{ flex: 1 }}>
-              🔵 Offre en cours{machine.client_offre ? ` — ${machine.client_offre}` : ""}
+              🔵 {t("card.offerInProgress")}{machine.client_offre ? ` — ${machine.client_offre}` : ""}
             </span>
           )}
           {onAnnulerOffre && (
@@ -108,7 +114,7 @@ export default function DisponibleCard({
                 e.stopPropagation();
                 onAnnulerOffre(machine);
               }}
-              title="Annuler l'offre"
+              title={t("card.cancelOfferTitle")}
               style={{
                 background: "transparent",
                 border: "none",
@@ -130,7 +136,7 @@ export default function DisponibleCard({
             {machine.type_nacelle || machine.immat}
             {machine.fiche_commerciale?.numero_fiche && (
               <span className="dispo-fiche-num">
-                · Fiche N°{machine.fiche_commerciale.numero_fiche}
+                · {t("card.ficheShort")} N°{machine.fiche_commerciale.numero_fiche}
               </span>
             )}
           </div>
@@ -150,44 +156,44 @@ export default function DisponibleCard({
             className="age-badge"
             style={{ background: ageInfo.bg, color: ageInfo.color, borderColor: ageInfo.color }}
           >
-            <span className="age-days">{age} j</span>
-            <span className="age-label">{ageInfo.label}</span>
+            <span className="age-days">{age} {t("card.daysShort")}</span>
+            <span className="age-label">{t(`card.age.${ageKey}`)}</span>
           </div>
           <div className="dispo-actions-col">
             {isAdmin && onEditPrice && (
               <button
                 className="btn-edit-price"
                 onClick={() => onEditPrice(machine)}
-                title="Modifier les prix manuellement"
+                title={t("card.editPriceTitle")}
               >
-                ✏️ Modifier prix
+                ✏️ {t("card.editPrice")}
               </button>
             )}
             {canFiche && onEditFiche && (
               <button
                 className={`btn-fiche-edit ${ficheComplete ? "complete" : ""}`}
                 onClick={() => onEditFiche(machine)}
-                title={ficheComplete ? "Modifier la fiche commerciale" : "Compléter la fiche commerciale"}
+                title={ficheComplete ? t("card.editFicheTitle") : t("card.completeFicheTitle")}
               >
-                {ficheComplete ? "✏️ Modifier fiche" : "📝 Compléter fiche"}
+                {ficheComplete ? `✏️ ${t("card.editFiche")}` : `📝 ${t("card.completeFiche")}`}
               </button>
             )}
             {canGenerateFiche && ficheComplete && hasPrice && onGenerateFiche && (
               <button
                 className="btn-generate-fiche"
                 onClick={() => onGenerateFiche(machine)}
-                title="Générer la fiche commerciale en PDF"
+                title={t("card.genFicheTitle")}
               >
-                📄 Générer fiche VO
+                📄 {t("card.genFiche")}
               </button>
             )}
             {canManagePhotos && onManagePhotos && (
               <button
                 className="btn-fiche-edit"
                 onClick={() => onManagePhotos(machine)}
-                title="Gérer les photos supplémentaires (galerie, upload, partage)"
+                title={t("card.photosTitle")}
               >
-                📸 Photos
+                📸 {t("card.photos")}
                 {machine.photos_supplementaires && machine.photos_supplementaires.length > 0
                   ? ` (${machine.photos_supplementaires.length})`
                   : ""}
@@ -197,15 +203,15 @@ export default function DisponibleCard({
               <button
                 className="btn-lld"
                 onClick={() => onLld(machine)}
-                title="Basculer cette machine en location longue durée"
+                title={t("card.lldTitle")}
               >
-                🔁 Mise en location
+                🔁 {t("card.lld")}
               </button>
             )}
             {canOffre && hasPrice && onTogglePanier && (
               <button
                 onClick={() => onTogglePanier(machine)}
-                title={isInPanier ? "Retirer de l'offre" : "Ajouter à l'offre HubSpot"}
+                title={isInPanier ? t("card.removeOfferTitle") : t("card.addOfferTitle")}
                 style={{
                   background: isInPanier ? "#1a73e8" : "white",
                   color: isInPanier ? "white" : "#1a73e8",
@@ -217,17 +223,17 @@ export default function DisponibleCard({
                   fontWeight: 600,
                 }}
               >
-                {isInPanier ? "✓ Dans l'offre" : "➕ Ajouter à l'offre"}
+                {isInPanier ? `✓ ${t("card.inOffer")}` : `➕ ${t("card.addOffer")}`}
               </button>
             )}
             {canDelete && onDelete && (
               <button
                 className="btn-delete-machine"
                 onClick={() => onDelete(machine.id)}
-                title="Supprimer définitivement cette machine"
+                title={t("card.deleteTitle")}
                 style={{ background: "#dc3545", color: "white", border: "none", padding: "6px 12px", borderRadius: "4px", cursor: "pointer" }}
               >
-                🗑️ Supprimer
+                🗑️ {t("card.delete")}
               </button>
             )}
           </div>
@@ -249,7 +255,7 @@ export default function DisponibleCard({
         )}
         <span className="dispo-info-item">
           <span className="info-icon">📅</span>
-          Stock depuis le <strong>{formatDate(machine.date_mise_stock || "")}</strong>
+          {t("card.inStockSince")} <strong>{formatDate(machine.date_mise_stock || "")}</strong>
         </span>
         <span className="dispo-info-item">
           <span className="info-icon">📍</span>
@@ -268,7 +274,7 @@ export default function DisponibleCard({
                 cursor: "pointer",
               }}
             >
-              <option value="">Site —</option>
+              <option value="">{t("card.site")}</option>
               {["EGI", "Ferrière", "Croissy", "Avignon", "St-Alban"].map((s) => (
                 <option key={s} value={s}>
                   {s}
@@ -282,7 +288,7 @@ export default function DisponibleCard({
         {!ficheComplete && hasPrice && (
           <span className="dispo-info-item fiche-warning">
             <span className="info-icon">⚠</span>
-            <strong>Fiche commerciale à compléter</strong>
+            <strong>{t("card.ficheToComplete")}</strong>
           </span>
         )}
       </div>
@@ -304,7 +310,7 @@ export default function DisponibleCard({
               cursor: "pointer",
             }}
           >
-            🔍 Expertise Nacelle-Expert
+            🔍 {t("card.expertiseNE")}
             {machine.rapport_expertise?.total_retenue_ht != null
               ? ` — ${machine.rapport_expertise.total_retenue_ht.toLocaleString("fr-FR")} €`
               : ""}
@@ -317,11 +323,11 @@ export default function DisponibleCard({
         <div className="fre-section">
           <div className="fre-header">
             <span className="fre-icon">🔧</span>
-            <span className="fre-title">Frais de remise en état</span>
+            <span className="fre-title">{t("card.refurbCost")}</span>
           </div>
           <div className="fre-details">
             <div className="fre-item">
-              <span className="fre-label">Retenue HT:</span>
+              <span className="fre-label">{t("card.deduction")}</span>
               <span className="fre-value">
                 {machine.rapport_expertise.total_retenue_ht != null
                   ? `${machine.rapport_expertise.total_retenue_ht.toLocaleString("fr-FR")} €`
@@ -330,7 +336,7 @@ export default function DisponibleCard({
             </div>
             <div className="fre-item">
               <span className="fre-degats">
-                {machine.rapport_expertise.degats.length} dégât(s) identifié(s)
+                {machine.rapport_expertise.degats.length} {t("card.damages")}
               </span>
             </div>
           </div>
@@ -340,7 +346,7 @@ export default function DisponibleCard({
               className="btn-view-expertise"
               onClick={() => onViewExpertise(machine)}
             >
-              🔍 Voir expertise
+              🔍 {t("card.viewExpertise")}
             </button>
           )}
         </div>
@@ -351,7 +357,7 @@ export default function DisponibleCard({
           <>
             {canViewPrixFR && (
               <div className="price-block">
-                <div className="price-label">Prix FR</div>
+                <div className="price-label">{t("card.priceFR")}</div>
                 <div className="price-value">
                   {machine.prix_fr != null
                     ? machine.prix_fr.toLocaleString("fr-FR") + " €"
@@ -362,7 +368,7 @@ export default function DisponibleCard({
             {canViewPrixFR && canViewprixDealer && <div className="price-divider"></div>}
             {canViewprixDealer && (
               <div className="price-block">
-                <div className="price-label">Prix Dealer</div>
+                <div className="price-label">{t("card.priceDealer")}</div>
                 <div className="price-value price-dealer">
                   {machine.prix_dealer != null
                     ? machine.prix_dealer.toLocaleString("fr-FR") + " €"
@@ -375,8 +381,8 @@ export default function DisponibleCard({
           <div className="price-pending">
             <span className="pending-icon">⏳</span>
             <div>
-              <strong>Prix à fixer</strong>
-              <div className="pending-sub">En attente du PDG</div>
+              <strong>{t("card.priceTBD")}</strong>
+              <div className="pending-sub">{t("card.awaitingPdg")}</div>
             </div>
           </div>
         )}
@@ -384,7 +390,7 @@ export default function DisponibleCard({
 
       {machine.prix_modifie_manuellement && machine.prix_modifie_par && (
         <div className="manual-override-banner">
-          ✏️ Prix modifié manuellement par <strong>{machine.prix_modifie_par}</strong> le {formatDate(machine.prix_modifie_le || "")}
+          {t("card.manualOverridePrefix")} <strong>{machine.prix_modifie_par}</strong> {t("card.manualOverrideOn")} {formatDate(machine.prix_modifie_le || "")}
         </div>
       )}
     </div>

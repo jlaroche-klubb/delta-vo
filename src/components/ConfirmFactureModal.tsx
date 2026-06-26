@@ -21,11 +21,11 @@ export default function ConfirmFactureModal({
 
   function handleConfirm() {
     if (!numeroFacture.trim()) {
-      alert("Le numéro de facture est obligatoire");
+      alert(t("modals.errInvoiceNo"));
       return;
     }
     if (!dateFacturation) {
-      alert("La date de facturation est obligatoire");
+      alert(t("modals.errInvoiceDate"));
       return;
     }
     onConfirm(machine.id, numeroFacture.trim(), dateFacturation);

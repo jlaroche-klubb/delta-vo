@@ -1,4 +1,5 @@
 import { ImportResult } from "../utils/importPricing";
+import { useTranslation } from "react-i18next";
 
 interface ImportResultModalProps {
   result: ImportResult;
@@ -6,6 +7,7 @@ interface ImportResultModalProps {
 }
 
 export default function ImportResultModal({ result, onClose }: ImportResultModalProps) {
+  const { t } = useTranslation();
   const successCount = result.success.length;
   const errorCount = result.errors.length;
 
@@ -18,7 +20,7 @@ export default function ImportResultModal({ result, onClose }: ImportResultModal
     >
       <div className="modal modal-import-result">
         <div className="modal-header">
-          <h2>Résultat de l'import</h2>
+          <h2>{t("modals.importTitle")}</h2>
           <button className="btn-close" onClick={onClose}>✕</button>
         </div>
 
@@ -27,15 +29,15 @@ export default function ImportResultModal({ result, onClose }: ImportResultModal
           <div className="import-stats">
             <div className="import-stat import-stat-ok">
               <div className="import-stat-value">{successCount}</div>
-              <div className="import-stat-label">Mises à jour</div>
+              <div className="import-stat-label">{t("modals.importUpdated")}</div>
             </div>
             <div className="import-stat import-stat-err">
               <div className="import-stat-value">{errorCount}</div>
-              <div className="import-stat-label">Ignorées</div>
+              <div className="import-stat-label">{t("modals.importIgnored")}</div>
             </div>
             <div className="import-stat">
               <div className="import-stat-value">{result.totalRows}</div>
-              <div className="import-stat-label">Total lignes</div>
+              <div className="import-stat-label">{t("modals.importTotalRows")}</div>
             </div>
           </div>
 
@@ -43,7 +45,7 @@ export default function ImportResultModal({ result, onClose }: ImportResultModal
           {successCount > 0 && (
             <div className="import-section">
               <h3 className="import-section-title import-section-title-ok">
-                ✓ Prix mis à jour ({successCount})
+                ✓ {t("modals.importPricesUpdated")} ({successCount})
               </h3>
               <div className="import-list">
                 {result.success.map((s, i) => (
@@ -68,7 +70,7 @@ export default function ImportResultModal({ result, onClose }: ImportResultModal
           {errorCount > 0 && (
             <div className="import-section">
               <h3 className="import-section-title import-section-title-err">
-                ⚠ Lignes ignorées ({errorCount})
+                ⚠ {t("modals.importIgnoredLines")} ({errorCount})
               </h3>
               <div className="import-list">
                 {result.errors.map((e, i) => (
@@ -85,7 +87,7 @@ export default function ImportResultModal({ result, onClose }: ImportResultModal
 
         <div className="modal-footer">
           <button className="btn-primary" onClick={onClose}>
-            Fermer
+            {t("modals.close")}
           </button>
         </div>
       </div>

@@ -5,6 +5,7 @@ import MachineCard from "../components/MachineCard";
 import FiltersBar, { FilterState, EMPTY_FILTERS, applyFilters } from "../components/FiltersBar";
 import { exportMachinesToExcel } from "../utils/exportExcel";
 import { useAuth } from "../AuthContext";
+import { useTranslation } from "react-i18next";
 import {
   canCreateRestitution,
   canValidateRestitutionSteps,
@@ -53,6 +54,7 @@ export default function RestitutionsPage() {
   const isAdmin = userRole === "admin";
 
   const [search, setSearch] = useState("");
+  const { t } = useTranslation();
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -167,23 +169,21 @@ export default function RestitutionsPage() {
     <div className="page-restitutions">
       <div className="page-header">
         <div>
-          <h1>Restitutions</h1>
-          <p className="subtitle">
-            Suivi des nacelles en retour de location · Workflow ADV
-          </p>
+          <h1>{t("resti.title")}</h1>
+          <p className="subtitle">{t("resti.subtitle")}</p>
         </div>
         <div className="page-stats">
           <div className="stat">
             <span className="stat-value">{total}</span>
-            <span className="stat-label">en cours</span>
+            <span className="stat-label">{t("resti.statInProgress")}</span>
           </div>
           <div className="stat stat-vo">
             <span className="stat-value">{voCreated}</span>
-            <span className="stat-label">fiches VO</span>
+            <span className="stat-label">{t("resti.statVoSheets")}</span>
           </div>
           <div className="stat stat-ready">
             <span className="stat-value">{finalizing}</span>
-            <span className="stat-label">à régler</span>
+            <span className="stat-label">{t("resti.statToSettle")}</span>
           </div>
         </div>
       </div>
@@ -192,27 +192,27 @@ export default function RestitutionsPage() {
         <input
           className="search-input"
           type="text"
-          placeholder="Rechercher par immatriculation, modèle, client, contrat..."
+          placeholder={t("resti.searchPlaceholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
         {canExportRestitutions(userRole) && (
-          <button className="btn-export" onClick={handleExport} title="Télécharger en Excel">
-            ⬇ Export Excel
+          <button className="btn-export" onClick={handleExport} title={t("resti.exportExcelTitle")}>
+            ⬇ {t("resti.exportExcel")}
           </button>
         )}
         {canCreateRestitution(userRole) && (
           <button className="btn-primary" onClick={() => setShowForm(true)}>
-            + Créer un retour
+            + {t("resti.createReturn")}
           </button>
         )}
         {isAdmin && (
           <button
             className={`toggle-archived ${showArchived ? "active" : ""}`}
             onClick={() => setShowArchived(!showArchived)}
-            title="Voir les machines archivées"
+            title={t("resti.archivedTitle")}
           >
-            🗑️ {showArchived ? "Masquer archivées" : "Voir archivées"}
+            🗑️ {showArchived ? t("resti.hideArchived") : t("resti.showArchived")}
             {totalArchived > 0 && !showArchived && (
               <span style={{ marginLeft: 4, opacity: 0.7 }}>({totalArchived})</span>
             )}
@@ -238,12 +238,12 @@ export default function RestitutionsPage() {
         >
           <div className="modal">
             <div className="modal-header">
-              <h2>Nouveau retour</h2>
+              <h2>{t("resti.newReturn")}</h2>
               <button className="btn-close" onClick={() => setShowForm(false)}>✕</button>
             </div>
             <div className="form-grid">
               <div className="form-field">
-                <label>Immatriculation *</label>
+                <label>{t("resti.fieldImmat")}</label>
                 <input
                   type="text"
                   placeholder="FR-123-AB"
@@ -252,7 +252,7 @@ export default function RestitutionsPage() {
                 />
               </div>
               <div className="form-field">
-                <label>Type nacelle</label>
+                <label>{t("resti.fieldType")}</label>
                 <input
                   type="text"
                   placeholder="K20, K26, K32, K46…"
@@ -261,7 +261,7 @@ export default function RestitutionsPage() {
                 />
               </div>
               <div className="form-field form-field-wide">
-                <label>Modèle porteur</label>
+                <label>{t("resti.fieldCarrier")}</label>
                 <input
                   type="text"
                   placeholder="Renault Master, Iveco Daily…"
@@ -270,16 +270,16 @@ export default function RestitutionsPage() {
                 />
               </div>
               <div className="form-field">
-                <label>Mise en circulation</label>
+                <label>{t("resti.fieldRegDate")}</label>
                 <input
                   type="text"
-                  placeholder="JJ/MM/AAAA"
+                  placeholder={t("resti.placeholderDate")}
                   value={form.annee_circulation}
                   onChange={(e) => setForm({ ...form, annee_circulation: e.target.value })}
                 />
               </div>
               <div className="form-field">
-                <label>N° contrat</label>
+                <label>{t("resti.fieldContract")}</label>
                 <input
                   type="text"
                   placeholder="CTR-2024-XXX"
@@ -288,16 +288,16 @@ export default function RestitutionsPage() {
                 />
               </div>
               <div className="form-field form-field-wide">
-                <label>Client précédent</label>
+                <label>{t("resti.fieldPrevClient")}</label>
                 <input
                   type="text"
-                  placeholder="Société / nom client"
+                  placeholder={t("resti.placeholderCompany")}
                   value={form.client_precedent}
                   onChange={(e) => setForm({ ...form, client_precedent: e.target.value })}
                 />
               </div>
               <div className="form-field">
-                <label>Date retour</label>
+                <label>{t("resti.fieldReturnDate")}</label>
                 <input
                   type="date"
                   value={form.date_retour}
@@ -307,10 +307,10 @@ export default function RestitutionsPage() {
             </div>
             <div className="modal-footer">
               <button className="btn-secondary" onClick={() => setShowForm(false)}>
-                Annuler
+                {t("resti.cancel")}
               </button>
               <button className="btn-primary" onClick={createMachine}>
-                Créer le retour
+                {t("resti.createReturnBtn")}
               </button>
             </div>
           </div>
@@ -326,10 +326,10 @@ export default function RestitutionsPage() {
             filters.typeNacelle ||
             filters.dateDebut ||
             filters.dateFin
-              ? "Aucune machine ne correspond à vos critères"
+              ? t("resti.emptyNoMatch")
               : showArchived
-              ? "Aucune machine archivée"
-              : "Aucun retour en cours · Cliquez sur « + Créer un retour » pour commencer"}
+              ? t("resti.emptyArchived")
+              : t("resti.emptyNoReturns")}
           </div>
         ) : (
           filtered.map((m) => (

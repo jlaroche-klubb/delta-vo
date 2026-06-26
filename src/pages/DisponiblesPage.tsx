@@ -28,6 +28,7 @@ import DisponiblesFilters, {
 import { exportPricingToExcel } from "../utils/exportPricing";
 import { importPricingFromExcel, ImportResult } from "../utils/importPricing";
 import { parseStockExcel } from "../utils/importStock";
+import { runNacelleExpertRattrapage } from "../hooks/useNacelleExpertSync";
 import { generateFichePdf } from "../utils/generateFichePdf";
 import { exportListePrix } from "../utils/exportListePrix";
 import {
@@ -115,6 +116,7 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
   const stockInputRef = useRef<HTMLInputElement>(null);
   const [importingStock, setImportingStock] = useState(false);
   const [refreshingExpertise, setRefreshingExpertise] = useState(false);
+  const [rattrapage, setRattrapage] = useState(false);
 
   const isAdmin = userRole === "admin";
   // ✅ Visible par TOUS les rôles (demande) : Mise en location, Compléter fiche, Photos
@@ -502,6 +504,22 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
     }
   }
 
+  async function handleRattrapage() {
+    setRattrapage(true);
+    try {
+      const res = await runNacelleExpertRattrapage();
+      alert(
+        `✅ Rattrapage terminé :\n\n` +
+          `• ${res.scanned} dossier(s) Nacelle-Expert scanné(s)\n` +
+          `• ${res.updated} machine(s) mise(s) à jour (photos / PDF)`
+      );
+    } catch (err: any) {
+      alert("Erreur lors du rattrapage : " + err.message);
+    } finally {
+      setRattrapage(false);
+    }
+  }
+
   return (
     <div className="page-disponibles">
       <div className="page-header">
@@ -583,6 +601,17 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
             title="Récupérer les montants d'expertise depuis Nacelle-Expert"
           >
             {refreshingExpertise ? "⏳ Expertises..." : "🧰 Montants expertise"}
+          </button>
+        )}
+
+        {isAdmin && (
+          <button
+            className="btn-import"
+            onClick={handleRattrapage}
+            disabled={rattrapage}
+            title="Re-synchroniser les photos détourées et le PDF de restitution depuis Nacelle-Expert (manuel)"
+          >
+            {rattrapage ? "⏳ Rattrapage..." : "🖼️ Rattrapage photos/PDF"}
           </button>
         )}
 

@@ -4,6 +4,7 @@ import { doc, getDoc, setDoc, deleteDoc } from "firebase/firestore";
 import { auth, db, googleProvider } from "./firebase";
 import { UserProfile } from "./types";
 import { notifyAdminsNewUser } from "./services/emailService";
+import i18n from "./i18n";
 
 interface AuthContextType {
   user: User | null;
@@ -105,6 +106,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => unsubscribe();
   }, []);
+
+  // Applique la langue d'interface mémorisée dans le profil (autorité cross-device).
+  useEffect(() => {
+    if (profile?.lang && profile.lang !== i18n.resolvedLanguage) {
+      i18n.changeLanguage(profile.lang);
+    }
+  }, [profile]);
 
   async function login() {
     try {

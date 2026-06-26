@@ -8,6 +8,7 @@ import {
 import { useMachines } from "../contexts/MachinesContext";
 import EnCoursCard from "../components/EnCoursCard";
 import DocumentsModal from "../components/DocumentsModal";
+import { useTranslation } from "react-i18next";
 import ConfigEnCoursModal, {
   ConfigEnCoursPayload,
 } from "../components/ConfigEnCoursModal";
@@ -27,6 +28,7 @@ interface EnCoursPageProps {
 export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
   const { machines, toggleEtapePrepa, setEtapeNonNecessaire, addEtapePrepa, removeEtapePrepa, configureEnCours, cancelEnCours, marquerFacturee, updateDocumentsVO } = useMachines();
   const [search, setSearch] = useState("");
+  const { t } = useTranslation();
   const [filters, setFilters] = useState<EnCoursFilterState>(EMPTY_ENCOURS_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [configMachine, setConfigMachine] = useState<Machine | null>(null);
@@ -163,30 +165,30 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
     <div className="page-encours">
       <div className="page-header">
         <div>
-        <h1>En cours de préparation</h1>
-          <p className="subtitle">Machines vendues ou en LLD en attente de livraison</p>
+        <h1>{t("encours.title")}</h1>
+          <p className="subtitle">{t("encours.subtitle")}</p>
         </div>
         <div className="page-stats">
           <div className="stat">
             <span className="stat-value">{totalEnCours}</span>
-            <span className="stat-label">en cours</span>
+            <span className="stat-label">{t("encours.statInProgress")}</span>
           </div>
           <div className="stat stat-pending">
             <span className="stat-value">{totalNonConfigurees}</span>
-            <span className="stat-label">à configurer</span>
+            <span className="stat-label">{t("encours.statToConfigure")}</span>
           </div>
           <div className="stat stat-ready">
             <span className="stat-value">{totalPretes}</span>
-            <span className="stat-label">à facturer</span>
+            <span className="stat-label">{t("encours.statToInvoice")}</span>
           </div>
           <div className="stat stat-warn">
             <span className="stat-value">{totalEnRetard}</span>
-            <span className="stat-label">en retard</span>
+            <span className="stat-label">{t("encours.statLate")}</span>
           </div>
           {delaiMoyenPrepa !== null && (
             <div className="stat stat-info">
-              <span className="stat-value">{delaiMoyenPrepa}j</span>
-              <span className="stat-label">délai moyen prépa</span>
+              <span className="stat-value">{delaiMoyenPrepa}{t("card.daysShort")}</span>
+              <span className="stat-label">{t("encours.statAvgDelay")}</span>
             </div>
           )}
         </div>
@@ -197,10 +199,10 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
           <div className="urgent-icon">⚠</div>
           <div className="urgent-text">
             <strong>
-              {totalEnRetard} livraison{totalEnRetard > 1 ? "s" : ""} / mise{totalEnRetard > 1 ? "s" : ""} à dispo en retard
+              {totalEnRetard} {t("encours.urgentLate")}
             </strong>
             <span className="urgent-sub">
-              Clique pour filtrer et voir uniquement les machines en retard
+              {t("encours.urgentSub")}
             </span>
           </div>
           <div className="urgent-action">→</div>
@@ -211,7 +213,7 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
         <input
           className="search-input"
           type="text"
-          placeholder="Rechercher par immat, modèle, acheteur, client LLD, commercial..."
+          placeholder={t("encours.searchPlaceholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -230,12 +232,10 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
           <div className="section-header">
             <h2>
               <span className="section-dot section-dot-pending"></span>
-              À configurer
+              {t("encours.sectionToConfigure")}
               <span className="section-count">{nonConfigureesSorted.length}</span>
             </h2>
-            <p className="section-desc">
-              Machines qui viennent d'arriver — l'ADV doit choisir le type de prépa et renseigner les infos de vente
-            </p>
+            <p className="section-desc">{t("encours.sectionToConfigureDesc")}</p>
           </div>
           <div className="encours-list">
             {nonConfigureesSorted.map((m) => (
@@ -265,12 +265,10 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
           <div className="section-header">
             <h2>
               <span className="section-dot section-dot-prepa"></span>
-              Prépa en cours
+              {t("encours.sectionInPrep")}
               <span className="section-count">{enPrepaSorted.length}</span>
             </h2>
-            <p className="section-desc">
-              Triées par avancement décroissant — les plus proches de la fin en haut
-            </p>
+            <p className="section-desc">{t("encours.sectionInPrepDesc")}</p>
           </div>
           <div className="encours-list">
             {enPrepaSorted.map((m) => (
@@ -301,12 +299,10 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
           <div className="section-header">
             <h2>
               <span className="section-dot section-dot-ok"></span>
-              Prêtes à facturer
+              {t("encours.sectionReady")}
               <span className="section-count">{pretesSorted.length}</span>
             </h2>
-            <p className="section-desc">
-              Prépa terminée ou vendue en l'état — en attente de facturation
-            </p>
+            <p className="section-desc">{t("encours.sectionReadyDesc")}</p>
           </div>
           <div className="encours-list">
             {pretesSorted.map((m) => (
@@ -335,8 +331,8 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
       {filtered.length === 0 && (
         <div className="empty-state">
           {search
-            ? "Aucune machine ne correspond à votre recherche"
-            : "Aucune machine en cours"}
+            ? t("encours.emptyNoMatch")
+            : t("encours.emptyNone")}
         </div>
       )}
 

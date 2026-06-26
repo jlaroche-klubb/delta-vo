@@ -4,6 +4,7 @@ import ExpertiseModal from "./ExpertiseModal";
 import ConfirmDeleteModal from "./ConfirmDeleteModal";
 import { useMachines } from "../contexts/MachinesContext";
 import { useAuth } from "../AuthContext";
+import { useTranslation } from "react-i18next";
 
 interface MachineCardProps {
   machine: Machine;
@@ -52,6 +53,7 @@ export default function MachineCard({
   ? Object.values(machine.photos_commerciales).filter(p => p).length 
   : 0;
   const agentExpert = (machine as any).agent_expert as string | undefined;
+  const { t } = useTranslation();
 
   const cardClasses = [
     "machine-card",
@@ -78,9 +80,9 @@ export default function MachineCard({
           <div className="archived-banner">
             <span className="archived-banner-icon">🗑️</span>
             <div className="archived-banner-content">
-              <strong>Machine archivée</strong>
+              <strong>{t("mcard.archived")}</strong>
               <small>
-                par {machine.archived_by || "—"} le{" "}
+                {t("mcard.archivedBy")} {machine.archived_by || "—"} {t("mcard.archivedOn")}{" "}
                 {machine.archived_at
                   ? new Date(machine.archived_at).toLocaleDateString("fr-FR")
                   : "—"}
@@ -91,7 +93,7 @@ export default function MachineCard({
                 className="btn-unarchive"
                // onClick={() => unarchiveMachine(machine.id)}
               >
-                ↩ Restaurer
+                ↩ {t("mcard.restore")}
               </button>
             )}
           </div>
@@ -102,12 +104,12 @@ export default function MachineCard({
           <div className="expertise-banner">
             <span className="expertise-banner-icon">✅</span>
             <div className="expertise-banner-content">
-              <strong>Expertise reçue depuis nacelle-expert</strong>
+              <strong>{t("mcard.expertiseReceived")}</strong>
               <span className="expertise-banner-sub">
-                {photosCount > 0 && `${photosCount} photo${photosCount > 1 ? "s" : ""} détourée${photosCount > 1 ? "s" : ""}`}
+                {photosCount > 0 && `${photosCount} ${t("mcard.photosCutout")}`}
                 {photosCount > 0 && agentExpert && " · "}
-                {agentExpert && `Expert : ${agentExpert}`}
-                {photosCount === 0 && !agentExpert && "Données expertise synchronisées"}
+                {agentExpert && `${t("mcard.expertPrefix")} ${agentExpert}`}
+                {photosCount === 0 && !agentExpert && t("mcard.expertiseSynced")}
               </span>
             </div>
           </div>
@@ -119,8 +121,8 @@ export default function MachineCard({
             <span className="immat">
               {machine.immat}
               {expertiseRecue && !machine.archived && (
-                <span className="badge-expertise" title="Expertise nacelle-expert reçue">
-                  ✅ Expertise
+                <span className="badge-expertise" title={t("mcard.badgeExpertiseTitle")}>
+                  ✅ {t("mcard.badgeExpertise")}
                 </span>
               )}
             </span>
@@ -132,14 +134,14 @@ export default function MachineCard({
             </span>
           </div>
           <div className="machine-meta">
-            <MetaItem label="Client" value={machine.client_precedent} />
-            <MetaItem label="Retour" value={formatDate(machine.date_retour)} />
-            <MetaItem label="Contrat" value={machine.contrat} />
+            <MetaItem label={t("mcard.metaClient")} value={machine.client_precedent} />
+            <MetaItem label={t("mcard.metaReturn")} value={formatDate(machine.date_retour)} />
+            <MetaItem label={t("mcard.metaContract")} value={machine.contrat} />
             {canDelete && !machine.archived && (
               <button
                 className="btn-delete-machine"
                 onClick={() => onDelete?.(machine.id)}
-                title="Supprimer définitivement"
+                title={t("mcard.deleteTitle")}
               >
                 🗑️
               </button>
@@ -148,7 +150,7 @@ export default function MachineCard({
               <button
                 className="btn-archive"
                 onClick={() => setShowConfirmDelete(true)}
-                title="Archiver cette machine"
+                title={t("mcard.archiveTitle")}
               >
                 🗑️
               </button>
@@ -165,19 +167,19 @@ export default function MachineCard({
               {machine.heures_nacelle != null && (
                 <span className="tech-item">
                   <span className="tech-icon">⏱</span>
-                  <strong>{machine.heures_nacelle.toLocaleString("fr-FR")} h</strong> nacelle
+                  <strong>{machine.heures_nacelle.toLocaleString("fr-FR")} h</strong> {t("mcard.platformSuffix")}
                 </span>
               )}
               {machine.km_porteur != null && (
                 <span className="tech-item">
                   <span className="tech-icon">🛣</span>
-                  <strong>{machine.km_porteur.toLocaleString("fr-FR")} km</strong> porteur
+                  <strong>{machine.km_porteur.toLocaleString("fr-FR")} km</strong> {t("mcard.carrierSuffix")}
                 </span>
               )}
               {machine.agent_expertise && (
                 <span className="tech-item">
                   <span className="tech-icon">👤</span>
-                  Expert : <strong>{machine.agent_expertise}</strong>
+                  {t("mcard.expertPrefix")} <strong>{machine.agent_expertise}</strong>
                 </span>
               )}
             </div>
@@ -186,7 +188,7 @@ export default function MachineCard({
                 className="btn-view-expertise"
                 onClick={() => setShowExpertise(true)}
               >
-                📄 Voir l'expertise
+                📄 {t("mcard.viewExpertise")}
               </button>
             )}
           </div>
@@ -201,7 +203,7 @@ export default function MachineCard({
               rel="noopener noreferrer"
               style={{ color: "#1a2a6e", fontWeight: 600, fontSize: 13, textDecoration: "underline" }}
             >
-              📄 Rapport complet Nacelle-Expert (envoyé au client)
+              📄 {t("mcard.fullReport")}
             </a>
           </div>
         )}
@@ -211,7 +213,7 @@ export default function MachineCard({
           <div className="stepper">
             <Step
               number={1}
-              label="Demande récup."
+              label={t("mcard.step1")}
               state={step1Done ? "done" : activeStep === 1 ? "active" : "todo"}
               customContent={
                 step1Done ? (
@@ -236,7 +238,7 @@ export default function MachineCard({
 
             <Step
               number={2}
-              label="Récupération"
+              label={t("mcard.step2")}
               state={step2Done ? "done" : activeStep === 2 ? "active" : "todo"}
               onClick={
                 canValidate && (activeStep === 2 || step2Done)
@@ -249,7 +251,7 @@ export default function MachineCard({
 
             <Step
               number={3}
-              label="Expertise"
+              label={t("mcard.step3")}
               state={step3Done ? "done" : activeStep === 3 ? "active" : "todo"}
               onClick={
                 canValidate && (activeStep === 3 || step3Done)
@@ -262,7 +264,7 @@ export default function MachineCard({
 
             <Step
               number={4}
-              label="Facture"
+              label={t("mcard.step4")}
               state={step4Done ? "done" : activeStep === 4 ? "active" : "todo"}
               onClick={
                 canValidate && (activeStep === 4 || step4Done)
@@ -275,7 +277,7 @@ export default function MachineCard({
 
             <Step
               number={5}
-              label="Réglée"
+              label={t("mcard.step5")}
               state={step5Done ? "done" : activeStep === 5 ? "active" : "todo"}
               onClick={
                 canValidate && (activeStep === 5 || step5Done)
@@ -289,7 +291,7 @@ export default function MachineCard({
 
         {machine.fiche_vo_creee && !machine.archived && (
           <div className="vo-banner">
-            📄 Fiche VO créée — visible dans <strong>Disponibles</strong>
+            📄 {t("mcard.voCreated")} <strong>{t("nav.disponibles")}</strong>
           </div>
         )}
       </div>

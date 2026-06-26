@@ -30,7 +30,7 @@ export default function OffreModal({ machines, onClose, onConfirm }: OffreModalP
 
   function handleConfirm() {
     if (!client.trim()) {
-      alert("Merci de renseigner le nom du client.");
+      alert(t("modals.errClientNameReq"));
       return;
     }
     onConfirm(client.trim(), montants);

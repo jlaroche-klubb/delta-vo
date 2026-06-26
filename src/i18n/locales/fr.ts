@@ -13,7 +13,7 @@ const fr = {
     restitutions: "Restitutions",
     disponibles: "Disponibles",
     export: "Export",
-    encours: "En cours de préparation",
+    encours: "En préparation",
     cloturees: "Clôturées",
     stats: "Stats",
     admin: "Admin",

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import FicheExportTemplate, { FicheExportData } from "../components/FicheExportTemplate";
 import { generateExportPdf } from "../utils/generateExportPdf";
 import { removeBgViaProxy, composeExportPhoto } from "../utils/detourage";
+import { useTranslation } from "react-i18next";
 
 interface ExportPageProps {
   userName?: string;
@@ -13,7 +14,7 @@ const PAGE_W = 794;
 const PAGE_H = 1123;
 
 // 4 emplacements : 1 grande + 3 petites. Par défaut 3 détourées + 1 brute.
-const PHOTO_LABELS = ["Photo principale (grande)", "Photo 2", "Photo 3", "Photo 4"];
+const PHOTO_LABELS = ["export.photoMain", "export.photo2", "export.photo3", "export.photo4"];
 const DEFAULT_DETOUR = [true, true, true, false];
 
 interface Slot {
@@ -64,6 +65,7 @@ const emptyText = (name?: string, email?: string): TextForm => ({
 });
 
 export default function ExportPage({ userName, userEmail }: ExportPageProps) {
+  const { t } = useTranslation();
   const [form, setForm] = useState<TextForm>(emptyText(userName, userEmail));
   const [optionsText, setOptionsText] = useState("");
   const [slots, setSlots] = useState<Slot[]>(initSlots());
@@ -170,18 +172,17 @@ export default function ExportPage({ userName, userEmail }: ExportPageProps) {
     <div style={{ padding: "8px 0" }}>
       <div style={headerRow}>
         <div>
-          <h1 style={pageTitle}>🌍 Fiches export (anglais)</h1>
+          <h1 style={pageTitle}>🌍 {t("export.title")}</h1>
           <p style={pageSubtitle}>
-            Saisie manuelle — la fiche est générée en PDF et n'est <strong>pas</strong> enregistrée
-            dans le stock.
+            {t("export.subtitle1")} <strong>{t("export.subtitleStrong")}</strong> {t("export.subtitle2")}
           </p>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
           <button onClick={resetAll} style={btnSecondary} disabled={generating}>
-            Réinitialiser
+            {t("export.reset")}
           </button>
           <button onClick={handleGenerate} style={btnPrimary} disabled={generating || anyBusy}>
-            {generating ? "Génération…" : anyBusy ? "Détourage en cours…" : "📄 Télécharger le PDF"}
+            {generating ? t("export.generating") : anyBusy ? t("export.cutting") : `📄 ${t("export.downloadPdf")}`}
           </button>
         </div>
       </div>
@@ -189,53 +190,53 @@ export default function ExportPage({ userName, userEmail }: ExportPageProps) {
       <div style={layout}>
         {/* ---- FORMULAIRE ---- */}
         <div style={formCol}>
-          <Section title="Identification">
-            <Field label="Référence (REF + bandeau photo)">
+          <Section title={t("export.secIdentification")}>
+            <Field label={t("export.fieldRef")}>
               <input style={input} value={form.reference} onChange={(e) => set("reference", e.target.value)} />
             </Field>
           </Section>
 
-          <Section title="Nacelle">
-            <Field label="Type (ex. 16 m)">
+          <Section title={t("export.secPlatform")}>
+            <Field label={t("export.fieldType")}>
               <input style={input} value={form.typeNacelle} onChange={(e) => set("typeNacelle", e.target.value)} />
             </Field>
             <Row>
-              <Field label="Hauteur de travail (m)">
+              <Field label={t("export.fieldWorkingHeight")}>
                 <input style={input} value={form.workingHeight} onChange={(e) => set("workingHeight", e.target.value)} />
               </Field>
-              <Field label="Déport (m)">
+              <Field label={t("export.fieldOutreach")}>
                 <input style={input} value={form.outreach} onChange={(e) => set("outreach", e.target.value)} />
               </Field>
             </Row>
             <Row>
-              <Field label="Personnes panier">
+              <Field label={t("export.fieldBasketPersons")}>
                 <input style={input} value={form.basketPersons} onChange={(e) => set("basketPersons", e.target.value)} />
               </Field>
-              <Field label="Heures">
+              <Field label={t("export.fieldHours")}>
                 <input style={input} value={form.hours} onChange={(e) => set("hours", e.target.value)} />
               </Field>
             </Row>
           </Section>
 
-          <Section title="Porteur">
-            <Field label="Modèle porteur">
+          <Section title={t("export.secCarrier")}>
+            <Field label={t("export.fieldChassisModel")}>
               <input style={input} value={form.chassisModel} onChange={(e) => set("chassisModel", e.target.value)} />
             </Field>
             <Row>
-              <Field label="Année">
+              <Field label={t("export.fieldYear")}>
                 <input style={input} value={form.year} onChange={(e) => set("year", e.target.value)} />
               </Field>
-              <Field label="Kilométrage (km)">
+              <Field label={t("export.fieldMileage")}>
                 <input style={input} value={form.mileage} onChange={(e) => set("mileage", e.target.value)} />
               </Field>
             </Row>
           </Section>
 
-          <Section title="Aménagement & options">
-            <Field label="Aménagement intérieur">
+          <Section title={t("export.secFitting")}>
+            <Field label={t("export.fieldInterior")}>
               <input style={input} value={form.interiorFitting} onChange={(e) => set("interiorFitting", e.target.value)} />
             </Field>
-            <Field label="Options (une par ligne)">
+            <Field label={t("export.fieldOptions")}>
               <textarea
                 style={{ ...input, height: 80, resize: "vertical" }}
                 value={optionsText}
@@ -244,20 +245,20 @@ export default function ExportPage({ userName, userEmail }: ExportPageProps) {
             </Field>
           </Section>
 
-          <Section title="Prix">
+          <Section title={t("export.secPrice")}>
             <Row>
-              <Field label="Montant">
+              <Field label={t("export.fieldAmount")}>
                 <input style={input} value={form.price} onChange={(e) => set("price", e.target.value)} placeholder="ex. 32000" />
               </Field>
-              <Field label="Devise">
+              <Field label={t("export.fieldCurrency")}>
                 <input style={{ ...input, width: 80 }} value={form.currency} onChange={(e) => set("currency", e.target.value)} />
               </Field>
             </Row>
           </Section>
 
-          <Section title="Photos — 1 grande + 3 petites">
+          <Section title={t("export.secPhotos")}>
             <div style={photoHint}>
-              ✂️ Détourée = fond + logo Delta + bandeau réf. · ● Brute = photo telle quelle (indiquée ci-dessous).
+              {t("export.photoHint")}
             </div>
             {PHOTO_LABELS.map((label, i) => {
               const s = slots[i];
@@ -265,11 +266,11 @@ export default function ExportPage({ userName, userEmail }: ExportPageProps) {
               return (
                 <div key={i} style={photoSlotBox}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                    <span style={{ fontSize: 12, fontWeight: 600, color: "#4a5468" }}>{label}</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: "#4a5468" }}>{t(label)}</span>
                     {s.detour ? (
-                      <span style={badgeDetour}>✂️ Détourée</span>
+                      <span style={badgeDetour}>✂️ {t("export.badgeCut")}</span>
                     ) : (
-                      <span style={badgeRaw}>● Brute — non détourée</span>
+                      <span style={badgeRaw}>● {t("export.badgeRaw")}</span>
                     )}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -284,9 +285,9 @@ export default function ExportPage({ userName, userEmail }: ExportPageProps) {
                       <input type="file" accept="image/*" style={{ fontSize: 12 }} onChange={(e) => handleFile(i, e.target.files?.[0] || null)} />
                       <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, marginTop: 6, cursor: "pointer" }}>
                         <input type="checkbox" checked={s.detour} onChange={() => toggleDetour(i)} disabled={s.busy} />
-                        Détourer cette photo
+                        {t("export.cutThisPhoto")}
                       </label>
-                      {s.busy && <div style={{ fontSize: 11, color: "#1a2a6e", marginTop: 4 }}>Détourage en cours…</div>}
+                      {s.busy && <div style={{ fontSize: 11, color: "#1a2a6e", marginTop: 4 }}>{t("export.cutting")}</div>}
                       {s.error && <div style={{ fontSize: 11, color: "#c8102e", marginTop: 4 }}>{s.error}</div>}
                     </div>
                     {s.raw && (
@@ -298,15 +299,15 @@ export default function ExportPage({ userName, userEmail }: ExportPageProps) {
             })}
           </Section>
 
-          <Section title="Contact">
-            <Field label="Nom">
+          <Section title={t("export.secContact")}>
+            <Field label={t("export.fieldName")}>
               <input style={input} value={form.contactName} onChange={(e) => set("contactName", e.target.value)} />
             </Field>
             <Row>
-              <Field label="Téléphone">
+              <Field label={t("export.fieldPhone")}>
                 <input style={input} value={form.contactPhone} onChange={(e) => set("contactPhone", e.target.value)} />
               </Field>
-              <Field label="Email">
+              <Field label={t("export.fieldEmail")}>
                 <input style={input} value={form.contactEmail} onChange={(e) => set("contactEmail", e.target.value)} />
               </Field>
             </Row>
@@ -316,7 +317,7 @@ export default function ExportPage({ userName, userEmail }: ExportPageProps) {
         {/* ---- APERÇU ---- */}
         <div style={previewCol}>
           <div style={previewSticky}>
-            <div style={previewLabel}>Aperçu A4</div>
+            <div style={previewLabel}>{t("export.previewA4")}</div>
             <div
               style={{
                 width: PAGE_W * PREVIEW_SCALE,
@@ -344,8 +345,8 @@ export default function ExportPage({ userName, userEmail }: ExportPageProps) {
         <div className="pdf-loader-overlay">
           <div className="pdf-loader-box">
             <div className="pdf-loader-spinner">📄</div>
-            <div className="pdf-loader-text">Génération du PDF en cours...</div>
-            <div className="pdf-loader-sub">Le téléchargement va démarrer dans quelques secondes</div>
+            <div className="pdf-loader-text">{t("dispo.pdfGenerating")}</div>
+            <div className="pdf-loader-sub">{t("dispo.pdfGeneratingSub")}</div>
           </div>
         </div>
       )}

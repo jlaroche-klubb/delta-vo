@@ -1,4 +1,5 @@
 import { Machine } from "../types/machine";
+import { useTranslation } from "react-i18next";
 
 export interface FilterState {
   etape: "tous" | "demande" | "recuperation" | "expertise" | "facture" | "reglee";
@@ -42,6 +43,7 @@ export default function FiltersBar({
   ).sort();
 
   const activeCount = countActiveFilters(filters);
+  const { t: tr } = useTranslation();
 
   function reset() {
     onChange(EMPTY_FILTERS);
@@ -51,7 +53,7 @@ export default function FiltersBar({
     <div className={`filters-wrap ${isOpen ? "open" : ""}`}>
       <button className="filters-toggle" onClick={onToggle}>
         <span className="filter-icon">▾</span>
-        <span>Filtres</span>
+        <span>{tr("filters.title")}</span>
         {activeCount > 0 && (
           <span className="filters-count">{activeCount}</span>
         )}
@@ -61,29 +63,29 @@ export default function FiltersBar({
         <div className="filters-panel">
           <div className="filters-grid">
             <div className="filter-field">
-              <label>Bloquée à l'étape</label>
+              <label>{tr("filters.blockedAtStep")}</label>
               <select
                 value={filters.etape}
                 onChange={(e) =>
                   onChange({ ...filters, etape: e.target.value as FilterState["etape"] })
                 }
               >
-                <option value="tous">Toutes les étapes</option>
-                <option value="demande">⏳ Demande de récupération</option>
-                <option value="recuperation">🚚 Récupération</option>
-                <option value="expertise">🔍 Expertise</option>
-                <option value="facture">📄 Facture à émettre</option>
-                <option value="reglee">💰 Facture à régler</option>
+                <option value="tous">{tr("filters.allSteps")}</option>
+                <option value="demande">{tr("filters.stepDemande")}</option>
+                <option value="recuperation">{tr("filters.stepRecup")}</option>
+                <option value="expertise">{tr("filters.stepExpertise")}</option>
+                <option value="facture">{tr("filters.stepFactureEmettre")}</option>
+                <option value="reglee">{tr("filters.stepFactureRegler")}</option>
               </select>
             </div>
 
             <div className="filter-field">
-              <label>Client</label>
+              <label>{tr("filters.client")}</label>
               <select
                 value={filters.client}
                 onChange={(e) => onChange({ ...filters, client: e.target.value })}
               >
-                <option value="">Tous les clients</option>
+                <option value="">{tr("filters.allClients")}</option>
                 {clients.map((c) => (
                   <option key={c} value={c}>
                     {c}
@@ -93,12 +95,12 @@ export default function FiltersBar({
             </div>
 
             <div className="filter-field">
-              <label>Type nacelle</label>
+              <label>{tr("filters.typeNacelle")}</label>
               <select
                 value={filters.typeNacelle}
                 onChange={(e) => onChange({ ...filters, typeNacelle: e.target.value })}
               >
-                <option value="">Tous types</option>
+                <option value="">{tr("filters.allTypes")}</option>
                 {types.map((t) => (
                   <option key={t} value={t}>
                     {t}
@@ -108,7 +110,7 @@ export default function FiltersBar({
             </div>
 
             <div className="filter-field">
-              <label>Retour du</label>
+              <label>{tr("filters.returnFrom")}</label>
               <input
                 type="date"
                 value={filters.dateDebut}
@@ -117,7 +119,7 @@ export default function FiltersBar({
             </div>
 
             <div className="filter-field">
-              <label>Retour au</label>
+              <label>{tr("filters.returnTo")}</label>
               <input
                 type="date"
                 value={filters.dateFin}
@@ -128,7 +130,7 @@ export default function FiltersBar({
             {activeCount > 0 && (
               <div className="filter-field filter-reset">
                 <button className="btn-reset" onClick={reset}>
-                  ✕ Réinitialiser
+                  ✕ {tr("filters.reset")}
                 </button>
               </div>
             )}

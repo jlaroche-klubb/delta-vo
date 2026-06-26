@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Machine } from "../types/machine";
+import { useTranslation } from "react-i18next";
 
 interface ConfirmFactureModalProps {
   machine: Machine;
@@ -12,6 +13,7 @@ export default function ConfirmFactureModal({
   onClose,
   onConfirm,
 }: ConfirmFactureModalProps) {
+  const { t } = useTranslation();
   const [numeroFacture, setNumeroFacture] = useState("");
   const [dateFacturation, setDateFacturation] = useState(
     new Date().toISOString().slice(0, 10)
@@ -44,37 +46,37 @@ export default function ConfirmFactureModal({
     >
       <div className="modal modal-confirm-facture">
         <div className="modal-header">
-          <h2>Marquer comme facturée</h2>
+          <h2>{t("modals.factTitle")}</h2>
           <button className="btn-close" onClick={onClose}>✕</button>
         </div>
 
         <div className="confirm-body">
           <div className="confirm-icon">📄</div>
           <p className="confirm-question">
-            Saisir les informations de facturation
+            {t("modals.factQuestion")}
           </p>
 
           <div className="confirm-recap">
             <div className="recap-row">
-              <span className="recap-label">Immatriculation</span>
+              <span className="recap-label">{t("modals.regNumber")}</span>
               <span className="recap-value recap-immat">{machine.immat}</span>
             </div>
             <div className="recap-row">
-              <span className="recap-label">Modèle</span>
+              <span className="recap-label">{t("modals.model")}</span>
               <span className="recap-value">
                 {machine.type_nacelle} · {machine.modele_porteur}
               </span>
             </div>
             <div className="recap-row">
-              <span className="recap-label">Acheteur</span>
+              <span className="recap-label">{t("modals.buyer")}</span>
               <span className="recap-value">{machine.acheteur || "—"}</span>
             </div>
             <div className="recap-row">
-              <span className="recap-label">Commercial</span>
+              <span className="recap-label">{t("modals.salesperson")}</span>
               <span className="recap-value">{machine.commercial_vendeur || "—"}</span>
             </div>
             <div className="recap-row">
-              <span className="recap-label">Date de vente</span>
+              <span className="recap-label">{t("modals.saleDate")}</span>
               <span className="recap-value">{formatDate(machine.date_vente)}</span>
             </div>
           </div>
@@ -83,7 +85,7 @@ export default function ConfirmFactureModal({
           <div className="facture-fields">
             <div className="facture-field">
               <label>
-                N° de facture <span className="required">*</span>
+                {t("modals.invoiceNo")} <span className="required">*</span>
               </label>
               <input
                 type="text"
@@ -93,12 +95,12 @@ export default function ConfirmFactureModal({
                 autoFocus
               />
               <div className="facture-hint">
-                💡 Le numéro qui correspond à votre logiciel de compta
+                💡 {t("modals.invoiceHint")}
               </div>
             </div>
             <div className="facture-field">
               <label>
-                Date de facturation <span className="required">*</span>
+                {t("modals.invoiceDate")} <span className="required">*</span>
               </label>
               <input
                 type="date"
@@ -109,18 +111,16 @@ export default function ConfirmFactureModal({
           </div>
 
           <div className="confirm-warning">
-            ⚠ Cette action est <strong>irréversible</strong>. La machine basculera
-            automatiquement dans les <strong>Clôturées</strong>. Le suivi du
-            paiement client se fera ensuite depuis cet écran.
+            ⚠ {t("modals.factWarn1")} <strong>{t("modals.factWarnIrreversible")}</strong>{t("modals.factWarn2")} <strong>{t("modals.factWarnClosed")}</strong>{t("modals.factWarn3")}
           </div>
         </div>
 
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onClose}>
-            Annuler
+            {t("modals.cancel")}
           </button>
           <button className="btn-primary btn-success" onClick={handleConfirm}>
-            ✓ Confirmer la facturation
+            ✓ {t("modals.confirmInvoicing")}
           </button>
         </div>
       </div>

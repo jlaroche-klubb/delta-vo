@@ -20,7 +20,7 @@ export default function MarkPaidModal({
 
   function handleConfirm() {
     if (!dateReglement) {
-      alert("La date de règlement est obligatoire");
+      alert(t("modals.errSettlementDate"));
       return;
     }
     onConfirm(machine.id, dateReglement);

@@ -1,8 +1,10 @@
 import { useAuth } from "./AuthContext";
+import { useTranslation } from "react-i18next";
 import Logo from "./components/Logo";
 
 export default function LoginPage() {
   const { user, login, logout } = useAuth();
+  const { t } = useTranslation();
 
   return (
     <div className="login-container">
@@ -16,19 +18,19 @@ export default function LoginPage() {
         {!user ? (
           <>
             <button className="btn-google" onClick={login}>
-              🔐 Se connecter avec Google
+              🔐 {t("login.google")}
             </button>
-            <p className="hint">Connexion réservée aux utilisateurs autorisés</p>
+            <p className="hint">{t("login.hint")}</p>
           </>
         ) : (
           <div className="not-authorized">
             <p>✉️ {user.email}</p>
             <p className="warning">
-              ⚠️ Votre compte n'est pas encore autorisé.<br />
-              Contactez l'administrateur.
+              ⚠️ {t("login.notAuthorized")}<br />
+              {t("login.contactAdmin")}
             </p>
             <button className="btn-secondary" onClick={logout}>
-              Se déconnecter
+              {t("login.signOut")}
             </button>
           </div>
         )}

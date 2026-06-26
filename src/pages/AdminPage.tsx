@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { collection, getDocs, doc, setDoc, deleteDoc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { useAuth } from "../AuthContext";
+import { useTranslation } from "react-i18next";
 
 interface PendingUser {
   id: string;
@@ -23,21 +24,21 @@ interface User {
 
 type UserRole = "admin" | "secretaire" | "vendeur_fr" | "dealer" | "chef" | "atelier";
 
-const ROLES: { value: UserRole; label: string }[] = [
-  { value: "admin", label: "👑 Administrateur" },
-  { value: "secretaire", label: "📋 Secrétaire / ADV" },
-  { value: "vendeur_fr", label: "🇫🇷 Vendeur France" },
-  { value: "dealer", label: "🌍 Dealer Export" },
-  { value: "chef", label: "👔 Chef d'équipe" },
-  { value: "atelier", label: "🔧 Atelier" },
-];
-
 export default function AdminPage() {
   const { user } = useAuth();
+  const { t } = useTranslation();
   // 🔒 Seul le propriétaire du compte peut approuver/rejeter les nouveaux entrants.
   // (Les autres admins gèrent les rôles des utilisateurs existants, mais pas les arrivées.)
   const OWNER_EMAIL = "jlaroche@klubb.com";
   const isOwner = (user?.email || "").trim().toLowerCase() === OWNER_EMAIL;
+  const ROLES: { value: UserRole; label: string }[] = [
+    { value: "admin", label: t("admin.roleAdmin") },
+    { value: "secretaire", label: t("admin.roleSecretary") },
+    { value: "vendeur_fr", label: t("admin.roleSalesFr") },
+    { value: "dealer", label: t("admin.roleDealer") },
+    { value: "chef", label: t("admin.roleChef") },
+    { value: "atelier", label: t("admin.roleWorkshop") },
+  ];
 
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -98,7 +99,7 @@ export default function AdminPage() {
       setSelectedRole(defaultRoles);
     } catch (err) {
       console.error("Erreur chargement:", err);
-      alert("Erreur lors du chargement des données");
+      alert(t("admin.errLoad"));
     } finally {
       setLoading(false);
     }
@@ -106,14 +107,14 @@ export default function AdminPage() {
 
   async function approveUser(pending: PendingUser) {
     if (!isOwner) {
-      alert("🔒 Seul Jonathan peut approuver un nouvel utilisateur.");
+      alert(t("admin.errOnlyOwnerApprove"));
       return;
     }
     const role = selectedRole[pending.id];
     if (!role) return;
 
     const confirmed = window.confirm(
-      `Approuver ${pending.prenom} ${pending.nom} comme ${ROLES.find(r => r.value === role)?.label} ?`
+      t("admin.confirmApprove", { name: `${pending.prenom} ${pending.nom}`, role: ROLES.find(r => r.value === role)?.label })
     );
     if (!confirmed) return;
 
@@ -124,17 +125,17 @@ export default function AdminPage() {
         approvedAt: new Date().toISOString(),
       });
 
-      alert("✅ Utilisateur approuvé ! Il pourra se connecter à sa prochaine connexion.");
+      alert(t("admin.okApproved"));
       loadData();
     } catch (err: any) {
       console.error("Erreur approbation:", err);
-      alert("❌ Erreur: " + err.message);
+      alert(t("admin.errGeneric") + err.message);
     }
   }
 
   async function deleteUser(userId: string, isPending: boolean) {
     if (isPending && !isOwner) {
-      alert("🔒 Seul Jonathan peut refuser/supprimer un nouvel entrant.");
+      alert(t("admin.errOnlyOwnerDelete"));
       return;
     }
     const user = isPending 
@@ -144,18 +145,18 @@ export default function AdminPage() {
     if (!user) return;
 
     const confirmed = window.confirm(
-      `Supprimer définitivement ${user.prenom} ${user.nom} ?`
+      t("admin.confirmDelete", { name: `${user.prenom} ${user.nom}` })
     );
     if (!confirmed) return;
 
     try {
       const collectionName = isPending ? "pending_users" : "users";
       await deleteDoc(doc(db, collectionName, userId));
-      alert("✅ Utilisateur supprimé");
+      alert(t("admin.okDeleted"));
       loadData();
     } catch (err: any) {
       console.error("Erreur suppression:", err);
-      alert("❌ Erreur: " + err.message);
+      alert(t("admin.errGeneric") + err.message);
     }
   }
 
@@ -165,20 +166,20 @@ export default function AdminPage() {
         role: newRole,
         updatedAt: new Date().toISOString(),
       });
-      alert("✅ Rôle mis à jour");
+      alert(t("admin.okRoleUpdated"));
       setEditingUser(null);
       loadData();
     } catch (err: any) {
       console.error("Erreur mise à jour:", err);
-      alert("❌ Erreur: " + err.message);
+      alert(t("admin.errGeneric") + err.message);
     }
   }
 
   if (loading) {
     return (
       <div className="admin-page">
-        <h1>⚙️ Administration</h1>
-        <div className="loading">Chargement...</div>
+        <h1>⚙️ {t("admin.title")}</h1>
+        <div className="loading">{t("common.loading")}</div>
       </div>
     );
   }
@@ -186,23 +187,23 @@ export default function AdminPage() {
   return (
     <div className="admin-page">
       <div className="page-header">
-        <h1>⚙️ Administration</h1>
+        <h1>⚙️ {t("admin.title")}</h1>
       </div>
 
       {/* PENDING USERS */}
       <section className="admin-section">
         <div className="section-header">
           <h2>
-            ⏳ En attente d'approbation
+            ⏳ {t("admin.pendingTitle")}
             <span className="section-count">{pendingUsers.length}</span>
           </h2>
           <p className="section-desc">
-            Ces personnes ont tenté de se connecter mais n'ont pas encore été approuvées
+            {t("admin.pendingDesc")}
           </p>
         </div>
 
         {pendingUsers.length === 0 ? (
-          <div className="empty-state">Aucun utilisateur en attente</div>
+          <div className="empty-state">{t("admin.noPending")}</div>
         ) : (
           <div className="admin-list">
             {pendingUsers.map(user => (
@@ -215,7 +216,7 @@ export default function AdminPage() {
                     <div className="admin-user-email">{user.email}</div>
                   </div>
                   <div className="admin-user-date">
-                    Demande le {new Date(user.createdAt).toLocaleDateString("fr-FR")}
+                    {t("admin.requestedOn")} {new Date(user.createdAt).toLocaleDateString("fr-FR")}
                   </div>
                 </div>
                 <div className="admin-card-actions">
@@ -237,7 +238,7 @@ export default function AdminPage() {
                         className="btn-approve"
                         onClick={() => approveUser(user)}
                       >
-                        ✅ Approuver
+                        ✅ {t("admin.approve")}
                       </button>
                       <button
                         className="btn-delete"
@@ -248,7 +249,7 @@ export default function AdminPage() {
                     </>
                   ) : (
                     <span className="section-desc" style={{ fontStyle: "italic" }}>
-                      🔒 Validation réservée à Jonathan
+                      🔒 {t("admin.ownerOnly")}
                     </span>
                   )}
                 </div>
@@ -262,7 +263,7 @@ export default function AdminPage() {
       <section className="admin-section">
         <div className="section-header">
           <h2>
-            ✅ Utilisateurs actifs
+            ✅ {t("admin.activeTitle")}
             <span className="section-count">{users.length}</span>
           </h2>
         </div>
@@ -297,7 +298,7 @@ export default function AdminPage() {
                     className="btn-secondary"
                     onClick={() => setEditingUser(null)}
                   >
-                    Annuler
+                    {t("admin.cancel")}
                   </button>
                 </div>
               ) : (
@@ -306,7 +307,7 @@ export default function AdminPage() {
                     className="btn-edit"
                     onClick={() => setEditingUser(user)}
                   >
-                    ✏️ Modifier rôle
+                    ✏️ {t("admin.editRole")}
                   </button>
                   <button
                     className="btn-delete"

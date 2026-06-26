@@ -1,4 +1,5 @@
 import { Machine } from "../types/machine";
+import { useTranslation } from "react-i18next";
 
 interface ExpertiseModalProps {
   machine: Machine;
@@ -6,6 +7,7 @@ interface ExpertiseModalProps {
 }
 
 export default function ExpertiseModal({ machine, onClose }: ExpertiseModalProps) {
+  const { t } = useTranslation();
   const rapport = machine.rapport_expertise;
   if (!rapport) return null;
 
@@ -20,7 +22,7 @@ export default function ExpertiseModal({ machine, onClose }: ExpertiseModalProps
         {/* Header */}
         <div className="expertise-header">
           <div>
-            <div className="expertise-eyebrow">EXPERTISE NACELLE · DELTA SERVICES</div>
+            <div className="expertise-eyebrow">{t("modals.expEyebrow")}</div>
             <h2 className="expertise-title">{machine.immat}</h2>
             <div className="expertise-subtitle">
               {machine.type_nacelle} · {machine.modele_porteur} · {machine.annee_circulation}
@@ -33,17 +35,17 @@ export default function ExpertiseModal({ machine, onClose }: ExpertiseModalProps
 
         {/* Identification */}
         <div className="expertise-section">
-          <div className="section-label">Identification</div>
+          <div className="section-label">{t("modals.expIdentification")}</div>
           <div className="info-grid">
-            <InfoCell label="Client" value={machine.client_precedent} />
-            <InfoCell label="N° Contrat" value={machine.contrat} />
-            <InfoCell label="Date retour" value={formatDate(machine.date_retour)} />
-            <InfoCell label="Date expertise" value={formatDate(rapport.date_expertise || "")} />
-            <InfoCell label="Agent expert" value={rapport.agent || "—"} />
+            <InfoCell label={t("modals.expClient")} value={machine.client_precedent} />
+            <InfoCell label={t("modals.expContract")} value={machine.contrat} />
+            <InfoCell label={t("modals.expReturnDate")} value={formatDate(machine.date_retour)} />
+            <InfoCell label={t("modals.expDate")} value={formatDate(rapport.date_expertise || "")} />
+            <InfoCell label={t("modals.expAgent")} value={rapport.agent || "—"} />
             {rapport.duree_location_jours && (
               <InfoCell
-                label="Durée location"
-                value={`${rapport.duree_location_jours} jours`}
+                label={t("modals.expRentalDuration")}
+                value={`${rapport.duree_location_jours} ${t("modals.expDays")}`}
               />
             )}
           </div>
@@ -51,21 +53,21 @@ export default function ExpertiseModal({ machine, onClose }: ExpertiseModalProps
 
         {/* Compteurs */}
         <div className="expertise-section">
-          <div className="section-label">Compteurs</div>
+          <div className="section-label">{t("modals.expCounters")}</div>
           <div className="info-grid">
             <InfoCell
-              label="Heures nacelle"
+              label={t("modals.expHours")}
               value={`${(rapport.heures_nacelle || 0).toLocaleString("fr-FR")} h`}
               highlight
             />
             <InfoCell
-              label="Km porteur"
+              label={t("modals.expKm")}
               value={`${(rapport.km_porteur || 0).toLocaleString("fr-FR")} km`}
               highlight
             />
             <InfoCell
-              label="Vétusté appliquée"
-              value={rapport.taux_vetuste === 0 ? "Aucune" : `${rapport.taux_vetuste}%`}
+              label={t("modals.expWear")}
+              value={rapport.taux_vetuste === 0 ? t("modals.expNone") : `${rapport.taux_vetuste}%`}
               highlight={rapport.taux_vetuste !== 0}
             />
           </div>
@@ -74,24 +76,24 @@ export default function ExpertiseModal({ machine, onClose }: ExpertiseModalProps
         {/* Dégâts */}
         <div className="expertise-section">
           <div className="section-label">
-            Dégâts constatés
+            {t("modals.expDamages")}
             {rapport.degats.length > 0 && (
               <span className="section-count">
-                {rapport.degats.length} poste{rapport.degats.length > 1 ? "s" : ""}
+                {rapport.degats.length} {t("modals.expItems")}
               </span>
             )}
           </div>
           {rapport.degats.length === 0 ? (
             <div className="no-damage">
-              ✓ Aucun dégât constaté — nacelle rendue conforme
+              ✓ {t("modals.expNoDamage")}
             </div>
           ) : (
             <table className="damage-table">
               <thead>
                 <tr>
-                  <th>Zone</th>
-                  <th>Description</th>
-                  <th>Montant HT</th>
+                  <th>{t("modals.expZone")}</th>
+                  <th>{t("modals.expDescription")}</th>
+                  <th>{t("modals.expAmountHt")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -103,7 +105,7 @@ export default function ExpertiseModal({ machine, onClose }: ExpertiseModalProps
                     <td>{d.description}</td>
                     <td className="amount">
                       {d.sur_devis ? (
-                        <span className="devis">Sur devis</span>
+                        <span className="devis">{t("modals.expOnQuote")}</span>
                       ) : (
                         `${d.montant} €`
                       )}
@@ -118,7 +120,7 @@ export default function ExpertiseModal({ machine, onClose }: ExpertiseModalProps
         {/* Total retenue */}
         {rapport.total_retenue_ht > 0 && (
           <div className="total-strip">
-            <span className="total-label">TOTAL RETENUE HT</span>
+            <span className="total-label">{t("modals.expTotalRetained")}</span>
             <span className="total-value">
               {rapport.total_retenue_ht.toLocaleString("fr-FR")} €
             </span>
@@ -128,7 +130,7 @@ export default function ExpertiseModal({ machine, onClose }: ExpertiseModalProps
         {/* Notes */}
         {rapport.notes && (
           <div className="expertise-section">
-            <div className="section-label">Notes de l'expert</div>
+            <div className="section-label">{t("modals.expNotes")}</div>
             <div className="notes-box">{rapport.notes}</div>
           </div>
         )}
@@ -137,7 +139,7 @@ export default function ExpertiseModal({ machine, onClose }: ExpertiseModalProps
         <div className="modal-footer">
       
           <button className="btn-primary" onClick={onClose}>
-            Fermer
+            {t("modals.close")}
           </button>
         </div>
       </div>

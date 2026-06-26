@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Machine } from "../types/machine";
+import { useTranslation } from "react-i18next";
 
 interface LldModalProps {
   machine: Machine;
@@ -8,6 +9,7 @@ interface LldModalProps {
 }
 
 export default function LldModal({ machine, onClose, onConfirm }: LldModalProps) {
+  const { t } = useTranslation();
   const [clientLld, setClientLld] = useState("");
   const [dateMiseDispo, setDateMiseDispo] = useState("");
 
@@ -34,7 +36,7 @@ export default function LldModal({ machine, onClose, onConfirm }: LldModalProps)
       <div className="modal modal-lld">
         <div className="modal-header">
           <div>
-            <h2>🔁 Mise en location longue durée</h2>
+            <h2>🔁 {t("modals.lldTitle")}</h2>
             <div className="modal-subtitle">
               {machine.immat} · {machine.type_nacelle} {machine.modele_porteur}
             </div>
@@ -46,17 +48,16 @@ export default function LldModal({ machine, onClose, onConfirm }: LldModalProps)
           <div className="lld-info-box">
             <div className="lld-icon-large">🔁</div>
             <div>
-              <strong>Cette machine va être basculée en location longue durée</strong>
+              <strong>{t("modals.lldHeading")}</strong>
               <div className="info-text">
-                Elle ira directement en préparation atelier (mêmes 6 étapes que pour la vente).
-                Une fois la prépa terminée, elle sera marquée mise à disposition au client et sortira du circuit Delta VO.
+                {t("modals.lldInfo")}
               </div>
             </div>
           </div>
 
           <div className="lld-field">
             <label>
-              Client LLD <span className="required">*</span>
+              {t("modals.lldClient")} <span className="required">*</span>
             </label>
             <input
               type="text"
@@ -69,7 +70,7 @@ export default function LldModal({ machine, onClose, onConfirm }: LldModalProps)
 
           <div className="lld-field">
             <label>
-              Date de mise à disposition prévue <span className="required">*</span>
+              {t("modals.lldDate")} <span className="required">*</span>
             </label>
             <input
               type="date"
@@ -78,21 +79,21 @@ export default function LldModal({ machine, onClose, onConfirm }: LldModalProps)
               min={new Date().toISOString().slice(0, 10)}
             />
             <div className="config-hint">
-              💡 Cette date servira à alerter l'atelier si la prépa prend du retard
+              💡 {t("modals.lldHint")}
             </div>
           </div>
 
           <div className="confirm-warning">
-            ⚠ Une fois basculée en LLD, la machine quittera l'écran <strong>Disponibles</strong> et apparaîtra dans <strong>En cours</strong> avec un badge orange « 🔁 LLD ».
+            ⚠ {t("modals.lldWarn1")} <strong>{t("modals.lldWarnAvail")}</strong> {t("modals.lldWarn2")} <strong>{t("modals.lldWarnInProgress")}</strong> {t("modals.lldWarn3")}
           </div>
         </div>
 
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onClose}>
-            Annuler
+            {t("modals.cancel")}
           </button>
           <button className="btn-primary btn-lld-confirm" onClick={handleConfirm}>
-            🔁 Confirmer la mise en location
+            🔁 {t("modals.lldConfirm")}
           </button>
         </div>
       </div>

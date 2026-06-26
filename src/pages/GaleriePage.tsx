@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
+import { useTranslation } from "react-i18next";
 
 interface ShareData {
   immat?: string;
@@ -17,6 +18,7 @@ const BLEU = "#1a2a6e";
 const ROUGE = "#c8102e";
 
 export default function GaleriePage() {
+  const { t } = useTranslation();
   const { token } = useParams<{ token: string }>();
   const [state, setState] = useState<"loading" | "ok" | "invalid">("loading");
   const [data, setData] = useState<ShareData | null>(null);
@@ -59,21 +61,20 @@ export default function GaleriePage() {
       <div style={{ height: 4, background: `linear-gradient(90deg, ${BLEU}, ${ROUGE})` }} />
       <header style={header}>
         <div style={{ fontWeight: 800, letterSpacing: 2, fontSize: 18 }}>DELTA VO</div>
-        <div style={{ fontSize: 11, opacity: 0.7, letterSpacing: 1 }}>Photos du véhicule</div>
+        <div style={{ fontSize: 11, opacity: 0.7, letterSpacing: 1 }}>{t("galerie.subtitle")}</div>
       </header>
 
       <main style={main}>
         {state === "loading" && (
-          <div style={center}>Chargement des photos…</div>
+          <div style={center}>{t("galerie.loading")}</div>
         )}
 
         {state === "invalid" && (
           <div style={center}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>🔒</div>
-            <div style={{ fontWeight: 700, color: BLEU, marginBottom: 6 }}>Lien indisponible</div>
+            <div style={{ fontWeight: 700, color: BLEU, marginBottom: 6 }}>{t("galerie.unavailable")}</div>
             <div style={{ fontSize: 14, color: "#6a7488", maxWidth: 360, textAlign: "center" }}>
-              Ce lien de partage n'est plus valide. Contactez votre interlocuteur Delta pour en
-              obtenir un nouveau.
+              {t("galerie.invalidMsg")}
             </div>
           </div>
         )}
@@ -82,7 +83,7 @@ export default function GaleriePage() {
           <>
             <div style={{ marginBottom: 18 }}>
               <div style={{ fontSize: 22, fontWeight: 800, color: BLEU }}>
-                {data.label || "Véhicule"}
+                {data.label || t("galerie.vehicle")}
               </div>
               {data.immat && (
                 <div style={{ fontFamily: "monospace", fontSize: 15, color: "#6a7488", marginTop: 2 }}>
@@ -90,7 +91,7 @@ export default function GaleriePage() {
                 </div>
               )}
               <div style={{ fontSize: 13, color: "#6a7488", marginTop: 8 }}>
-                {data.photos!.length} photo{data.photos!.length > 1 ? "s" : ""}
+                {data.photos!.length} {t("galerie.photos")}
               </div>
             </div>
 
@@ -102,7 +103,7 @@ export default function GaleriePage() {
                   target="_blank"
                   rel="noopener noreferrer"
                   style={tile}
-                  title="Ouvrir / enregistrer la photo"
+                  title={t("galerie.openTitle")}
                 >
                   <img src={url} alt={`Photo ${i + 1}`} style={img} loading="lazy" />
                 </a>
@@ -110,7 +111,7 @@ export default function GaleriePage() {
             </div>
 
             <div style={{ fontSize: 12, color: "#9aa3b2", marginTop: 22, textAlign: "center" }}>
-              Touchez une photo pour l'agrandir et l'enregistrer.
+              {t("galerie.tapHint")}
             </div>
           </>
         )}

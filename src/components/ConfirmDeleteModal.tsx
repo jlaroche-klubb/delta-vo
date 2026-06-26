@@ -1,4 +1,5 @@
 import { Machine } from "../types/machine";
+import { useTranslation } from "react-i18next";
 
 interface ConfirmDeleteModalProps {
   machine: Machine;
@@ -11,6 +12,7 @@ export default function ConfirmDeleteModal({
   onConfirm,
   onCancel,
 }: ConfirmDeleteModalProps) {
+  const { t } = useTranslation();
   return (
     <div
       className="confirm-delete-overlay"
@@ -21,11 +23,11 @@ export default function ConfirmDeleteModal({
       <div className="confirm-delete-modal">
         <div className="confirm-delete-title">
           <span>🗑️</span>
-          <span>Archiver la machine ?</span>
+          <span>{t("modals.delTitle")}</span>
         </div>
 
         <div className="confirm-delete-text">
-          Vous êtes sur le point d'archiver la nacelle{" "}
+          {t("modals.delIntro")}{" "}
           <strong>{machine.immat}</strong>{" "}
           <span style={{ color: "#6a7488" }}>
             ({machine.type_nacelle} · {machine.modele_porteur})
@@ -33,16 +35,16 @@ export default function ConfirmDeleteModal({
           .
           <br />
           <br />
-          Elle sera cachée des listes mais reste récupérable via le filtre{" "}
-          <strong>« Voir archivées »</strong>.
+          {t("modals.delHint")}{" "}
+          <strong>{t("modals.delArchivedFilter")}</strong>.
         </div>
 
         <div className="confirm-delete-actions">
           <button className="btn-cancel-delete" onClick={onCancel}>
-            Annuler
+            {t("modals.cancel")}
           </button>
           <button className="btn-confirm-delete" onClick={onConfirm}>
-            🗑️ Archiver
+            🗑️ {t("modals.archive")}
           </button>
         </div>
       </div>

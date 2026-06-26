@@ -6,6 +6,7 @@ import {
   isLivraisonEnRetard,
   isMiseDispoEnRetard,
 } from "../types/machine";
+import { useTranslation } from "react-i18next";
 
 interface EnCoursCardProps {
   machine: Machine;
@@ -41,6 +42,7 @@ export default function EnCoursCard({
   onRemoveEtape,
 }: EnCoursCardProps) {
   const [newEtapeLabel, setNewEtapeLabel] = useState("");
+  const { t } = useTranslation();
   const isLld = machine.type_sortie === "lld";
   const isConfigured = !!machine.type_prepa;
   const isEnEtat = machine.type_prepa === "en_etat";
@@ -57,13 +59,13 @@ export default function EnCoursCard({
   const progressPct = etapesTotal > 0 ? (etapesDone / etapesTotal) * 100 : 0;
 
   // Labels adaptés selon LLD ou vente
-  const labelAcheteur = isLld ? "Client LLD" : "Acheteur";
+  const labelAcheteur = isLld ? t("encard.lldClient") : t("encard.buyer");
   const valAcheteur = isLld ? machine.client_lld : machine.acheteur;
-  const labelDateLivraison = isLld ? "Mise à dispo prévue" : "Livraison prévue";
+  const labelDateLivraison = isLld ? t("encard.availExpected") : t("encard.deliveryExpected");
   const valDateLivraison = isLld ? machine.date_mise_dispo_lld : machine.date_livraison_prevue;
   const labelBtnFacturer = isLld
-    ? "🔁 Marquer mise à disposition"
-    : "✓ Marquer facturée → Clôturer";
+    ? t("encard.btnAvail")
+    : t("encard.btnInvoice");
 
   return (
     <div
@@ -80,22 +82,22 @@ export default function EnCoursCard({
         <div className="encours-badges">
           {isLld && <span className="badge-lld">🔁 LLD</span>}
           {!isConfigured && (
-            <span className="badge-unconfigured">⚙️ À configurer</span>
+            <span className="badge-unconfigured">⚙️ {t("encard.toConfigure")}</span>
           )}
           {isConfigured && isEnEtat && !isLld && (
-            <span className="badge-enetat">📦 Vendue en l'état</span>
+            <span className="badge-enetat">📦 {t("encard.soldAsIs")}</span>
           )}
           {isConfigured && !isEnEtat && !isLld && (
-            <span className="badge-prepa">🔧 Prépa normale</span>
+            <span className="badge-prepa">🔧 {t("encard.prepNormal")}</span>
           )}
           {enRetard && (
             <span className="badge-late">
-              ⚠ {isLld ? "Mise à dispo en retard" : "Livraison en retard"}
+              ⚠ {isLld ? t("encard.lateAvail") : t("encard.lateDelivery")}
             </span>
           )}
           {pretAFacturer && (
             <span className="badge-ready">
-              {isLld ? "✓ Prête à mettre en LLD" : "✓ Prête à facturer"}
+              {isLld ? t("encard.readyLld") : t("encard.readyInvoice")}
             </span>
           )}
         </div>
@@ -120,7 +122,7 @@ export default function EnCoursCard({
               cursor: "pointer",
             }}
           >
-            📎 Documents
+            📎 {t("encard.documents")}
             {machine.documents_vo && machine.documents_vo.length > 0 && (
               <span
                 style={{
@@ -134,7 +136,7 @@ export default function EnCoursCard({
                 {machine.documents_vo.length}
               </span>
             )}
-            {canManageDocuments ? "" : " (lecture)"}
+            {canManageDocuments ? "" : t("encard.readOnly")}
           </button>
         </div>
       )}
@@ -143,11 +145,11 @@ export default function EnCoursCard({
         <div className="unconfigured-banner">
           <div className="unconfigured-icon">⚙️</div>
           <div className="unconfigured-text">
-            <strong>Cette machine attend d'être configurée</strong>
+            <strong>{t("encard.unconfiguredTitle")}</strong>
             <div className="unconfigured-sub">
-              {isLld 
-                ? "L'ADV doit choisir le type de préparation pour cette mise en location"
-                : "L'ADV doit choisir prépa normale / en l'état + renseigner l'acheteur et le commercial"}
+              {isLld
+                ? t("encard.unconfiguredSubLld")
+                : t("encard.unconfiguredSubSale")}
             </div>
           </div>
           {canConfigure && onConfigure && (
@@ -155,7 +157,7 @@ export default function EnCoursCard({
               className="btn-configure"
               onClick={() => onConfigure(machine)}
             >
-              ⚙️ Configurer
+              ⚙️ {t("encard.configure")}
             </button>
           )}
         </div>
@@ -170,25 +172,25 @@ export default function EnCoursCard({
             </div>
             {!isLld && (
               <div className="sale-info">
-                <span className="sale-label">Commercial</span>
+                <span className="sale-label">{t("encard.salesperson")}</span>
                 <span className="sale-value">{machine.commercial_vendeur || "—"}</span>
               </div>
             )}
             {!isLld && (
               <div className="sale-info">
-                <span className="sale-label">Prix vente</span>
+                <span className="sale-label">{t("encard.salePrice")}</span>
                 <span className="sale-value sale-price">
                   {machine.prix_vente_final !== undefined ? (
                     machine.prix_vente_final.toLocaleString("fr-FR") + " €"
                   ) : (
-                    <span className="sync-pending">⏳ Sync HubSpot</span>
+                    <span className="sync-pending">⏳ {t("encard.syncHubspot")}</span>
                   )}
                 </span>
               </div>
             )}
             {!isLld && (
               <div className="sale-info">
-                <span className="sale-label">Date vente</span>
+                <span className="sale-label">{t("encard.saleDate")}</span>
                 <span className="sale-value">{formatDate(machine.date_vente)}</span>
               </div>
             )}
@@ -197,7 +199,7 @@ export default function EnCoursCard({
               <span className={`sale-value ${enRetard ? "late-date" : ""}`}>
                 {valDateLivraison
                   ? formatDate(valDateLivraison)
-                  : <span className="sync-pending">Non définie</span>}
+                  : <span className="sync-pending">{t("encard.notSet")}</span>}
               </span>
             </div>
           </div>
@@ -206,9 +208,9 @@ export default function EnCoursCard({
             <div className="prepa-section">
               <div className="prepa-progress-bar">
                 <div className="prepa-progress-header">
-                  <span className="prepa-title">Avancement de la prépa</span>
+                  <span className="prepa-title">{t("encard.prepProgress")}</span>
                   <span className="prepa-count">
-                    {etapesDone} / {etapesTotal} étapes
+                    {etapesDone} / {etapesTotal} {t("encard.steps")}
                   </span>
                 </div>
                 <div className="prepa-bar">
@@ -255,7 +257,7 @@ export default function EnCoursCard({
                         setNewEtapeLabel("");
                       }
                     }}
-                    placeholder="Ajouter une étape (ex. Changer pneu, Réparer flèche)…"
+                    placeholder={t("encard.addStepPlaceholder")}
                     style={{
                       flex: 1,
                       border: "1px solid #d0d0d0",
@@ -283,7 +285,7 @@ export default function EnCoursCard({
                       whiteSpace: "nowrap",
                     }}
                   >
-                    ➕ Ajouter une étape
+                    ➕ {t("encard.addStep")}
                   </button>
                   </div>
                 )}
@@ -293,7 +295,7 @@ export default function EnCoursCard({
 
           {isEnEtat && !isLld && (
             <div className="en-etat-banner">
-              📦 Cette machine est vendue en l'état — aucune préparation requise. Prête à être facturée.
+              📦 {t("encard.asIsBanner")}
             </div>
           )}
 
@@ -330,7 +332,7 @@ export default function EnCoursCard({
               fontWeight: 'bold'
             }}
           >
-            ❌ Annuler la mise en préparation
+            ❌ {t("encard.cancelPrep")}
           </button>
         </div>
       )}
@@ -355,6 +357,7 @@ function EtapeRow({
   const isDone = etape.done;
   const isNA = etape.non_necessaire;
   const validated = isDone || isNA;
+  const { t } = useTranslation();
 
   return (
     <div className={`etape-row ${validated ? "etape-done" : ""}`}>
@@ -370,11 +373,11 @@ function EtapeRow({
       <div className="etape-info" style={{ flex: 1 }}>
         <span className="etape-label">
           {etape.label}
-          {isNA && <em style={{ color: "#888", marginLeft: 6 }}>(non nécessaire)</em>}
+          {isNA && <em style={{ color: "#888", marginLeft: 6 }}>{t("encard.stepNA")}</em>}
         </span>
         {isDone && etape.done_by && (
           <span className="etape-tracking">
-            par <strong>{etape.done_by}</strong> le {formatDate(etape.done_at)}
+            {t("encard.stepBy")} <strong>{etape.done_by}</strong> {t("encard.stepOn")} {formatDate(etape.done_at)}
           </span>
         )}
       </div>
@@ -398,7 +401,7 @@ function EtapeRow({
               fontWeight: 600,
             }}
           >
-            {isDone ? "✓ Fait" : "Marquer fait"}
+            {isDone ? t("encard.stepDone") : t("encard.markDone")}
           </button>
 
           {/* Bouton Non nécessaire (uniquement pour CT et VGP) */}
@@ -418,7 +421,7 @@ function EtapeRow({
                 fontWeight: 600,
               }}
             >
-              ⊘ Non nécessaire
+              ⊘ {t("encard.notNeeded")}
             </button>
           )}
 
@@ -427,7 +430,7 @@ function EtapeRow({
             <button
               type="button"
               onClick={onRemove}
-              title="Supprimer cette étape"
+              title={t("encard.removeStepTitle")}
               style={{
                 padding: "4px 9px",
                 borderRadius: 4,

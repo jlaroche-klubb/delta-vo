@@ -1,4 +1,5 @@
 import { Machine } from "../types/machine";
+import { useTranslation } from "react-i18next";
 
 interface NacelleExpertModalProps {
   machine: Machine;
@@ -17,6 +18,7 @@ function formatDate(iso?: string): string {
 }
 
 export default function NacelleExpertModal({ machine, onClose }: NacelleExpertModalProps) {
+  const { t } = useTranslation();
   const d = machine.dossier_nacelle_expert;
   if (!d) return null;
 
@@ -53,7 +55,7 @@ export default function NacelleExpertModal({ machine, onClose }: NacelleExpertMo
         {/* Header */}
         <div className="expertise-header">
           <div>
-            <div className="expertise-eyebrow">INSPECTION · NACELLE-EXPERT</div>
+            <div className="expertise-eyebrow">{t("modals.neEyebrow")}</div>
             <h2 className="expertise-title">{machine.immat}</h2>
             <div className="expertise-subtitle">
               {machine.type_nacelle} · {machine.modele_porteur} · {machine.annee_circulation}
@@ -66,29 +68,29 @@ export default function NacelleExpertModal({ machine, onClose }: NacelleExpertMo
 
         {/* Identification */}
         <div className="expertise-section">
-          <div className="section-label">Identification</div>
+          <div className="section-label">{t("modals.expIdentification")}</div>
           <div className="info-grid">
-            <InfoCell label="Client" value={d.client || machine.client_precedent || "—"} />
-            <InfoCell label="N° Contrat" value={d.contrat || machine.contrat || "—"} />
-            <InfoCell label="Date départ" value={formatDate(d.date_depart)} />
-            <InfoCell label="Date retour" value={formatDate(d.date_retour)} />
-            <InfoCell label="Agent départ" value={d.agent_depart || "—"} />
-            <InfoCell label="Agent retour" value={d.agent_retour || "—"} />
+            <InfoCell label={t("modals.expClient")} value={d.client || machine.client_precedent || "—"} />
+            <InfoCell label={t("modals.expContract")} value={d.contrat || machine.contrat || "—"} />
+            <InfoCell label={t("modals.neDepartDate")} value={formatDate(d.date_depart)} />
+            <InfoCell label={t("modals.expReturnDate")} value={formatDate(d.date_retour)} />
+            <InfoCell label={t("modals.neDepartAgent")} value={d.agent_depart || "—"} />
+            <InfoCell label={t("modals.neReturnAgent")} value={d.agent_retour || "—"} />
           </div>
         </div>
 
         {/* Dégâts */}
         <div className="expertise-section">
           <div className="section-label">
-            Dégâts constatés
+            {t("modals.expDamages")}
             {degats.length > 0 && (
               <span className="section-count">
-                {degats.length} poste{degats.length > 1 ? "s" : ""}
+                {degats.length} {t("modals.expItems")}
               </span>
             )}
           </div>
           {degats.length === 0 ? (
-            <div className="no-damage">✓ Aucun dégât constaté</div>
+            <div className="no-damage">✓ {t("modals.neNoDamage")}</div>
           ) : (
             <ul style={{ margin: 0, paddingLeft: 18, lineHeight: 1.7 }}>
               {degats.map((g, i) => (
@@ -101,7 +103,7 @@ export default function NacelleExpertModal({ machine, onClose }: NacelleExpertMo
         {/* Note de l'expert */}
         {d.note_expert && (
           <div className="expertise-section">
-            <div className="section-label">Note de l'expert</div>
+            <div className="section-label">{t("modals.neNote")}</div>
             <div className="notes-box">{d.note_expert}</div>
           </div>
         )}
@@ -110,20 +112,20 @@ export default function NacelleExpertModal({ machine, onClose }: NacelleExpertMo
         {(photosDepart.length > 0 || photosRetour.length > 0) && (
           <div className="expertise-section">
             <div className="section-label">
-              Photos
+              {t("modals.nePhotos")}
               <span className="section-count">
                 {photosDepart.length + photosRetour.length}
               </span>
             </div>
-            <PhotoRow titre="Départ" photos={photosDepart} />
-            <PhotoRow titre="Retour" photos={photosRetour} />
+            <PhotoRow titre={t("modals.neDeparture")} photos={photosDepart} />
+            <PhotoRow titre={t("modals.neReturn")} photos={photosRetour} />
           </div>
         )}
 
         {/* Footer */}
         <div className="modal-footer">
           <button className="btn-primary" onClick={onClose}>
-            Fermer
+            {t("modals.close")}
           </button>
         </div>
       </div>

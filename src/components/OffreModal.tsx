@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Machine } from "../types/machine";
+import { useTranslation } from "react-i18next";
 
 interface OffreModalProps {
   machines: Machine[]; // nacelles sélectionnées (panier)
@@ -8,6 +9,7 @@ interface OffreModalProps {
 }
 
 export default function OffreModal({ machines, onClose, onConfirm }: OffreModalProps) {
+  const { t } = useTranslation();
   const [client, setClient] = useState("");
 
   // Montants pré-remplis avec le prix de base (prix_dealer en priorité, sinon prix_fr)
@@ -28,7 +30,7 @@ export default function OffreModal({ machines, onClose, onConfirm }: OffreModalP
 
   function handleConfirm() {
     if (!client.trim()) {
-      alert("Merci de renseigner le nom du client.");
+      alert(t("modals.errClientNameReq"));
       return;
     }
     onConfirm(client.trim(), montants);
@@ -78,7 +80,7 @@ export default function OffreModal({ machines, onClose, onConfirm }: OffreModalP
             background: "white",
           }}
         >
-          <h2 style={{ margin: 0, fontSize: 18 }}>📤 Créer une offre HubSpot</h2>
+          <h2 style={{ margin: 0, fontSize: 18 }}>📤 {t("modals.offreTitle")}</h2>
           <button
             onClick={onClose}
             style={{
@@ -106,7 +108,7 @@ export default function OffreModal({ machines, onClose, onConfirm }: OffreModalP
           {/* Nom du client */}
           <div style={{ marginBottom: 20 }}>
             <label style={{ display: "block", fontWeight: 600, marginBottom: 6 }}>
-              Nom du client *
+              {t("modals.offreClientLabel")} *
             </label>
             <input
               type="text"
@@ -123,13 +125,13 @@ export default function OffreModal({ machines, onClose, onConfirm }: OffreModalP
               }}
             />
             <div style={{ fontSize: 12, color: "#666", marginTop: 4 }}>
-              Le deal HubSpot s'appellera : <strong>VO - {client || "..."}</strong>
+              {t("modals.offreDealName")} <strong>VO - {client || "..."}</strong>
             </div>
           </div>
 
           {/* Liste des nacelles avec montants modifiables */}
           <div style={{ fontWeight: 600, marginBottom: 8 }}>
-            Nacelles sélectionnées ({machines.length})
+            {t("modals.offreSelected")} ({machines.length})
           </div>
           <div style={{ border: "1px solid #eee", borderRadius: 6, overflow: "hidden" }}>
             {machines.map((m) => (
@@ -182,7 +184,7 @@ export default function OffreModal({ machines, onClose, onConfirm }: OffreModalP
               fontSize: 16,
             }}
           >
-            <span>Total de l'offre</span>
+            <span>{t("modals.offreTotal")}</span>
             <span>{total.toLocaleString("fr-FR")} €</span>
           </div>
         </div>
@@ -208,7 +210,7 @@ export default function OffreModal({ machines, onClose, onConfirm }: OffreModalP
               cursor: "pointer",
             }}
           >
-            Annuler
+            {t("modals.cancel")}
           </button>
           <button
             onClick={handleConfirm}
@@ -222,7 +224,7 @@ export default function OffreModal({ machines, onClose, onConfirm }: OffreModalP
               cursor: "pointer",
             }}
           >
-            📤 Créer l'offre ({machines.length})
+            📤 {t("modals.offreCreate")} ({machines.length})
           </button>
         </div>
       </div>

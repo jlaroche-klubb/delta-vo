@@ -7,6 +7,7 @@ import {
 } from "../types/machine";
 import { useMachinesFiltered } from "../contexts/MachinesContext";
 import MarkPaidModal from "../components/MarkPaidModal";
+import { useTranslation } from "react-i18next";
 
 interface ClotureesPageProps {
   userRole: string;
@@ -29,6 +30,7 @@ type MarcheFilter = "tous" | "fr" | "dealer";
 export default function ClotureesPage({ userRole, userName }: ClotureesPageProps) {
   // 🆕 Toggle "Voir archivées"
   const [showArchived, setShowArchived] = useState(false);
+  const { t } = useTranslation();
 
   const { machines, marquerPayee, annulerCloture } = useMachinesFiltered(showArchived);
 
@@ -209,34 +211,34 @@ export default function ClotureesPage({ userRole, userName }: ClotureesPageProps
     <div className="page-cloturees">
       <div className="page-header">
         <div>
-          <h1>Clôturées</h1>
-          <p className="subtitle">Historique des ventes finalisées · Suivi des paiements</p>
+          <h1>{t("clot.title")}</h1>
+          <p className="subtitle">{t("clot.subtitle")}</p>
         </div>
         <div className="page-stats">
           <div className="stat">
             <span className="stat-value">{stats.total}</span>
-            <span className="stat-label">machines</span>
+            <span className="stat-label">{t("clot.statMachines")}</span>
           </div>
           <div className="stat stat-ok">
             <span className="stat-value">
               {Math.round(stats.ca / 1000).toLocaleString("fr-FR")} k€
             </span>
-            <span className="stat-label">CA</span>
+            <span className="stat-label">{t("clot.statRevenue")}</span>
           </div>
           <div className="stat stat-pending">
             <span className="stat-value">{stats.nbEnAttente}</span>
-            <span className="stat-label">en attente</span>
+            <span className="stat-label">{t("clot.statPending")}</span>
           </div>
           <div className="stat stat-warn">
             <span className="stat-value">{stats.nbEnRetard}</span>
-            <span className="stat-label">en retard</span>
+            <span className="stat-label">{t("clot.statLate")}</span>
           </div>
           {stats.impayes > 0 && (
             <div className="stat stat-warn">
               <span className="stat-value">
                 {Math.round(stats.impayes / 1000).toLocaleString("fr-FR")} k€
               </span>
-              <span className="stat-label">impayés</span>
+              <span className="stat-label">{t("clot.statUnpaid")}</span>
             </div>
           )}
         </div>
@@ -247,11 +249,11 @@ export default function ClotureesPage({ userRole, userName }: ClotureesPageProps
           <div className="urgent-icon">💸</div>
           <div className="urgent-text">
             <strong>
-              {stats.nbEnRetard} paiement{stats.nbEnRetard > 1 ? "s" : ""} en retard
-              {" "}({Math.round(stats.impayes / 1000).toLocaleString("fr-FR")} k€ impayés)
+              {stats.nbEnRetard} {t("clot.latePayments")}
+              {" "}({Math.round(stats.impayes / 1000).toLocaleString("fr-FR")} {t("clot.unpaidShort")})
             </strong>
             <span className="urgent-sub">
-              Clique pour filtrer et voir les factures en retard de paiement
+              {t("clot.clickToFilter")}
             </span>
           </div>
           <div className="urgent-action">→</div>
@@ -259,7 +261,7 @@ export default function ClotureesPage({ userRole, userName }: ClotureesPageProps
       )}
 
       <div className="year-selector">
-        <span className="year-label">📅 Année :</span>
+        <span className="year-label">📅 {t("clot.year")}</span>
         {anneesDispo.map((annee) => (
           <button
             key={annee}
@@ -278,7 +280,7 @@ export default function ClotureesPage({ userRole, userName }: ClotureesPageProps
         <input
           className="search-input"
           type="text"
-          placeholder="Rechercher par immat, acheteur, commercial, n° facture..."
+          placeholder={t("clot.searchPlaceholder")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -286,9 +288,9 @@ export default function ClotureesPage({ userRole, userName }: ClotureesPageProps
           <button
             className={`toggle-archived ${showArchived ? "active" : ""}`}
             onClick={() => setShowArchived(!showArchived)}
-            title="Voir les machines archivées"
+            title={t("clot.archivedTitle")}
           >
-            🗑️ {showArchived ? "Masquer archivées" : "Voir archivées"}
+            🗑️ {showArchived ? t("clot.hideArchived") : t("clot.showArchived")}
             {totalArchived > 0 && !showArchived && (
               <span style={{ marginLeft: 4, opacity: 0.7 }}>({totalArchived})</span>
             )}
@@ -299,7 +301,7 @@ export default function ClotureesPage({ userRole, userName }: ClotureesPageProps
       <div className={`filters-wrap ${filtersOpen ? "open" : ""}`}>
         <button className="filters-toggle" onClick={() => setFiltersOpen(!filtersOpen)}>
           <span className="filter-icon">▾</span>
-          <span>Filtres</span>
+          <span>{t("clot.filters")}</span>
           {activeFiltersCount > 0 && (
             <span className="filters-count">{activeFiltersCount}</span>
           )}
@@ -309,47 +311,47 @@ export default function ClotureesPage({ userRole, userName }: ClotureesPageProps
           <div className="filters-panel">
             <div className="filters-grid filters-grid-cloturees">
               <div className="filter-field">
-                <label>Statut paiement</label>
+                <label>{t("clot.paymentStatus")}</label>
                 <select
                   value={filterStatutPaiement}
                   onChange={(e) => setFilterStatutPaiement(e.target.value as StatutPaiementFilter)}
                 >
-                  <option value="tous">Tous</option>
-                  <option value="payee">✓ Payée</option>
-                  <option value="en_attente">⏳ En attente</option>
-                  <option value="retard">⚠ En retard</option>
+                  <option value="tous">{t("clot.all")}</option>
+                  <option value="payee">{t("clot.paid")}</option>
+                  <option value="en_attente">{t("clot.pending")}</option>
+                  <option value="retard">{t("clot.late")}</option>
                 </select>
               </div>
               <div className="filter-field">
-                <label>Marché</label>
+                <label>{t("clot.market")}</label>
                 <select
                   value={filterMarche}
                   onChange={(e) => setFilterMarche(e.target.value as MarcheFilter)}
                 >
-                  <option value="tous">Tous</option>
+                  <option value="tous">{t("clot.all")}</option>
                   <option value="fr">🇫🇷 France</option>
                   <option value="dealer">🌍 Dealer</option>
                 </select>
               </div>
               <div className="filter-field">
-                <label>Commercial</label>
+                <label>{t("clot.salesperson")}</label>
                 <select
                   value={filterCommercial}
                   onChange={(e) => setFilterCommercial(e.target.value)}
                 >
-                  <option value="">Tous</option>
+                  <option value="">{t("clot.all")}</option>
                   {commerciaux.map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
                 </select>
               </div>
               <div className="filter-field">
-                <label>Acheteur</label>
+                <label>{t("clot.buyer")}</label>
                 <select
                   value={filterAcheteur}
                   onChange={(e) => setFilterAcheteur(e.target.value)}
                 >
-                  <option value="">Tous</option>
+                  <option value="">{t("clot.all")}</option>
                   {acheteurs.map((a) => (
                     <option key={a} value={a}>{a}</option>
                   ))}
@@ -358,7 +360,7 @@ export default function ClotureesPage({ userRole, userName }: ClotureesPageProps
               {activeFiltersCount > 0 && (
                 <div className="filter-field filter-reset">
                   <button className="btn-reset" onClick={resetFilters}>
-                    ✕ Réinitialiser
+                    ✕ {t("clot.reset")}
                   </button>
                 </div>
               )}
@@ -373,28 +375,28 @@ export default function ClotureesPage({ userRole, userName }: ClotureesPageProps
             <thead>
               <tr>
                 <th onClick={() => handleSort("immat")} className="sortable">
-                  Immat {renderSortIcon("immat", sortKey, sortDesc)}
+                  {t("clot.colImmat")} {renderSortIcon("immat", sortKey, sortDesc)}
                 </th>
                 <th onClick={() => handleSort("type")} className="sortable">
-                  Type {renderSortIcon("type", sortKey, sortDesc)}
+                  {t("clot.colType")} {renderSortIcon("type", sortKey, sortDesc)}
                 </th>
                 <th onClick={() => handleSort("acheteur")} className="sortable">
-                  Acheteur {renderSortIcon("acheteur", sortKey, sortDesc)}
+                  {t("clot.colBuyer")} {renderSortIcon("acheteur", sortKey, sortDesc)}
                 </th>
                 <th onClick={() => handleSort("commercial")} className="sortable">
-                  Commercial {renderSortIcon("commercial", sortKey, sortDesc)}
+                  {t("clot.colSalesperson")} {renderSortIcon("commercial", sortKey, sortDesc)}
                 </th>
                 <th onClick={() => handleSort("prix")} className="sortable col-num">
-                  Prix {renderSortIcon("prix", sortKey, sortDesc)}
+                  {t("clot.colPrice")} {renderSortIcon("prix", sortKey, sortDesc)}
                 </th>
                 <th onClick={() => handleSort("date_facturation")} className="sortable">
-                  Date facture {renderSortIcon("date_facturation", sortKey, sortDesc)}
+                  {t("clot.colInvoiceDate")} {renderSortIcon("date_facturation", sortKey, sortDesc)}
                 </th>
-                <th>N° facture</th>
+                <th>{t("clot.colInvoiceNo")}</th>
                 <th onClick={() => handleSort("statut_paiement")} className="sortable">
-                  Paiement {renderSortIcon("statut_paiement", sortKey, sortDesc)}
+                  {t("clot.colPayment")} {renderSortIcon("statut_paiement", sortKey, sortDesc)}
                 </th>
-                <th>Actions</th>
+                <th>{t("clot.colActions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -414,10 +416,10 @@ export default function ClotureesPage({ userRole, userName }: ClotureesPageProps
       ) : (
         <div className="empty-state">
           {search || activeFiltersCount > 0
-            ? "Aucune machine ne correspond à vos critères"
+            ? t("clot.emptyNoMatch")
             : showArchived
-            ? "Aucune machine archivée"
-            : `Aucune machine clôturée en ${filterAnnee}`}
+            ? t("clot.emptyArchived")
+            : t("clot.emptyNoClosed", { year: filterAnnee })}
         </div>
       )}
 
@@ -447,13 +449,14 @@ function ClotureeRow({
 }) {
   const statut = getStatutPaiement(machine);
   const jours = joursDepuisFacturation(machine.date_facturation);
+  const { t } = useTranslation();
 
   return (
     <tr className={`row-${statut} ${machine.archived ? "row-archived" : ""}`}>
       <td className="cell-immat">
         {machine.immat}
         {machine.archived && (
-          <span style={{ marginLeft: 8, fontSize: 11, color: "#999" }}>🗑️ archivée</span>
+          <span style={{ marginLeft: 8, fontSize: 11, color: "#999" }}>🗑️ {t("clot.rowArchived")}</span>
         )}
       </td>
       <td>
@@ -476,14 +479,14 @@ function ClotureeRow({
       <td className="col-actions">
         {statut !== "payee" && canEdit && !machine.archived && (
           <button className="btn-mark-paid" onClick={() => onMarkPaid(machine)}>
-            ✓ Marquer payée
+            ✓ {t("clot.markPaid")}
           </button>
         )}
         {isAdmin && !machine.archived && (
           <button
             className="btn-annuler-cloture"
             onClick={() => onAnnulerCloture(machine)}
-            title="Annuler la clôture et revenir en préparation"
+            title={t("clot.cancelClosureTitle")}
             style={{
               background: "#dc3545",
               color: "white",
@@ -495,7 +498,7 @@ function ClotureeRow({
               marginLeft: 6,
             }}
           >
-            ↩️ Annuler clôture
+            ↩️ {t("clot.cancelClosure")}
           </button>
         )}
       </td>
@@ -512,12 +515,13 @@ function PaiementBadge({
   jours: number;
   dateReglement: string | undefined;
 }) {
+  const { t } = useTranslation();
   if (statut === "payee") {
     return (
       <div className="paiement-cell">
-        <span className="badge-paid">✓ Payée</span>
+        <span className="badge-paid">{t("clot.paid")}</span>
         {dateReglement && (
-          <span className="paiement-date">le {formatDate(dateReglement)}</span>
+          <span className="paiement-date">{t("clot.paidOn")} {formatDate(dateReglement)}</span>
         )}
       </div>
     );
@@ -525,15 +529,15 @@ function PaiementBadge({
   if (statut === "retard") {
     return (
       <div className="paiement-cell">
-        <span className="badge-retard">⚠ En retard</span>
-        <span className="paiement-date">depuis {jours} j</span>
+        <span className="badge-retard">{t("clot.late")}</span>
+        <span className="paiement-date">{t("clot.since")} {jours} {t("card.daysShort")}</span>
       </div>
     );
   }
   return (
     <div className="paiement-cell">
-      <span className="badge-attente">⏳ En attente</span>
-      <span className="paiement-date">depuis {jours} j</span>
+      <span className="badge-attente">{t("clot.pending")}</span>
+      <span className="paiement-date">{t("clot.since")} {jours} {t("card.daysShort")}</span>
     </div>
   );
 }

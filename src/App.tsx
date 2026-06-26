@@ -11,6 +11,8 @@ import EnCoursPage from "./pages/EnCoursPage";
 import ClotureesPage from "./pages/ClotureesPage";
 import StatsPage from "./pages/StatsPage";
 import Logo from "./components/Logo";
+import LanguageSwitcher from "./components/LanguageSwitcher";
+import { useTranslation } from "react-i18next";
 import AdminPage from "./pages/AdminPage";
 import { useNacelleExpertSync } from "./hooks/useNacelleExpertSync";
 import { getAccessiblePages } from "./utils/permissions";
@@ -29,6 +31,7 @@ type Page = "restitutions" | "disponibles" | "export" | "encours" | "cloturees" 
 
 function AppContent() {
   const { user, profile, loading, logout } = useAuth();
+  const { t } = useTranslation();
   const [page, setPage] = useState<Page>("restitutions");
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -53,7 +56,7 @@ function AppContent() {
   }, [menuOpen]);
 
   if (loading && !DEV_MODE) {
-    return <div className="loading-screen"><p>Chargement…</p></div>;
+    return <div className="loading-screen"><p>{t("common.loading")}</p></div>;
   }
 
   const activeProfile = DEV_MODE ? FAKE_PROFILE : profile;
@@ -69,13 +72,13 @@ function AppContent() {
 
   const pageLabel = (p: Page): string => {
     switch (p) {
-      case "restitutions": return "Restitutions";
-      case "disponibles": return "Disponibles";
-      case "export": return "🌍 Export";
-      case "encours": return "En cours de préparation";
-      case "cloturees": return "Clôturées";
-      case "stats": return "📊 Stats";
-      case "admin": return "⚙️ Admin";
+      case "restitutions": return t("nav.restitutions");
+      case "disponibles": return t("nav.disponibles");
+      case "export": return "🌍 " + t("nav.export");
+      case "encours": return t("nav.encours");
+      case "cloturees": return t("nav.cloturees");
+      case "stats": return "📊 " + t("nav.stats");
+      case "admin": return "⚙️ " + t("nav.admin");
     }
   };
 
@@ -114,8 +117,9 @@ function AppContent() {
         <div className="user-info">
           <span>👤 {userName}</span>
           <span className="role-badge">{userRole}</span>
+          <LanguageSwitcher />
           {!DEV_MODE && (
-            <button className="btn-logout" onClick={logout}>Déconnexion</button>
+            <button className="btn-logout" onClick={logout}>{t("common.logout")}</button>
           )}
         </div>
 
@@ -165,10 +169,11 @@ function AppContent() {
             <div className="drawer-user">
               <div className="drawer-user-name">👤 {userName}</div>
               <span className="role-badge">{userRole}</span>
+              <div style={{ marginTop: 12 }}><LanguageSwitcher /></div>
               {DEV_MODE && <span className="dev-badge" style={{ marginTop: 8 }}>DEV MODE</span>}
               {!DEV_MODE && (
                 <button className="btn-logout" onClick={logout} style={{ marginTop: 12 }}>
-                  Déconnexion
+                  {t("common.logout")}
                 </button>
               )}
             </div>

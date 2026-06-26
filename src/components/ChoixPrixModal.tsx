@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Machine } from "../types/machine";
+import { useTranslation } from "react-i18next";
 
 interface ChoixPrixModalProps {
   machine: Machine;
@@ -8,6 +9,7 @@ interface ChoixPrixModalProps {
 }
 
 export default function ChoixPrixModal({ machine, onClose, onConfirm }: ChoixPrixModalProps) {
+  const { t } = useTranslation();
   const [choix, setChoix] = useState<"fr" | "dealer">("fr");
 
   const hasPrixFr = machine.prix_fr !== undefined;
@@ -28,7 +30,7 @@ export default function ChoixPrixModal({ machine, onClose, onConfirm }: ChoixPri
       <div className="modal modal-choix-prix">
         <div className="modal-header">
           <div>
-            <h2>📄 Quelle version générer ?</h2>
+            <h2>📄 {t("modals.choixTitle")}</h2>
             <div className="modal-subtitle">
               {machine.immat} · {machine.type_nacelle}
             </div>
@@ -38,7 +40,7 @@ export default function ChoixPrixModal({ machine, onClose, onConfirm }: ChoixPri
 
         <div className="choix-prix-body">
           <p className="choix-prix-question">
-            Choisissez le prix qui apparaîtra sur la fiche envoyée au client :
+            {t("modals.choixQuestion")}
           </p>
 
           <div className="choix-prix-grid">
@@ -48,11 +50,11 @@ export default function ChoixPrixModal({ machine, onClose, onConfirm }: ChoixPri
                 onClick={() => setChoix("fr")}
               >
                 <div className="choix-prix-flag">🇫🇷</div>
-                <div className="choix-prix-label">Version France</div>
+                <div className="choix-prix-label">{t("modals.versionFrance")}</div>
                 <div className="choix-prix-value">
                   {machine.prix_fr!.toLocaleString("fr-FR")} €
                 </div>
-                <div className="choix-prix-sub">Prix FR</div>
+                <div className="choix-prix-sub">{t("modals.priceFrShort")}</div>
               </button>
             )}
 {hasPrixDealer && (
@@ -60,11 +62,11 @@ export default function ChoixPrixModal({ machine, onClose, onConfirm }: ChoixPri
     className={`choix-prix-btn ${choix === "dealer" ? "active" : ""}`}
     onClick={() => setChoix("dealer")}
   >
-    <div className="choix-prix-label">Version Dealer</div>
+    <div className="choix-prix-label">{t("modals.versionDealer")}</div>
     <div className="choix-prix-value">
       {machine.prix_dealer!.toLocaleString("fr-FR")} €
     </div>
-    <div className="choix-prix-sub">Prix Dealer</div>
+    <div className="choix-prix-sub">{t("modals.priceDealerShort")}</div>
   </button>
 )}
           </div>
@@ -72,10 +74,10 @@ export default function ChoixPrixModal({ machine, onClose, onConfirm }: ChoixPri
 
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onClose}>
-            Annuler
+            {t("modals.cancel")}
           </button>
           <button className="btn-primary" onClick={handleConfirm}>
-            📄 Générer le PDF
+            📄 {t("modals.generatePdf")}
           </button>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 
 interface PhoneSetupModalProps {
   userName: string;
@@ -11,18 +12,19 @@ export default function PhoneSetupModal({
   onClose,
   onSave,
 }: PhoneSetupModalProps) {
+  const { t } = useTranslation();
   const [phone, setPhone] = useState("");
 
   function handleSave() {
     const cleaned = phone.trim();
     if (!cleaned) {
-      alert("Le téléphone est obligatoire");
+      alert(t("modals.errPhoneReq"));
       return;
     }
     // Validation simple : au moins 10 chiffres
     const digits = cleaned.replace(/\D/g, "");
     if (digits.length < 10) {
-      alert("Numéro de téléphone invalide (10 chiffres minimum)");
+      alert(t("modals.errPhoneInvalid"));
       return;
     }
     onSave(cleaned);
@@ -38,25 +40,25 @@ export default function PhoneSetupModal({
     >
       <div className="modal modal-phone-setup">
         <div className="modal-header">
-          <h2>👤 Compléter votre profil</h2>
+          <h2>👤 {t("modals.phoneTitle")}</h2>
           <button className="btn-close" onClick={onClose}>✕</button>
         </div>
 
         <div className="phone-setup-body">
           <div className="phone-setup-icon">📞</div>
           <h3 className="phone-setup-title">
-            Bonjour {userName} !
+            {t("modals.phoneHello")} {userName} !
           </h3>
           <p className="phone-setup-text">
-            Pour générer des fiches commerciales, nous avons besoin de votre <strong>numéro de téléphone professionnel</strong>.
+            {t("modals.phoneText1a")} <strong>{t("modals.phoneText1b")}</strong>.
           </p>
           <p className="phone-setup-text">
-            Il apparaîtra sur les fiches que vous générerez pour que vos clients puissent vous contacter directement.
+            {t("modals.phoneText2")}
           </p>
 
           <div className="phone-field">
             <label>
-              Téléphone professionnel <span className="required">*</span>
+              {t("modals.phoneLabel")} <span className="required">*</span>
             </label>
             <input
               type="tel"
@@ -66,17 +68,17 @@ export default function PhoneSetupModal({
               autoFocus
             />
             <div className="phone-hint">
-              💡 Cette information n'est demandée qu'une seule fois
+              💡 {t("modals.phoneHint")}
             </div>
           </div>
         </div>
 
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onClose}>
-            Plus tard
+            {t("modals.later")}
           </button>
           <button className="btn-primary" onClick={handleSave}>
-            💾 Enregistrer
+            💾 {t("modals.save")}
           </button>
         </div>
       </div>

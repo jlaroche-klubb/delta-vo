@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Machine, FicheCommerciale } from "../types/machine";
+import { useTranslation } from "react-i18next";
 
 interface FicheCommercialeModalProps {
   machine: Machine;
@@ -12,6 +13,7 @@ export default function FicheCommercialeModal({
   onClose,
   onSave,
 }: FicheCommercialeModalProps) {
+  const { t } = useTranslation();
   const existing = machine.fiche_commerciale || {};
 
   const [hauteur, setHauteur] = useState<string>(
@@ -99,7 +101,7 @@ export default function FicheCommercialeModal({
       <div className="modal modal-fiche-commerciale">
         <div className="modal-header">
           <div>
-            <h2>📝 Compléter la fiche commerciale</h2>
+            <h2>📝 {t("modals.ficheTitle")}</h2>
             <div className="modal-subtitle">
               {machine.immat} · {machine.type_nacelle} {machine.modele_porteur}
             </div>
@@ -110,11 +112,11 @@ export default function FicheCommercialeModal({
         <div className="fiche-body">
           {/* Section caractéristiques nacelle */}
           <div className="fiche-section">
-            <h3 className="fiche-section-title">🔧 Caractéristiques nacelle</h3>
+            <h3 className="fiche-section-title">🔧 {t("modals.ficheSpecs")}</h3>
             <div className="fiche-row">
               <div className="fiche-field">
                 <label>
-                  Hauteur de travail (m) <span className="required">*</span>
+                  {t("modals.ficheHeight")} <span className="required">*</span>
                 </label>
                 <input
                   type="text"
@@ -125,7 +127,7 @@ export default function FicheCommercialeModal({
               </div>
               <div className="fiche-field">
                 <label>
-                  Déport de travail (m) <span className="required">*</span>
+                  {t("modals.ficheOutreach")} <span className="required">*</span>
                 </label>
                 <input
                   type="text"
@@ -137,7 +139,7 @@ export default function FicheCommercialeModal({
             </div>
             <div className="fiche-field">
               <label>
-                Nb de personnes dans le panier <span className="required">*</span>
+                {t("modals.fichePersons")} <span className="required">*</span>
               </label>
               <div className="fiche-radio-group">
                 <label className="fiche-radio">
@@ -146,7 +148,7 @@ export default function FicheCommercialeModal({
                     checked={nbPersonnes === 1}
                     onChange={() => setNbPersonnes(1)}
                   />
-                  <span>1 personne</span>
+                  <span>{t("modals.fiche1Person")}</span>
                 </label>
                 <label className="fiche-radio">
                   <input
@@ -154,7 +156,7 @@ export default function FicheCommercialeModal({
                     checked={nbPersonnes === 2}
                     onChange={() => setNbPersonnes(2)}
                   />
-                  <span>2 personnes</span>
+                  <span>{t("modals.fiche2Persons")}</span>
                 </label>
               </div>
             </div>
@@ -162,10 +164,10 @@ export default function FicheCommercialeModal({
 
           {/* Section porteur */}
           <div className="fiche-section">
-            <h3 className="fiche-section-title">🚐 Porteur</h3>
+            <h3 className="fiche-section-title">🚐 {t("modals.ficheCarrier")}</h3>
             <div className="fiche-field">
               <label>
-                Puissance / motorisation <span className="required">*</span>
+                {t("modals.fichePower")} <span className="required">*</span>
               </label>
               <input
                 type="text"
@@ -174,14 +176,14 @@ export default function FicheCommercialeModal({
                 onChange={(e) => setPuissance(e.target.value)}
               />
               <div className="fiche-hint">
-                💡 Le modèle, l'année, et le km sont déjà connus
+                💡 {t("modals.ficheHint")}
               </div>
             </div>
           </div>
 
           {/* Section options */}
           <div className="fiche-section">
-            <h3 className="fiche-section-title">⚙️ Options (facultatif)</h3>
+            <h3 className="fiche-section-title">⚙️ {t("modals.ficheOptions")}</h3>
             <div className="options-add">
               <input
                 type="text"
@@ -196,7 +198,7 @@ export default function FicheCommercialeModal({
                 }}
               />
               <button className="btn-add-option" onClick={handleAddOption}>
-                + Ajouter
+                + {t("modals.ficheAdd")}
               </button>
             </div>
             {options.length > 0 && (
@@ -207,7 +209,7 @@ export default function FicheCommercialeModal({
                     <button
                       className="btn-remove-option"
                       onClick={() => handleRemoveOption(idx)}
-                      title="Supprimer"
+                      title={t("modals.deleteTitle")}
                     >
                       ✕
                     </button>
@@ -216,13 +218,13 @@ export default function FicheCommercialeModal({
               </ul>
             )}
             {options.length === 0 && (
-              <div className="options-empty">Aucune option ajoutée</div>
+              <div className="options-empty">{t("modals.ficheNoOption")}</div>
             )}
           </div>
 
           {/* Section aménagement intérieur */}
           <div className="fiche-section">
-            <h3 className="fiche-section-title">📦 Aménagement intérieur (facultatif)</h3>
+            <h3 className="fiche-section-title">📦 {t("modals.ficheInterior")}</h3>
             <textarea
               className="fiche-textarea"
               placeholder="ex : 1 meuble 3 étagères 21 bacs"
@@ -235,10 +237,10 @@ export default function FicheCommercialeModal({
 
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onClose}>
-            Annuler
+            {t("modals.cancel")}
           </button>
           <button className="btn-primary" onClick={handleSave}>
-            💾 Enregistrer la fiche
+            💾 {t("modals.ficheSave")}
           </button>
         </div>
       </div>

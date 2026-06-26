@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { storage } from "../firebase";
 import { Machine, DocumentVO } from "../types/machine";
+import { useTranslation } from "react-i18next";
 
 interface DocumentsModalProps {
   machine: Machine;
@@ -18,6 +19,7 @@ export default function DocumentsModal({
   onClose,
   onSave,
 }: DocumentsModalProps) {
+  const { t } = useTranslation();
   const [docs, setDocs] = useState<DocumentVO[]>(machine.documents_vo || []);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
@@ -29,7 +31,7 @@ export default function DocumentsModal({
   function startUpload(label: string) {
     const clean = label.trim();
     if (!clean) {
-      setError("Indique d'abord un libellé pour ce document.");
+      setError(t("modals.docNeedLabel"));
       return;
     }
     setError("");
@@ -68,7 +70,7 @@ export default function DocumentsModal({
       setCustomLabel("");
     } catch (err: any) {
       console.error("❌ Erreur upload document:", err);
-      setError("Échec de l'upload. Réessaie ou vérifie ta connexion.");
+      setError(t("modals.docUploadFail"));
     } finally {
       setUploading(false);
       pendingLabel.current = "";
@@ -77,7 +79,7 @@ export default function DocumentsModal({
   }
 
   async function handleDelete(d: DocumentVO) {
-    if (!window.confirm(`Supprimer le document « ${d.label} » (${d.nom || ""}) ?`)) return;
+    if (!window.confirm(t("modals.confirmDeleteDoc", { label: d.label, nom: d.nom || "" }))) return;
     // Supprime le fichier Storage (best-effort)
     try {
       if (d.path) await deleteObject(ref(storage, d.path));
@@ -138,7 +140,7 @@ export default function DocumentsModal({
         >
           <div>
             <div style={{ fontWeight: 700, fontSize: 16, color: "#1a2a6e" }}>
-              📎 Documents — {machine.immat}
+              📎 {t("modals.docTitle")} — {machine.immat}
             </div>
             <div style={{ fontSize: 12, color: "#888" }}>
               {machine.type_nacelle} · {machine.modele_porteur}
@@ -164,7 +166,7 @@ export default function DocumentsModal({
           {canManage && (
             <div style={{ marginBottom: 18 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#444", marginBottom: 8 }}>
-                Ajouter un document
+                {t("modals.docAdd")}
               </div>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
                 <button
@@ -189,7 +191,7 @@ export default function DocumentsModal({
                   type="text"
                   value={customLabel}
                   onChange={(e) => setCustomLabel(e.target.value)}
-                  placeholder="Libellé (ex. Devis réparation flèche)"
+                  placeholder={t("modals.docLabelPlaceholder")}
                   disabled={uploading}
                   style={{
                     flex: 1,
@@ -210,7 +212,7 @@ export default function DocumentsModal({
                     borderColor: "transparent",
                   }}
                 >
-                  Déposer
+                  {t("modals.docUpload")}
                 </button>
               </div>
               <input
@@ -223,7 +225,7 @@ export default function DocumentsModal({
               />
               {uploading && (
                 <div style={{ fontSize: 12, color: "#1a2a6e", marginTop: 8 }}>
-                  ⏳ Envoi en cours…
+                  ⏳ {t("modals.docUploading")}
                 </div>
               )}
               {error && (
@@ -234,11 +236,11 @@ export default function DocumentsModal({
 
           {/* Liste des documents */}
           <div style={{ fontSize: 13, fontWeight: 600, color: "#444", marginBottom: 8 }}>
-            Documents déposés ({docs.length})
+            {t("modals.docUploaded")} ({docs.length})
           </div>
           {docs.length === 0 ? (
             <div style={{ fontSize: 13, color: "#999", padding: "12px 0" }}>
-              Aucun document pour le moment.
+              {t("modals.docNone")}
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -287,13 +289,13 @@ export default function DocumentsModal({
                       padding: "5px 10px",
                     }}
                   >
-                    Ouvrir
+                    {t("modals.docOpen")}
                   </a>
                   {canManage && (
                     <button
                       type="button"
                       onClick={() => handleDelete(d)}
-                      title="Supprimer"
+                      title={t("modals.deleteTitle")}
                       style={{
                         border: "1px solid #f0c0c5",
                         background: "#fff",

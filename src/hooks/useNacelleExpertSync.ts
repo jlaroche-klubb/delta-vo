@@ -307,68 +307,9 @@ export function useNacelleExpertSync() {
     };
   }, []);
 
-  // ✅ RATTRAPAGE AUTOMATIQUE du lien PDF de restitution ET des photos détourées
-  // Pour les machines déjà synchronisées (flag synced_to_delta_vo resté à true) :
-  // on relit retour.pdf_url ET retour.commercialPhotos directement dans Nacelle-Expert
-  // et on met à jour machines_vo si la valeur a changé (ex. détourage refait).
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const snap = await getDocs(collection(dbNacelleExpert, 'dossiers'));
-        for (const d of snap.docs) {
-          if (cancelled) return;
-          const data: any = d.data();
-          const immat = (data?.immat || data?.info?.immat || d.id || '').trim().toUpperCase();
-          if (!immat) continue;
-
-          const pdfUrl = data?.retour?.pdf_url;
-          const commercialPhotos = data?.retour?.commercialPhotos;
-
-          // Rien à rattraper pour ce dossier
-          if (!pdfUrl && !(commercialPhotos && Object.keys(commercialPhotos).length > 0)) {
-            continue;
-          }
-
-          try {
-            const ref = doc(db, 'machines_vo', immat);
-            const mSnap = await getDoc(ref);
-            if (!mSnap.exists()) continue;
-            const m: any = mSnap.data();
-
-            const updates: any = {};
-
-            // PDF de restitution
-            if (pdfUrl) {
-              const currentPdf = m?.dossier_nacelle_expert?.rapport_url || '';
-              if (currentPdf !== pdfUrl) {
-                updates['dossier_nacelle_expert.rapport_url'] = pdfUrl;
-              }
-            }
-
-            // Photos détourées (commercialPhotos) — comparaison par contenu
-            if (commercialPhotos && Object.keys(commercialPhotos).length > 0) {
-              const current = JSON.stringify(m?.dossier_nacelle_expert?.photos_commerciales ?? null);
-              const nouveau = JSON.stringify(commercialPhotos);
-              if (current !== nouveau) {
-                updates['dossier_nacelle_expert.photos_commerciales'] = commercialPhotos;
-              }
-            }
-
-            if (Object.keys(updates).length > 0) {
-              await updateDoc(ref, updates);
-              console.log(`🔄 Rattrapage Nacelle-Expert pour ${immat}:`, Object.keys(updates).join(', '));
-            }
-          } catch (e) {
-            console.error('Rattrapage échoué pour', immat, e);
-          }
-        }
-      } catch (e) {
-        console.error('Rattrapage : lecture des dossiers échouée', e);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+  // ⚠️ Le rattrapage photos/PDF n'est plus automatique : il relisait tous les
+  // dossiers + un getDoc par machine à CHAQUE chargement (coûteux). Il est
+  // désormais manuel via runNacelleExpertRattrapage() — bouton admin (Disponibles).
 
   return {
     syncDossiers,
@@ -376,4 +317,67 @@ export function useNacelleExpertSync() {
     error,
     syncedCount,
   };
+}
+
+/**
+ * Rattrapage MANUEL (déclenché par un bouton admin, plus en automatique au chargement).
+ * Relit retour.pdf_url et retour.commercialPhotos dans Nacelle-Expert et met à jour
+ * machines_vo si la valeur a changé (ex. détourage refait après la synchro).
+ * Retourne le nombre de dossiers scannés et de machines mises à jour.
+ */
+export async function runNacelleExpertRattrapage(): Promise<{ scanned: number; updated: number }> {
+  let scanned = 0;
+  let updated = 0;
+
+  const snap = await getDocs(collection(dbNacelleExpert, 'dossiers'));
+  for (const d of snap.docs) {
+    scanned++;
+    const data: any = d.data();
+    const immat = (data?.immat || data?.info?.immat || d.id || '').trim().toUpperCase();
+    if (!immat) continue;
+
+    const pdfUrl = data?.retour?.pdf_url;
+    const commercialPhotos = data?.retour?.commercialPhotos;
+
+    // Rien à rattraper pour ce dossier
+    if (!pdfUrl && !(commercialPhotos && Object.keys(commercialPhotos).length > 0)) {
+      continue;
+    }
+
+    try {
+      const ref = doc(db, 'machines_vo', immat);
+      const mSnap = await getDoc(ref);
+      if (!mSnap.exists()) continue;
+      const m: any = mSnap.data();
+
+      const updates: any = {};
+
+      // PDF de restitution
+      if (pdfUrl) {
+        const currentPdf = m?.dossier_nacelle_expert?.rapport_url || '';
+        if (currentPdf !== pdfUrl) {
+          updates['dossier_nacelle_expert.rapport_url'] = pdfUrl;
+        }
+      }
+
+      // Photos détourées (commercialPhotos) — comparaison par contenu
+      if (commercialPhotos && Object.keys(commercialPhotos).length > 0) {
+        const current = JSON.stringify(m?.dossier_nacelle_expert?.photos_commerciales ?? null);
+        const nouveau = JSON.stringify(commercialPhotos);
+        if (current !== nouveau) {
+          updates['dossier_nacelle_expert.photos_commerciales'] = commercialPhotos;
+        }
+      }
+
+      if (Object.keys(updates).length > 0) {
+        await updateDoc(ref, updates);
+        updated++;
+        console.log(`🔄 Rattrapage Nacelle-Expert pour ${immat}:`, Object.keys(updates).join(', '));
+      }
+    } catch (e) {
+      console.error('Rattrapage échoué pour', immat, e);
+    }
+  }
+
+  return { scanned, updated };
 }

@@ -3,6 +3,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { doc, setDoc, updateDoc } from "firebase/firestore";
 import { storage, db } from "../firebase";
 import { Machine, PhotoSupplementaire } from "../types/machine";
+import { useTranslation } from "react-i18next";
 
 interface PhotosModalProps {
   machine: Machine;
@@ -14,10 +15,10 @@ interface PhotosModalProps {
 
 // Les 4 vues officielles de la fiche VO (verrouillées, jamais modifiables ici)
 const OFFICIELLES: { key: keyof NonNullable<Machine["photos_commerciales"]>; label: string }[] = [
-  { key: "av_droit", label: "3/4 avant droit" },
-  { key: "av_gauche", label: "3/4 avant gauche" },
-  { key: "ar_droit", label: "3/4 arrière droit" },
-  { key: "ar_gauche", label: "3/4 arrière gauche" },
+  { key: "av_droit", label: "modals.photoFrontRight" },
+  { key: "av_gauche", label: "modals.photoFrontLeft" },
+  { key: "ar_droit", label: "modals.photoRearRight" },
+  { key: "ar_gauche", label: "modals.photoRearLeft" },
 ];
 
 export default function PhotosModal({
@@ -27,6 +28,7 @@ export default function PhotosModal({
   onSave,
   onShareTokenChange,
 }: PhotosModalProps) {
+  const { t } = useTranslation();
   const [photos, setPhotos] = useState<PhotoSupplementaire[]>(
     machine.photos_supplementaires ? [...machine.photos_supplementaires] : []
   );
@@ -92,7 +94,7 @@ export default function PhotosModal({
       const ajoutees: PhotoSupplementaire[] = [];
       for (const file of Array.from(files)) {
         if (!file.type.startsWith("image/")) {
-          setError("Seules les images sont acceptées.");
+          setError(t("modals.photoOnlyImages"));
           continue;
         }
         const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -111,7 +113,7 @@ export default function PhotosModal({
       setPhotos((prev) => [...prev, ...ajoutees]);
     } catch (e: any) {
       console.error("❌ Erreur upload photo:", e);
-      setError("Échec de l'upload. Réessaie ou vérifie ta connexion.");
+      setError(t("modals.docUploadFail"));
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -141,7 +143,7 @@ export default function PhotosModal({
   async function generateOrUpdateShare() {
     const sharePhotos = buildSharePhotos();
     if (sharePhotos.length === 0) {
-      setError("Aucune photo à partager.");
+      setError(t("modals.photoNoneToShare"));
       return;
     }
     setShareBusy(true);
@@ -168,7 +170,7 @@ export default function PhotosModal({
       }
     } catch (e) {
       console.error("❌ Erreur création lien de partage:", e);
-      setError("Impossible de créer le lien. Réessaie.");
+      setError(t("modals.photoLinkFail"));
     } finally {
       setShareBusy(false);
     }
@@ -187,7 +189,7 @@ export default function PhotosModal({
       setShareToken(null);
     } catch (e) {
       console.error("❌ Erreur révocation lien:", e);
-      setError("Impossible de révoquer le lien. Réessaie.");
+      setError(t("modals.photoRevokeFail"));
     } finally {
       setShareBusy(false);
     }
@@ -220,7 +222,7 @@ export default function PhotosModal({
       <div className="modal" style={{ maxWidth: 820, width: "92%" }}>
         <div className="modal-header">
           <div>
-            <h2>📸 Photos — {machine.immat}</h2>
+            <h2>📸 {t("modals.photoTitle")} — {machine.immat}</h2>
             <div className="modal-subtitle">
               {machine.type_nacelle} {machine.modele_porteur}
             </div>
@@ -231,7 +233,7 @@ export default function PhotosModal({
         <div style={{ padding: "8px 20px 20px", maxHeight: "70vh", overflowY: "auto" }}>
           {/* ─── 4 photos officielles (verrouillées) ─── */}
           <h3 style={sectionTitle}>
-            🔒 Photos de la fiche VO <span style={lockNote}>(automatiques, non modifiables)</span>
+            🔒 {t("modals.photoOfficial")} <span style={lockNote}>{t("modals.photoOfficialNote")}</span>
           </h3>
           <div style={gridStyle}>
             {OFFICIELLES.map(({ key, label }) => {
@@ -239,18 +241,18 @@ export default function PhotosModal({
               return (
                 <div key={key} style={tileLocked}>
                   {url ? (
-                    <img src={url} alt={label} style={imgStyle} />
+                    <img src={url} alt={t(label)} style={imgStyle} />
                   ) : (
                     <div style={placeholder}>—</div>
                   )}
-                  <div style={tileLabel}>{label}</div>
+                  <div style={tileLabel}>{t(label)}</div>
                 </div>
               );
             })}
           </div>
 
           {/* ─── Upload ─── */}
-          <h3 style={sectionTitle}>➕ Ajouter des photos supplémentaires</h3>
+          <h3 style={sectionTitle}>➕ {t("modals.photoAddExtra")}</h3>
           <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
             <input
               ref={fileInputRef}
@@ -265,10 +267,10 @@ export default function PhotosModal({
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading}
             >
-              {uploading ? "⏳ Upload en cours..." : "📤 Choisir des fichiers"}
+              {uploading ? t("modals.photoUploading") : t("modals.photoChooseFiles")}
             </button>
             <span style={{ fontSize: 12, color: "#6a7488" }}>
-              Optionnel — formats image, plusieurs fichiers possibles.
+              {t("modals.photoOptional")}
             </span>
           </div>
           {error && (
@@ -277,18 +279,18 @@ export default function PhotosModal({
 
           {/* ─── Photos supplémentaires retenues ─── */}
           <h3 style={sectionTitle}>
-            🖼️ Sélection actuelle <span style={lockNote}>({nbSupp} photo{nbSupp > 1 ? "s" : ""})</span>
+            🖼️ {t("modals.photoCurrent")} <span style={lockNote}>({nbSupp} {t("galerie.photos")})</span>
           </h3>
           {nbSupp === 0 ? (
             <div style={emptyBox}>
-              Aucune photo supplémentaire. La fiche VO gardera ses 4 photos officielles uniquement.
+              {t("modals.photoNoExtra")}
             </div>
           ) : (
             <div style={gridStyle}>
               {photos.map((p) => (
                 <div key={p.url} style={tile}>
                   <img src={p.url} alt={p.nom || "photo"} style={imgStyle} />
-                  <button style={removeBtn} title="Retirer" onClick={() => removePhoto(p.url)}>
+                  <button style={removeBtn} title={t("modals.photoRemove")} onClick={() => removePhoto(p.url)}>
                     ✕
                   </button>
                   <div style={tileLabel}>
@@ -303,7 +305,7 @@ export default function PhotosModal({
           {pool.length > 0 && (
             <>
               <h3 style={sectionTitle}>
-                🔁 Photos Nacelle-Expert <span style={lockNote}>(clique pour ajouter/retirer)</span>
+                🔁 {t("modals.photoNePool")} <span style={lockNote}>{t("modals.photoNePoolNote")}</span>
               </h3>
               <div style={gridStyle}>
                 {pool.map((url) => {
@@ -326,7 +328,7 @@ export default function PhotosModal({
                           fontWeight: 700,
                         }}
                       >
-                        {selected ? "✓ Ajoutée" : "+ Ajouter"}
+                        {selected ? t("modals.photoAdded") : `+ ${t("modals.ficheAdd")}`}
                       </div>
                     </div>
                   );
@@ -337,15 +339,15 @@ export default function PhotosModal({
 
           {/* ─── Partage client ─── */}
           <h3 style={sectionTitle}>
-            🔗 Partage client <span style={lockNote}>(lien vers une galerie en ligne)</span>
+            🔗 {t("modals.photoShare")} <span style={lockNote}>{t("modals.photoShareNote")}</span>
           </h3>
           {!shareToken ? (
             <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
               <button className="btn-secondary" onClick={generateOrUpdateShare} disabled={shareBusy}>
-                {shareBusy ? "⏳ Création..." : "🔗 Générer un lien de partage"}
+                {shareBusy ? t("modals.photoCreating") : t("modals.photoGenLink")}
               </button>
               <span style={{ fontSize: 12, color: "#6a7488" }}>
-                Crée une page web (4 photos officielles + sélection) à envoyer au client.
+                {t("modals.photoShareDesc")}
               </span>
             </div>
           ) : (
@@ -353,12 +355,12 @@ export default function PhotosModal({
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                 <input readOnly value={shareUrl} onFocus={(e) => e.currentTarget.select()} style={shareInput} />
                 <button className="btn-secondary" onClick={copyLink} style={{ whiteSpace: "nowrap" }}>
-                  {copied ? "✓ Copié" : "📋 Copier"}
+                  {copied ? t("modals.photoCopied") : t("modals.photoCopy")}
                 </button>
               </div>
               <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
                 <button className="btn-secondary" onClick={generateOrUpdateShare} disabled={shareBusy}>
-                  {shareBusy ? "⏳..." : "🔄 Mettre à jour les photos du lien"}
+                  {shareBusy ? "⏳..." : `🔄 ${t("modals.photoUpdateLink")}`}
                 </button>
                 <button
                   onClick={revokeShare}
@@ -374,12 +376,11 @@ export default function PhotosModal({
                     cursor: "pointer",
                   }}
                 >
-                  🗑 Révoquer le lien
+                  🗑 {t("modals.photoRevoke")}
                 </button>
               </div>
               <div style={{ fontSize: 11, color: "#6a7488", marginTop: 8 }}>
-                Lien actif. Après avoir modifié la sélection de photos, clique sur « Mettre à jour »
-                pour rafraîchir la galerie. « Révoquer » désactive définitivement le lien.
+                {t("modals.photoShareHint")}
               </div>
             </div>
           )}
@@ -387,10 +388,10 @@ export default function PhotosModal({
 
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onClose} disabled={uploading}>
-            Annuler
+            {t("modals.cancel")}
           </button>
           <button className="btn-primary" onClick={handleSave} disabled={uploading}>
-            Enregistrer
+            {t("modals.save")}
           </button>
         </div>
       </div>

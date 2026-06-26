@@ -79,7 +79,7 @@ export default function DocumentsModal({
   }
 
   async function handleDelete(d: DocumentVO) {
-    if (!window.confirm(`Supprimer le document « ${d.label} » (${d.nom || ""}) ?`)) return;
+    if (!window.confirm(t("modals.confirmDeleteDoc", { label: d.label, nom: d.nom || "" }))) return;
     // Supprime le fichier Storage (best-effort)
     try {
       if (d.path) await deleteObject(ref(storage, d.path));

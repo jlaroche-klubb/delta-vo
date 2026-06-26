@@ -311,13 +311,21 @@ button {
 
 .actions-bar {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   margin-bottom: 24px;
   align-items: center;
 }
 
+/* Les boutons d'action gardent leur largeur naturelle et passent à la ligne
+   plutôt que de s'écraser ou de déborder hors de l'écran. */
+.actions-bar > button {
+  flex: 0 0 auto;
+}
+
 .search-input {
-  flex: 1;
+  flex: 1 1 240px;
+  min-width: 200px;
   padding: 12px 16px;
   font-size: 14px;
   border: 1px solid #d0d4da;
@@ -5109,15 +5117,18 @@ button {
 
 /* Bouton export liste prix commerciale */
 .btn-export-liste {
-  padding: 8px 16px;
+  padding: 12px 22px;
   background: #28a745;
   color: white;
   border: none;
-  border-radius: 4px;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
   transition: all 0.2s;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
 }

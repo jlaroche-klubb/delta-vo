@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { Machine, getStatutPaiement } from "../types/machine";
 import { useMachines } from "../contexts/MachinesContext";
 import { exportStatsToExcel } from "../utils/exportStats";
+import { useTranslation } from "react-i18next";
 
 type PeriodeType = "mois" | "mois_dernier" | "trimestre" | "annee" | "annee_derniere" | "perso";
 
@@ -12,6 +13,7 @@ const MOIS_LABELS = [
 
 export default function StatsPage() {
   const { machines: allMachines } = useMachines();
+  const { t } = useTranslation();
   const [periode, setPeriode] = useState<PeriodeType>("annee");
   const [persoDe, setPersoDe] = useState("");
   const [persoA, setPersoA] = useState("");
@@ -187,89 +189,89 @@ export default function StatsPage() {
     <div className="stats-page-wrap">
       <div className="page-header">
         <div>
-          <h1>📊 Statistiques de vente</h1>
-          <p className="subtitle">Pilotage commercial · {periodeLabel}</p>
+          <h1>📊 {t("stats.title")}</h1>
+          <p className="subtitle">{t("stats.subtitle")} · {periodeLabel}</p>
         </div>
         <div>
           <button className="btn-pricing" onClick={handleExport} disabled={stats.total === 0}>
-            📥 Export Excel
+            📥 {t("stats.exportExcel")}
             {stats.total > 0 && <span className="pricing-count">{stats.total}</span>}
           </button>
         </div>
       </div>
 
       <div className="periode-selector">
-        <button className={`periode-btn ${periode === "mois" ? "active" : ""}`} onClick={() => setPeriode("mois")}>Mois en cours</button>
-        <button className={`periode-btn ${periode === "mois_dernier" ? "active" : ""}`} onClick={() => setPeriode("mois_dernier")}>Mois dernier</button>
-        <button className={`periode-btn ${periode === "trimestre" ? "active" : ""}`} onClick={() => setPeriode("trimestre")}>Trimestre</button>
-        <button className={`periode-btn ${periode === "annee" ? "active" : ""}`} onClick={() => setPeriode("annee")}>Année en cours</button>
-        <button className={`periode-btn ${periode === "annee_derniere" ? "active" : ""}`} onClick={() => setPeriode("annee_derniere")}>Année dernière</button>
-        <button className={`periode-btn ${periode === "perso" ? "active" : ""}`} onClick={() => setPeriode("perso")}>Personnalisée</button>
+        <button className={`periode-btn ${periode === "mois" ? "active" : ""}`} onClick={() => setPeriode("mois")}>{t("stats.periodThisMonth")}</button>
+        <button className={`periode-btn ${periode === "mois_dernier" ? "active" : ""}`} onClick={() => setPeriode("mois_dernier")}>{t("stats.periodLastMonth")}</button>
+        <button className={`periode-btn ${periode === "trimestre" ? "active" : ""}`} onClick={() => setPeriode("trimestre")}>{t("stats.periodQuarter")}</button>
+        <button className={`periode-btn ${periode === "annee" ? "active" : ""}`} onClick={() => setPeriode("annee")}>{t("stats.periodThisYear")}</button>
+        <button className={`periode-btn ${periode === "annee_derniere" ? "active" : ""}`} onClick={() => setPeriode("annee_derniere")}>{t("stats.periodLastYear")}</button>
+        <button className={`periode-btn ${periode === "perso" ? "active" : ""}`} onClick={() => setPeriode("perso")}>{t("stats.periodCustom")}</button>
       </div>
 
       {periode === "perso" && (
         <div className="perso-dates">
           <div className="perso-field">
-            <label>Du</label>
+            <label>{t("stats.from")}</label>
             <input type="date" value={persoDe} onChange={(e) => setPersoDe(e.target.value)} />
           </div>
           <div className="perso-field">
-            <label>Au</label>
+            <label>{t("stats.to")}</label>
             <input type="date" value={persoA} onChange={(e) => setPersoA(e.target.value)} />
           </div>
         </div>
       )}
 
       {stats.total === 0 ? (
-        <div className="empty-state">Aucune vente sur la période sélectionnée</div>
+        <div className="empty-state">{t("stats.empty")}</div>
       ) : (
         <>
           <div className="stats-cards">
             <div className="stat-card stat-card-primary">
-              <div className="stat-card-label">Chiffre d'affaires</div>
+              <div className="stat-card-label">{t("stats.revenue")}</div>
               <div className="stat-card-value">
                 {(stats.ca / 1000).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} k€
               </div>
-              <div className="stat-card-sub">{stats.total} machines vendues</div>
+              <div className="stat-card-sub">{stats.total} {t("stats.machinesSold")}</div>
             </div>
             <div className="stat-card">
-              <div className="stat-card-label">Prix moyen</div>
+              <div className="stat-card-label">{t("stats.avgPrice")}</div>
               <div className="stat-card-value">{stats.prixMoyen.toLocaleString("fr-FR")} €</div>
-              <div className="stat-card-sub">par machine</div>
+              <div className="stat-card-sub">{t("stats.perMachine")}</div>
             </div>
             <div className="stat-card stat-card-ok">
-              <div className="stat-card-label">Taux de paiement</div>
+              <div className="stat-card-label">{t("stats.paymentRate")}</div>
               <div className="stat-card-value">{stats.tauxPaiement}%</div>
-              <div className="stat-card-sub">factures réglées</div>
+              <div className="stat-card-sub">{t("stats.invoicesSettled")}</div>
             </div>
             {stats.impayes > 0 && (
               <div className="stat-card stat-card-warn">
-                <div className="stat-card-label">Impayés en retard</div>
+                <div className="stat-card-label">{t("stats.overdueUnpaid")}</div>
                 <div className="stat-card-value">
                   {(stats.impayes / 1000).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} k€
                 </div>
-                <div className="stat-card-sub">à relancer</div>
+                <div className="stat-card-sub">{t("stats.toFollowUp")}</div>
               </div>
             )}
             {stats.delaiMoyen > 0 && (
               <div className="stat-card">
-                <div className="stat-card-label">Délai paiement moyen</div>
-                <div className="stat-card-value">{stats.delaiMoyen} j</div>
-                <div className="stat-card-sub">vente → règlement</div>
+                <div className="stat-card-label">{t("stats.avgPaymentDelay")}</div>
+                <div className="stat-card-value">{stats.delaiMoyen} {t("card.daysShort")}</div>
+                <div className="stat-card-sub">{t("stats.saleToSettlement")}</div>
               </div>
             )}
             {totalLld > 0 && (
               <div className="stat-card stat-card-lld">
-                <div className="stat-card-label">🔁 Machines en LLD</div>
+                <div className="stat-card-label">🔁 {t("stats.lldMachines")}</div>
                 <div className="stat-card-value">{totalLld}</div>
-                <div className="stat-card-sub">en location longue durée</div>
+                <div className="stat-card-sub">{t("stats.lldSub")}</div>
               </div>
             )}
           </div>
 
           {topCommerciaux.length > 0 && (
             <section className="stats-section">
-              <h2>🏆 Top 3 commerciaux</h2>
+              <h2>🏆 {t("stats.top3")}</h2>
               <div className="podium">
                 {topCommerciaux[1] && <PodiumCard rank={2} data={topCommerciaux[1]} />}
                 {topCommerciaux[0] && <PodiumCard rank={1} data={topCommerciaux[0]} />}
@@ -280,7 +282,7 @@ export default function StatsPage() {
 
           {evolutionMensuelle.data.length > 0 && (
             <section className="stats-section">
-              <h2>📈 Évolution mensuelle</h2>
+              <h2>📈 {t("stats.monthlyEvolution")}</h2>
               <div className="evolution-chart">
                 {evolutionMensuelle.data.map(({ mois, ca }) => {
                   const pct = (ca / evolutionMensuelle.maxCA) * 100;
@@ -300,16 +302,16 @@ export default function StatsPage() {
 
           {tableauCroise.commerciaux.length > 0 && tableauCroise.moisDispo.length > 0 && (
             <section className="stats-section">
-              <h2>📋 Tableau croisé · Commercial × Mois</h2>
+              <h2>📋 {t("stats.crossTable")}</h2>
               <div className="croise-wrap">
                 <table className="croise-table">
                   <thead>
                     <tr>
-                      <th className="croise-th-com">Commercial</th>
+                      <th className="croise-th-com">{t("stats.salesperson")}</th>
                       {tableauCroise.moisDispo.map((mois) => (
                         <th key={mois}>{formatMois(mois)}</th>
                       ))}
-                      <th className="croise-th-total">Total</th>
+                      <th className="croise-th-total">{t("stats.total")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -321,7 +323,7 @@ export default function StatsPage() {
                             {c.nb > 0 ? (
                               <>
                                 <div className="croise-ca">{(c.ca / 1000).toFixed(1)}k€</div>
-                                <div className="croise-nb">{c.nb} vente{c.nb > 1 ? "s" : ""}</div>
+                                <div className="croise-nb">{c.nb} {t("stats.sales")}</div>
                               </>
                             ) : (
                               <span className="croise-empty">—</span>
@@ -330,14 +332,14 @@ export default function StatsPage() {
                         ))}
                         <td className="croise-td-total">
                           <div className="croise-ca">{(ligne.totalCA / 1000).toFixed(1)}k€</div>
-                          <div className="croise-nb">{ligne.totalNb} vente{ligne.totalNb > 1 ? "s" : ""}</div>
+                          <div className="croise-nb">{ligne.totalNb} {t("stats.sales")}</div>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                   <tfoot>
                     <tr>
-                      <td className="croise-td-com">Total</td>
+                      <td className="croise-td-com">{t("stats.total")}</td>
                       {tableauCroise.totauxCol.map((c, idx) => (
                         <td key={idx} className="croise-td-total">
                           <div className="croise-ca">{(c.ca / 1000).toFixed(1)}k€</div>
@@ -361,6 +363,7 @@ export default function StatsPage() {
 }
 
 function PodiumCard({ rank, data }: { rank: number; data: { nom: string; ca: number; nb: number } }) {
+  const { t } = useTranslation();
   const medals = ["🥇", "🥈", "🥉"];
   const heights = ["podium-1", "podium-2", "podium-3"];
 
@@ -372,7 +375,7 @@ function PodiumCard({ rank, data }: { rank: number; data: { nom: string; ca: num
       <div className="podium-ca">
         {(data.ca / 1000).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} k€
       </div>
-      <div className="podium-nb">{data.nb} vente{data.nb > 1 ? "s" : ""}</div>
+      <div className="podium-nb">{data.nb} {t("stats.sales")}</div>
     </div>
   );
 }

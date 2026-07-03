@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, doc, updateDoc, setDoc, onSnapshot, getDoc } from 'firebase/firestore';
+import { notifyExpertiseArrivee } from '../services/emailService';
 import { db, dbNacelleExpert } from '../firebase';
 
 interface NacelleExpertDossier {
@@ -237,11 +238,25 @@ export function useNacelleExpertSync() {
             
             await updateDoc(machineVORef, smartUpdate);
             console.log(`✅ Machine ${dossier.immat} mise à jour (relocation détectée)`);
+            notifyExpertiseArrivee({
+              immat: immatId,
+              modele: dossier.info?.modele,
+              type_nacelle: dossier.info?.type_nacelle,
+              date: dateRecup,
+              type: 'retour',
+            });
           } else {
             // 🆕 Nouvelle nacelle : création normale
             console.log(`💾 Création nouvelle fiche pour ${dossier.immat}`);
             await setDoc(machineVORef, machineVOData);
             console.log(`✅ Fiche créée avec succès`);
+            notifyExpertiseArrivee({
+              immat: immatId,
+              modele: dossier.info?.modele,
+              type_nacelle: dossier.info?.type_nacelle,
+              date: dateRecup,
+              type: 'nouvelle',
+            });
           }
 
           // Marquer comme synchronisé dans Nacelle-Expert

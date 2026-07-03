@@ -1,4 +1,5 @@
 import { useState } from "react";
+import MachineThumb from "./MachineThumb";
 import { Machine } from "../types/machine";
 import ExpertiseModal from "./ExpertiseModal";
 import ConfirmDeleteModal from "./ConfirmDeleteModal";
@@ -117,6 +118,8 @@ export default function MachineCard({
 
         {/* En-tête */}
         <div className="machine-header">
+          <div className="machine-thumb-row">
+          <MachineThumb machine={machine} size={56} />
           <div className="machine-id">
             <span className="immat">
               {machine.immat}
@@ -132,6 +135,7 @@ export default function MachineCard({
                 <span className="annee"> · {machine.annee_circulation}</span>
               )}
             </span>
+          </div>
           </div>
           <div className="machine-meta">
             <MetaItem label={t("mcard.metaClient")} value={machine.client_precedent} />

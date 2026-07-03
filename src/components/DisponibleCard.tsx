@@ -1,3 +1,4 @@
+import MachineThumb from "./MachineThumb";
 import { Machine, calculAgeStock, getAgeStockColor, isFicheComplete } from "../types/machine";
 import { useTranslation } from "react-i18next";
 
@@ -131,6 +132,8 @@ export default function DisponibleCard({
         </div>
       )}
       <div className="dispo-header">
+        <div className="machine-thumb-row">
+          <MachineThumb machine={machine} size={56} />
         <div>
           <div className="dispo-immat">
             {machine.type_nacelle || machine.immat}
@@ -150,6 +153,7 @@ export default function DisponibleCard({
               .filter((x) => x && String(x).trim())
               .join(" · ")}
           </div>
+        </div>
         </div>
         <div className="dispo-header-right">
           <div

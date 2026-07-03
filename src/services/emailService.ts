@@ -11,6 +11,72 @@ const EMAILJS_CONFIG = {
 
 console.log('📧 [emailService] Module chargé');
 
+// ✅ Adresses fixes pour les "Alertes de retour" (expertise arrivée dans Delta VO)
+const EXPERTISE_ALERT_RECIPIENTS = [
+  'nneguy@klubb.com',
+  'gcloarec@delta-services.fr',
+  'bbenavente@delta-services.fr',
+  'anebotsaudin@delta-services.fr',
+  'rbourdin@delta-services.fr',
+  'jbessadet@delta-services.fr',
+];
+
+// ⚠️ À CRÉER dans EmailJS : un template dédié aux alertes de retour d'expertise.
+// Variables attendues par le template : to_email, immat, modele, type_nacelle,
+// date_expertise, type_arrivee, lien_app. Mettre {{to_email}} dans le champ "To".
+const TEMPLATE_EXPERTISE_ID = 'TEMPLATE_ID_A_CREER';
+
+// Lien vers l'app inclus dans l'email (adapter au domaine de prod si besoin)
+const APP_URL = 'https://delta-vo-git-main-klubb.vercel.app/';
+
+/**
+ * Envoie une alerte email aux destinataires fixes quand une expertise
+ * arrive dans Delta VO (nouvelle nacelle ou retour pour nouvelle expertise).
+ * Silencieux en cas d'erreur : ne doit jamais interrompre la synchronisation.
+ */
+export async function notifyExpertiseArrivee(info: {
+  immat: string;
+  modele?: string;
+  type_nacelle?: string;
+  date?: string;
+  type: 'nouvelle' | 'retour';
+}): Promise<void> {
+  console.log('📧 [emailService] notifyExpertiseArrivee:', info);
+  try {
+    emailjs.init(EMAILJS_CONFIG.PUBLIC_KEY);
+
+    const dateFormatted = new Date().toLocaleString('fr-FR', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    });
+    const typeLabel = info.type === 'retour'
+      ? 'Retour (nouvelle expertise)'
+      : 'Nouvelle nacelle';
+
+    const sendPromises = EXPERTISE_ALERT_RECIPIENTS.map(email => {
+      const templateParams = {
+        to_email: email,
+        immat: info.immat,
+        modele: info.modele || '',
+        type_nacelle: info.type_nacelle || '',
+        date_expertise: info.date || dateFormatted,
+        type_arrivee: typeLabel,
+        lien_app: APP_URL,
+      };
+      return emailjs
+        .send(EMAILJS_CONFIG.SERVICE_ID, TEMPLATE_EXPERTISE_ID, templateParams)
+        .then(r => { console.log(`✅ alerte expertise -> ${email}`, r.status); return r; })
+        .catch(err => { console.error(`❌ alerte expertise -> ${email}:`, err); return null; });
+    });
+
+    await Promise.all(sendPromises);
+    console.log('✅ [emailService] alertes expertise traitées');
+  } catch (err) {
+    console.error('❌ [emailService] notifyExpertiseArrivee:', err);
+  }
+}
+
+
 /**
  * Récupère tous les emails des admins depuis Firebase
  */

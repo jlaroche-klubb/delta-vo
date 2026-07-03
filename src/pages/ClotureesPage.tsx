@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import MachineThumb from "../components/MachineThumb";
 import {
   Machine,
   getStatutPaiement,
@@ -454,6 +455,7 @@ function ClotureeRow({
   return (
     <tr className={`row-${statut} ${machine.archived ? "row-archived" : ""}`}>
       <td className="cell-immat">
+        <MachineThumb machine={machine} size={30} />{" "}
         {machine.immat}
         {machine.archived && (
           <span style={{ marginLeft: 8, fontSize: 11, color: "#999" }}>🗑️ {t("clot.rowArchived")}</span>

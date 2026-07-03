@@ -1,4 +1,5 @@
 import { useState } from "react";
+import MachineThumb from "./MachineThumb";
 import {
   Machine,
   EtapePrepa,
@@ -72,12 +73,15 @@ export default function EnCoursCard({
       className={`encours-card ${pretAFacturer ? "ready" : ""} ${enRetard ? "late" : ""} ${!isConfigured ? "unconfigured" : ""} ${isLld ? "is-lld" : ""}`}
     >
       <div className="encours-header">
+        <div className="machine-thumb-row">
+          <MachineThumb machine={machine} size={56} />
         <div>
           <div className="encours-immat">{machine.immat}</div>
           <div className="encours-modele">
             {machine.type_nacelle} · {machine.modele_porteur}
             <span className="encours-annee"> · {machine.annee_circulation}</span>
           </div>
+        </div>
         </div>
         <div className="encours-badges">
           {isLld && <span className="badge-lld">🔁 LLD</span>}

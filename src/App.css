@@ -5184,3 +5184,8 @@ button {
   color: rgba(26, 42, 110, 0.6);
   letter-spacing: 0.5px;
 }
+
+/* Vignette photo machine (listes) */
+.machine-thumb-row { display: flex; gap: 12px; align-items: flex-start; min-width: 0; }
+.machine-thumb-row > *:not(:first-child) { min-width: 0; }
+.cell-immat .machine-thumb-row { display: inline-flex; }

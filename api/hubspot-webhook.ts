@@ -111,12 +111,27 @@ async function archiverProduit(immatUpper: string, token: string) {
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         filterGroups: [{ filters: [{ propertyName: "hs_sku", operator: "EQ", value: immatUpper }] }],
-        properties: ["hs_sku"],
+        properties: ["hs_sku", "name", "delta_vo_managed"],
         limit: 1,
       }),
     });
     const sj = await search.json().catch(() => null);
-    const pid = sj?.results?.[0]?.id;
+    const prod = sj?.results?.[0];
+    const pid = prod?.id;
+
+    // 🔒 GARDE-FOU : ne JAMAIS supprimer un produit qui n'appartient pas à Delta VO.
+    // Un produit est "à nous" si :
+    //   - il porte la propriété delta_vo_managed = "true" (produits créés après ce fix), OU
+    //   - son nom suit notre convention "IMMAT" ou "IMMAT — modèle" (produits Delta VO historiques).
+    // Les produits CPL (configurateur, intégrations) ne matchent ni l'un ni l'autre.
+    const isManaged = prod?.properties?.delta_vo_managed === "true";
+    const pname = String(prod?.properties?.name || "");
+    const isLegacyDelta = pname === immatUpper || pname.startsWith(`${immatUpper} —`);
+    if (pid && !isManaged && !isLegacyDelta) {
+      console.warn(`🚫 Produit ${immatUpper} (id ${pid}) NON géré par Delta VO -> suppression refusée`);
+      return;
+    }
+
     if (pid) {
       await fetch(`${HUBSPOT_API_BASE}/crm/v3/objects/products/${pid}`, {
         method: "DELETE",
@@ -237,8 +252,15 @@ export default async function handler(req: any, res: any) {
           console.log(`✅ Résultat pour ${immat}:`, JSON.stringify(result));
           results.push({ dealId: objectId, ...result });
 
-          // Machine vendue -> archiver le produit HubSpot correspondant
-          await archiverProduit(immat, token);
+          // Machine vendue -> archiver le produit HubSpot correspondant.
+          // 🔒 UNIQUEMENT si l'immat correspond à une machine réelle dans machines_vo :
+          // le webhook reçoit les deals de TOUT le portail (y c. CPL), et leurs SKU
+          // de line items ne doivent JAMAIS déclencher une suppression de produit.
+          if (result.found) {
+            await archiverProduit(immat, token);
+          } else {
+            console.log(`⏭️ ${immat} : aucune machine Delta VO -> pas d'archivage produit`);
+          }
         } catch (e: any) {
           console.error(`❌ Échec bascule ${immat}:`, e?.message || e);
           results.push({ dealId: objectId, immat, error: "bascule_failed", detail: String(e?.message || e) });

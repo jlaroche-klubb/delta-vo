@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useMemo } from "react";
 import { collection, onSnapshot, doc, updateDoc, setDoc, Timestamp } from "firebase/firestore";
-import { db } from "../firebase";
+import { db, dbNacelleExpert } from "../firebase";
 import {
   Machine,
   creerEtapesPrepa,
@@ -131,6 +131,29 @@ function fusionnerMocks(): Machine[] {
 export function MachinesProvider({ children }: { children: ReactNode }) {
   const [mockMachines, setMockMachines] = useState<Machine[]>(() => fusionnerMocks());
   const [firebaseMachines, setFirebaseMachines] = useState<Machine[]>([]);
+  // ✅ Photos de ventes "libres" prises dans Nacelle-Expert SANS dossier d'expertise
+  // (collection photos_ventes/{IMMAT} du Firestore nacelle-expert, clés vente_*)
+  const [ventesLibres, setVentesLibres] = useState<Record<string, any>>({});
+
+  // ✅ ÉCOUTER LES PHOTOS DE VENTES LIBRES (Nacelle-Expert, temps réel)
+  useEffect(() => {
+    const unsub = onSnapshot(
+      collection(dbNacelleExpert, 'photos_ventes'),
+      (snapshot) => {
+        const map: Record<string, any> = {};
+        snapshot.docs.forEach(d => {
+          const data = d.data();
+          if (data?.photos) map[d.id.toUpperCase()] = data.photos;
+        });
+        setVentesLibres(map);
+        console.log(`📷 photos_ventes (Nacelle-Expert) : ${Object.keys(map).length} immat(s)`);
+      },
+      (error) => {
+        console.error('❌ Écoute photos_ventes (Nacelle-Expert) impossible:', error);
+      }
+    );
+    return () => unsub();
+  }, []);
 
   // ✅ ÉCOUTER LA COLLECTION machines_vo EN TEMPS RÉEL
   useEffect(() => {
@@ -326,20 +349,38 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // ✅ FUSIONNER MOCK + Firebase
+  // ✅ FUSIONNER MOCK + Firebase + photos de ventes libres (Nacelle-Expert)
   const machines = useMemo(() => {
     const allMachines = [...mockMachines, ...firebaseMachines];
     const map = new Map<string, Machine>();
-    
+
     allMachines.forEach((m) => {
       const key = m.immat.toUpperCase();
       if (!map.has(key) || m.expertise_recue) {
         map.set(key, m);
       }
     });
-    
+
+    // ✅ Superposer les photos de ventes prises SANS dossier d'expertise
+    // (Nacelle-Expert, collection photos_ventes). Slot par slot : la photo
+    // libre gagne si présente, sinon on garde celle du dossier d'expertise.
+    const toUrl = (v: any): string | undefined =>
+      !v ? undefined : (typeof v === 'string' ? v : (v.url || undefined));
+    map.forEach((m, key) => {
+      const vp = ventesLibres[key];
+      if (!vp) return;
+      const overlay: Record<string, string> = {};
+      const oU = toUrl(vp.vente_3_4_av_droit);   if (oU) overlay.trois_quart_av_droit = oU;
+      const oG = toUrl(vp.vente_3_4_ar_gauche);  if (oG) overlay.trois_quart_ar_gauche = oG;
+      const hA = toUrl(vp.vente_habitacle_av);   if (hA) overlay.habitacle_av = hA;
+      const hR = toUrl(vp.vente_habitacle_ar);   if (hR) overlay.habitacle_ar = hR;
+      if (Object.keys(overlay).length) {
+        map.set(key, { ...m, photos_ventes: { ...(m.photos_ventes || {}), ...overlay } });
+      }
+    });
+
     return Array.from(map.values());
-  }, [mockMachines, firebaseMachines]);
+  }, [mockMachines, firebaseMachines, ventesLibres]);
 
   // Helper : vérifie si une machine vient de Firebase
   function isFirebaseMachine(machineId: string): boolean {

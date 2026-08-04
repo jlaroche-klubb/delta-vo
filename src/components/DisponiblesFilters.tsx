@@ -1,4 +1,6 @@
 import { Machine, calculAgeStock } from "../types/machine";
+import { useTranslation } from "react-i18next";
+import { normalizeLocalite } from "../utils/localites";
 
 export type PriceType = "fr" | "dealer" | "both";
 export type StatutPrix = "tous" | "avec_prix" | "sans_prix" | "a_repricer";
@@ -9,6 +11,7 @@ export interface DispoFilterState {
   prixMin: string;
   prixMax: string;
   statutPrix: StatutPrix;
+  localite: string;
   kmMin: string;
   kmMax: string;
   anneeMin: string;
@@ -23,6 +26,7 @@ export const EMPTY_DISPO_FILTERS: DispoFilterState = {
   prixMin: "",
   prixMax: "",
   statutPrix: "tous",
+  localite: "",
   kmMin: "",
   kmMax: "",
   anneeMin: "",
@@ -50,9 +54,16 @@ export default function DisponiblesFilters({
   onToggle,
   seuilRepricer,
 }: DisponiblesFiltersProps) {
+  const { t } = useTranslation();
+
   // Types dynamiques : uniquement ceux présents dans le stock
   const typesDispo = Array.from(
     new Set(machines.map((m) => m.type_nacelle).filter(Boolean))
+  ).sort();
+
+  // Localisations dynamiques (normalisées)
+  const localites = Array.from(
+    new Set(machines.map((m) => normalizeLocalite(m.localite)).filter(Boolean))
   ).sort();
 
   // Min/max dynamiques pour les prix (selon le type de prix sélectionné)
@@ -176,6 +187,27 @@ export default function DisponiblesFilters({
                 <option value="avec_prix">✓ Avec prix</option>
                 <option value="sans_prix">⏳ Sans prix</option>
                 <option value="a_repricer">⚠ À repricer (&gt; {seuilRepricer}j)</option>
+              </select>
+            </div>
+
+            {/* 📍 Localisation (lieu de restitution Nacelle Expert / site) */}
+            <div className="filter-field">
+              <label>📍 {t("filters.site")}</label>
+              <select
+                value={filters.localite}
+                onChange={(e) => onChange({ ...filters, localite: e.target.value })}
+              >
+                <option value="">{t("filters.allSites")}</option>
+                {localites.map((l) => {
+                  const count = machines.filter(
+                    (m) => normalizeLocalite(m.localite) === l
+                  ).length;
+                  return (
+                    <option key={l} value={l}>
+                      {l} ({count})
+                    </option>
+                  );
+                })}
               </select>
             </div>
 
@@ -367,6 +399,7 @@ function countActiveFilters(f: DispoFilterState, lockedPriceType: boolean): numb
   if (f.prixMin) n++;
   if (f.prixMax) n++;
   if (f.statutPrix !== "tous") n++;
+  if (f.localite) n++;
   if (f.kmMin) n++;
   if (f.kmMax) n++;
   if (f.anneeMin) n++;
@@ -412,6 +445,9 @@ export function applyDispoFilters(
     if (f.statutPrix === "avec_prix" && !hasPrice) return false;
     if (f.statutPrix === "sans_prix" && hasPrice) return false;
     if (f.statutPrix === "a_repricer" && (!hasPrice || age <= seuilRepricer)) return false;
+
+    // 📍 Localisation (normalisée pour regrouper les variantes d'orthographe)
+    if (f.localite && normalizeLocalite(m.localite) !== f.localite) return false;
 
     // Fourchette prix
     if (prixMinNum !== null || prixMaxNum !== null) {

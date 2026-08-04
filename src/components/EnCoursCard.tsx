@@ -174,6 +174,12 @@ export default function EnCoursCard({
               <span className="sale-label">{labelAcheteur}</span>
               <span className="sale-value">{valAcheteur || "—"}</span>
             </div>
+            {machine.localite && (
+              <div className="sale-info">
+                <span className="sale-label">📍 {t("encard.site")}</span>
+                <span className="sale-value">{machine.localite}</span>
+              </div>
+            )}
             {!isLld && (
               <div className="sale-info">
                 <span className="sale-label">{t("encard.salesperson")}</span>

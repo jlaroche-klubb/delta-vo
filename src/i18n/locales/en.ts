@@ -193,6 +193,7 @@ const en: TranslationSchema = {
     metaClient: "Client",
     metaReturn: "Return",
     metaContract: "Contract",
+    metaSite: "Site",
     editInfosTitle: "Edit info (client, contract, email...)",
     deleteTitle: "Delete permanently",
     archiveTitle: "Archive this machine",
@@ -209,6 +210,8 @@ const en: TranslationSchema = {
   },
   filters: {
     title: "Filters",
+    site: "Location",
+    allSites: "All sites",
     blockedAtStep: "Blocked at step",
     allSteps: "All steps",
     stepDemande: "⏳ Pickup request",
@@ -346,6 +349,7 @@ const en: TranslationSchema = {
   },
   encard: {
     buyer: "Buyer",
+    site: "Site",
     lldClient: "LLD client",
     deliveryExpected: "Expected delivery",
     availExpected: "Expected availability",

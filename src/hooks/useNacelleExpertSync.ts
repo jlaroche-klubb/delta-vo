@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, doc, updateDoc, setDoc, onSnapshot, getDoc } from 'firebase/firestore';
 import { notifyExpertiseArrivee } from '../services/emailService';
 import { db, dbNacelleExpert } from '../firebase';
+import { normalizeLocalite } from '../utils/localites';
 
 interface NacelleExpertDossier {
   immat: string;
@@ -35,6 +36,7 @@ interface NacelleExpertDossier {
     heures?: string;
     km_porteur?: string;
     agent?: string;
+    lieu_restitution?: string;
     commercialPhotos?: string[];
     rapport_url?: string;
     pdf_url?: string;
@@ -164,6 +166,10 @@ export function useNacelleExpertSync() {
             date_demande_recuperation: dateRecup,
             heures: dossier.retour?.heures || dossier.depart?.heures || '',
             km_porteur: dossier.retour?.km_porteur || dossier.depart?.km_porteur || '',
+
+            // 📍 Localisation = lieu de restitution saisi par l'expert
+            // (normalisée : « Ferrière »/« Ferrières », « St-Alban »/« St Alban »...)
+            localite: normalizeLocalite(dossier.retour?.lieu_restitution) || '',
             
             // Données du dossier nacelle-expert
             dossier_nacelle_expert: {
@@ -215,6 +221,10 @@ export function useNacelleExpertSync() {
               heures: machineVOData.heures,
               km_porteur: machineVOData.km_porteur,
               dossier_nacelle_expert: machineVOData.dossier_nacelle_expert,
+
+              // 📍 Nouveau lieu de restitution (relocation) — uniquement si renseigné,
+              // sinon on conserve la localisation existante (posée à la main)
+              ...(machineVOData.localite ? { localite: machineVOData.localite } : {}),
 
               // ✅ Nouvelle date de récupération pour ce cycle de relocation
               date_demande_recuperation: dateRecup,

@@ -147,6 +147,9 @@ export default function MachineCard({
             <MetaItem label={t("mcard.metaClient")} value={machine.client_precedent} />
             <MetaItem label={t("mcard.metaReturn")} value={formatDate(machine.date_retour)} />
             <MetaItem label={t("mcard.metaContract")} value={machine.contrat} />
+            {machine.localite && (
+              <MetaItem label={`📍 ${t("mcard.metaSite")}`} value={machine.localite} />
+            )}
             {canEditInfos && !machine.archived && (
               <button
                 className="btn-edit-infos"

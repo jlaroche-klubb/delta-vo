@@ -1,5 +1,6 @@
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { dbNacelleExpert } from "../firebase";
+import { normalizeImmat } from "../utils/immat";
 
 /**
  * Synchro inverse Delta VO → Nacelle Expert (infos administratives uniquement).
@@ -31,7 +32,9 @@ export interface InfosAdminNacelleExpert {
 export async function pushInfosAdminToNacelleExpert(
   infos: InfosAdminNacelleExpert
 ): Promise<boolean> {
-  const immat = (infos.immat || "").trim().toUpperCase();
+  // ⚠️ Même normalisation que Nacelle Expert (format SIV AB-123-CD) :
+  // garantit de retomber sur le MÊME dossier, jamais un doublon.
+  const immat = normalizeImmat((infos.immat || "").trim());
   if (!immat) return false;
 
   // Ne pousser que les champs réellement renseignés (pas d'écrasement par du vide)

@@ -12,6 +12,7 @@ import {
   canDeleteMachine,
   canExportRestitutions
 } from "../utils/permissions";
+import { normalizeImmat } from "../utils/immat";
 
 interface NewMachineForm {
   immat: string;
@@ -144,7 +145,7 @@ export default function RestitutionsPage() {
     }
     const newMachine: Machine = {
       id: "M" + Date.now().toString().slice(-6),
-      immat: form.immat.toUpperCase(),
+      immat: normalizeImmat(form.immat),
       modele_porteur: form.modele_porteur,
       type_nacelle: form.type_nacelle,
       annee_circulation: form.annee_circulation,
@@ -279,7 +280,7 @@ export default function RestitutionsPage() {
                   type="text"
                   placeholder="FR-123-AB"
                   value={form.immat}
-                  onChange={(e) => setForm({ ...form, immat: e.target.value.toUpperCase() })}
+                  onChange={(e) => setForm({ ...form, immat: normalizeImmat(e.target.value) })}
                 />
               </div>
               <div className="form-field">

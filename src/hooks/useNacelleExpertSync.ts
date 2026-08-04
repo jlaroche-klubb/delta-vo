@@ -121,6 +121,15 @@ export function useNacelleExpertSync() {
         try {
           console.log(`\n📦 Traitement du dossier: ${dossier.immat}`);
           
+          // 🛡️ GARDE-FOU ANTI-BOUCLE : les dossiers pré-créés par Delta VO
+          // (synchro inverse des infos ADV) n'ont NI départ NI retour.
+          // Ils ne doivent jamais être ré-importés ici tant qu'aucune
+          // expertise n'a été faite dans Nacelle-Expert.
+          if (!dossier.depart && !dossier.retour) {
+            console.log(`⏭️ Dossier ${dossier.immat} sans expertise (pré-créé ADV), ignoré`);
+            continue;
+          }
+
           if (!dossier.info?.immat) {
             console.warn(`⚠️ Dossier sans immatriculation, ignoré`);
             continue;
@@ -179,6 +188,7 @@ export function useNacelleExpertSync() {
             statut: 'restitution',
             recuperation_ok: true,   // ✅ Déjà récupérée (expertise faite)
             expertise_ok: true,       // ✅ Expertise faite dans Nacelle-Expert
+            expertise_recue: true,    // ✅ Marqueur "expertise reçue" (fiches pré-créées ADV : passe de false à true)
             facture_ok: false,        // ⏳ Reste à faire
             facture_reglee_ok: false, // ⏳ Reste à faire
             fiche_vo_creee: false,    // ⏳ À créer manuellement
@@ -214,6 +224,7 @@ export function useNacelleExpertSync() {
               statut: 'restitution',
               recuperation_ok: true,
               expertise_ok: true,
+              expertise_recue: true,    // ✅ L'expertise vient d'arriver (fiches pré-créées ADV incluses)
               facture_ok: false,        // ⏳ Nouvelle facture expertise à faire
               facture_reglee_ok: false, // ⏳ Nouveau règlement à recevoir
               fiche_vo_creee: false,    // ⏳ Refaire la fiche VO si besoin

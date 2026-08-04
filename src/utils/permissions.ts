@@ -53,6 +53,16 @@ export function canExportRestitutions(role: UserRole): boolean {
   return ["admin", "secretaire"].includes(role);
 }
 
+/**
+ * Modifier les infos ADMINISTRATIVES d'une fiche machine
+ * (client, n° contrat, email, modèle...) — y compris sur les fiches
+ * arrivées par la synchro d'expertise Nacelle-Expert.
+ * Les photos et le contenu d'expertise ne sont jamais modifiables.
+ */
+export function canEditInfosAdmin(role: UserRole): boolean {
+  return ["admin", "secretaire"].includes(role);
+}
+
 // ==================== DISPONIBLES ====================
 
 export function canViewAllMachines(role: UserRole): boolean {

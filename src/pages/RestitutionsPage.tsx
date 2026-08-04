@@ -20,6 +20,7 @@ interface NewMachineForm {
   annee_circulation: string;
   client_precedent: string;
   contrat: string;
+  email_client: string;
   date_retour: string;
 }
 
@@ -30,6 +31,7 @@ const EMPTY_FORM: NewMachineForm = {
   annee_circulation: "",
   client_precedent: "",
   contrat: "",
+  email_client: "",
   date_retour: new Date().toISOString().slice(0, 10),
 };
 
@@ -43,6 +45,7 @@ export default function RestitutionsPage() {
     toggleEtapeRestitution,
     setDateDemandeRecup,
     createMachineRestitution,
+    pushRestitutionsToNacelleExpert,
     deleteMachine,
   } = useMachinesFiltered(showArchived);
 
@@ -59,6 +62,23 @@ export default function RestitutionsPage() {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<NewMachineForm>(EMPTY_FORM);
+  const [pushingNE, setPushingNE] = useState(false);
+
+  // 🔄 Rattrapage : pousser les infos admin de toutes les restitutions vers Nacelle Expert
+  async function handlePushToNacelleExpert() {
+    if (pushingNE) return;
+    if (!window.confirm(t("resti.pushNEConfirm"))) return;
+    setPushingNE(true);
+    try {
+      const { pushed, total } = await pushRestitutionsToNacelleExpert();
+      alert(t("resti.pushNEDone", { pushed, total }));
+    } catch (e) {
+      console.error("Rattrapage Nacelle Expert:", e);
+      alert(t("resti.pushNEError"));
+    } finally {
+      setPushingNE(false);
+    }
+  }
 
   // === Filtrage par statut restitution puis search + filtres avancés ===
   // ⚠️ Les machines issues de l'import du stock VOG (import_vog) sont du STOCK :
@@ -130,6 +150,7 @@ export default function RestitutionsPage() {
       annee_circulation: form.annee_circulation,
       client_precedent: form.client_precedent,
       contrat: form.contrat,
+      email_client: form.email_client,
       date_retour: form.date_retour,
       statut: "restitution",
       recuperation_ok: false,
@@ -204,6 +225,16 @@ export default function RestitutionsPage() {
         {canCreateRestitution(userRole) && (
           <button className="btn-primary" onClick={() => setShowForm(true)}>
             + {t("resti.createReturn")}
+          </button>
+        )}
+        {isAdmin && (
+          <button
+            className="btn-export"
+            onClick={handlePushToNacelleExpert}
+            disabled={pushingNE}
+            title={t("resti.pushNETitle")}
+          >
+            {pushingNE ? "⏳" : "📤"} {t("resti.pushNE")}
           </button>
         )}
         {isAdmin && (
@@ -294,6 +325,15 @@ export default function RestitutionsPage() {
                   placeholder={t("resti.placeholderCompany")}
                   value={form.client_precedent}
                   onChange={(e) => setForm({ ...form, client_precedent: e.target.value })}
+                />
+              </div>
+              <div className="form-field">
+                <label>{t("resti.fieldEmailClient")}</label>
+                <input
+                  type="email"
+                  placeholder="client@email.com"
+                  value={form.email_client}
+                  onChange={(e) => setForm({ ...form, email_client: e.target.value })}
                 />
               </div>
               <div className="form-field">

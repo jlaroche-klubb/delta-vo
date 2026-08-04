@@ -109,6 +109,8 @@ export interface Machine {
   client_precedent: string;
   date_retour: string;
   contrat: string;
+  /** Email du client (repris dans Nacelle Expert pour l'envoi du rapport) */
+  email_client?: string;
 
   heures_nacelle?: number;
   km_porteur?: number;

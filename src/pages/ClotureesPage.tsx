@@ -9,6 +9,7 @@ import {
 import { useMachinesFiltered } from "../contexts/MachinesContext";
 import MarkPaidModal from "../components/MarkPaidModal";
 import { useTranslation } from "react-i18next";
+import { normalizeLocalite } from "../utils/localites";
 
 interface ClotureesPageProps {
   userRole: string;
@@ -44,6 +45,7 @@ export default function ClotureesPage({ userRole, userName }: ClotureesPageProps
   const [filterAcheteur, setFilterAcheteur] = useState("");
   const [filterMarche, setFilterMarche] = useState<MarcheFilter>("tous");
   const [filterStatutPaiement, setFilterStatutPaiement] = useState<StatutPaiementFilter>("tous");
+  const [filterLocalite, setFilterLocalite] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("date_facturation");
   const [sortDesc, setSortDesc] = useState(true);
@@ -83,6 +85,9 @@ export default function ClotureesPage({ userRole, userName }: ClotureesPageProps
   const acheteurs = Array.from(
     new Set(allCloturees.map((m) => m.acheteur).filter(Boolean) as string[])
   ).sort();
+  const localites = Array.from(
+    new Set(allCloturees.map((m) => normalizeLocalite(m.localite)).filter(Boolean))
+  ).sort();
 
   const filtered = useMemo(() => {
     let result = allCloturees.filter((m) => getAnneeFacturation(m) === filterAnnee);
@@ -110,6 +115,9 @@ export default function ClotureesPage({ userRole, userName }: ClotureesPageProps
     if (filterStatutPaiement !== "tous") {
       result = result.filter((m) => getStatutPaiement(m) === filterStatutPaiement);
     }
+    if (filterLocalite) {
+      result = result.filter((m) => normalizeLocalite(m.localite) === filterLocalite);
+    }
 
     return result;
   }, [
@@ -120,6 +128,7 @@ export default function ClotureesPage({ userRole, userName }: ClotureesPageProps
     filterAcheteur,
     filterMarche,
     filterStatutPaiement,
+    filterLocalite,
   ]);
 
   const sorted = useMemo(() => {
@@ -173,6 +182,7 @@ export default function ClotureesPage({ userRole, userName }: ClotureesPageProps
     filterAcheteur,
     filterMarche,
     filterStatutPaiement,
+    filterLocalite,
   });
 
   function handleSort(key: SortKey) {
@@ -206,6 +216,7 @@ export default function ClotureesPage({ userRole, userName }: ClotureesPageProps
     setFilterAcheteur("");
     setFilterMarche("tous");
     setFilterStatutPaiement("tous");
+    setFilterLocalite("");
   }
 
   return (
@@ -358,6 +369,18 @@ export default function ClotureesPage({ userRole, userName }: ClotureesPageProps
                   ))}
                 </select>
               </div>
+              <div className="filter-field">
+                <label>📍 {t("filters.site")}</label>
+                <select
+                  value={filterLocalite}
+                  onChange={(e) => setFilterLocalite(e.target.value)}
+                >
+                  <option value="">{t("filters.allSites")}</option>
+                  {localites.map((l) => (
+                    <option key={l} value={l}>{l}</option>
+                  ))}
+                </select>
+              </div>
               {activeFiltersCount > 0 && (
                 <div className="filter-field filter-reset">
                   <button className="btn-reset" onClick={resetFilters}>
@@ -464,6 +487,9 @@ function ClotureeRow({
       <td>
         <div className="cell-type">{machine.type_nacelle}</div>
         <div className="cell-modele">{machine.modele_porteur}</div>
+        {machine.localite && (
+          <div style={{ fontSize: 11, color: "#888" }}>📍 {machine.localite}</div>
+        )}
       </td>
       <td>
         <div>{machine.acheteur}</div>
@@ -561,11 +587,13 @@ function countActiveFilters(f: {
   filterAcheteur: string;
   filterMarche: string;
   filterStatutPaiement: string;
+  filterLocalite: string;
 }): number {
   let n = 0;
   if (f.filterCommercial) n++;
   if (f.filterAcheteur) n++;
   if (f.filterMarche !== "tous") n++;
   if (f.filterStatutPaiement !== "tous") n++;
+  if (f.filterLocalite) n++;
   return n;
 }

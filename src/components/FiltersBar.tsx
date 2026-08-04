@@ -1,10 +1,12 @@
 import { Machine } from "../types/machine";
 import { useTranslation } from "react-i18next";
+import { normalizeLocalite } from "../utils/localites";
 
 export interface FilterState {
   etape: "tous" | "demande" | "recuperation" | "expertise" | "facture" | "reglee";
   client: string;
   typeNacelle: string;
+  localite: string;
   dateDebut: string;
   dateFin: string;
 }
@@ -13,6 +15,7 @@ export const EMPTY_FILTERS: FilterState = {
   etape: "tous",
   client: "",
   typeNacelle: "",
+  localite: "",
   dateDebut: "",
   dateFin: "",
 };
@@ -40,6 +43,11 @@ export default function FiltersBar({
   // Liste unique des types de nacelle
   const types = Array.from(
     new Set(machines.map((m) => m.type_nacelle).filter(Boolean))
+  ).sort();
+
+  // Liste unique des localisations (normalisées — regroupe Ferrière/Ferrières...)
+  const localites = Array.from(
+    new Set(machines.map((m) => normalizeLocalite(m.localite)).filter(Boolean))
   ).sort();
 
   const activeCount = countActiveFilters(filters);
@@ -110,6 +118,21 @@ export default function FiltersBar({
             </div>
 
             <div className="filter-field">
+              <label>📍 {tr("filters.site")}</label>
+              <select
+                value={filters.localite}
+                onChange={(e) => onChange({ ...filters, localite: e.target.value })}
+              >
+                <option value="">{tr("filters.allSites")}</option>
+                {localites.map((l) => (
+                  <option key={l} value={l}>
+                    {l}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="filter-field">
               <label>{tr("filters.returnFrom")}</label>
               <input
                 type="date"
@@ -146,6 +169,7 @@ function countActiveFilters(f: FilterState): number {
   if (f.etape !== "tous") n++;
   if (f.client) n++;
   if (f.typeNacelle) n++;
+  if (f.localite) n++;
   if (f.dateDebut) n++;
   if (f.dateFin) n++;
   return n;
@@ -174,6 +198,9 @@ export function applyFilters(machines: Machine[], f: FilterState): Machine[] {
 
     // Filtre type
     if (f.typeNacelle && m.type_nacelle !== f.typeNacelle) return false;
+
+    // Filtre localisation (normalisée pour regrouper les variantes d'orthographe)
+    if (f.localite && normalizeLocalite(m.localite) !== f.localite) return false;
 
     // Filtre dates
     if (f.dateDebut && m.date_retour < f.dateDebut) return false;

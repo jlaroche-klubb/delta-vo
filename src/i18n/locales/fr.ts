@@ -192,6 +192,7 @@ const fr = {
     metaClient: "Client",
     metaReturn: "Retour",
     metaContract: "Contrat",
+    metaSite: "Site",
     editInfosTitle: "Modifier les infos (client, contrat, email...)",
     deleteTitle: "Supprimer définitivement",
     archiveTitle: "Archiver cette machine",
@@ -208,6 +209,8 @@ const fr = {
   },
   filters: {
     title: "Filtres",
+    site: "Localisation",
+    allSites: "Tous les sites",
     blockedAtStep: "Bloquée à l'étape",
     allSteps: "Toutes les étapes",
     stepDemande: "⏳ Demande de récupération",
@@ -345,6 +348,7 @@ const fr = {
   },
   encard: {
     buyer: "Acheteur",
+    site: "Site",
     lldClient: "Client LLD",
     deliveryExpected: "Livraison prévue",
     availExpected: "Mise à dispo prévue",

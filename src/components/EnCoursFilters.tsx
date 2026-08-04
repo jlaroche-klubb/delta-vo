@@ -1,5 +1,6 @@
 import { Machine, prepaTerminee, isLivraisonEnRetard } from "../types/machine";
 import { useTranslation } from "react-i18next";
+import { normalizeLocalite } from "../utils/localites";
 
 export type TypePrepaFilter = "tous" | "normale" | "en_etat";
 export type StatutEnCoursFilter =
@@ -19,6 +20,7 @@ export interface EnCoursFilterState {
   commercial: string;
   acheteur: string;
   typeNacelle: string;
+  localite: string;
   typePrepa: TypePrepaFilter;
   statut: StatutEnCoursFilter;
   livraisonRapide: LivraisonRapide;
@@ -30,6 +32,7 @@ export const EMPTY_ENCOURS_FILTERS: EnCoursFilterState = {
   commercial: "",
   acheteur: "",
   typeNacelle: "",
+  localite: "",
   typePrepa: "tous",
   statut: "tous",
   livraisonRapide: "toutes",
@@ -62,6 +65,9 @@ export default function EnCoursFilters({
   ).sort();
   const types = Array.from(
     new Set(machines.map((m) => m.type_nacelle).filter(Boolean))
+  ).sort();
+  const localites = Array.from(
+    new Set(machines.map((m) => normalizeLocalite(m.localite)).filter(Boolean))
   ).sort();
 
   const activeCount = countActiveFilters(filters);
@@ -126,6 +132,27 @@ export default function EnCoursFilters({
                   return (
                     <option key={t} value={t}>
                       {t} ({count})
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            {/* 📍 Localisation */}
+            <div className="filter-field">
+              <label>📍 {t("filters.site")}</label>
+              <select
+                value={filters.localite}
+                onChange={(e) => onChange({ ...filters, localite: e.target.value })}
+              >
+                <option value="">{t("filters.allSites")}</option>
+                {localites.map((l) => {
+                  const count = machines.filter(
+                    (m) => normalizeLocalite(m.localite) === l
+                  ).length;
+                  return (
+                    <option key={l} value={l}>
+                      {l} ({count})
                     </option>
                   );
                 })}
@@ -242,6 +269,7 @@ function countActiveFilters(f: EnCoursFilterState): number {
   if (f.commercial) n++;
   if (f.acheteur) n++;
   if (f.typeNacelle) n++;
+  if (f.localite) n++;
   if (f.typePrepa !== "tous") n++;
   if (f.statut !== "tous") n++;
   if (f.livraisonRapide !== "toutes") n++;
@@ -264,6 +292,9 @@ export function applyEnCoursFilters(
 
     // Type nacelle
     if (f.typeNacelle && m.type_nacelle !== f.typeNacelle) return false;
+
+    // 📍 Localisation (normalisée)
+    if (f.localite && normalizeLocalite(m.localite) !== f.localite) return false;
 
     // Type prépa
     if (f.typePrepa !== "tous") {

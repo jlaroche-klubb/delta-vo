@@ -1,6 +1,7 @@
 import MachineThumb from "./MachineThumb";
 import { Machine, calculAgeStock, getAgeStockColor, isFicheComplete } from "../types/machine";
 import { useTranslation } from "react-i18next";
+import { LOCALITES } from "../utils/localites";
 
 interface DisponibleCardProps {
   machine: Machine;
@@ -279,11 +280,14 @@ export default function DisponibleCard({
               }}
             >
               <option value="">{t("card.site")}</option>
-              {["EGI", "Ferrière", "Croissy", "Avignon", "St-Alban"].map((s) => (
+              {LOCALITES.map((s) => (
                 <option key={s} value={s}>
                   {s}
                 </option>
               ))}
+              {machine.localite && !LOCALITES.includes(machine.localite) && (
+                <option value={machine.localite}>{machine.localite}</option>
+              )}
             </select>
           ) : (
             <strong>{machine.localite || "—"}</strong>

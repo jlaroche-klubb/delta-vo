@@ -13,6 +13,7 @@ import {
   canExportRestitutions
 } from "../utils/permissions";
 import { normalizeImmat } from "../utils/immat";
+import TypeNacelleSelect from "../components/TypeNacelleSelect";
 
 interface NewMachineForm {
   immat: string;
@@ -285,11 +286,9 @@ export default function RestitutionsPage() {
               </div>
               <div className="form-field">
                 <label>{t("resti.fieldType")}</label>
-                <input
-                  type="text"
-                  placeholder="K20, K26, K32, K46…"
+                <TypeNacelleSelect
                   value={form.type_nacelle}
-                  onChange={(e) => setForm({ ...form, type_nacelle: e.target.value })}
+                  onChange={(v) => setForm({ ...form, type_nacelle: v })}
                 />
               </div>
               <div className="form-field form-field-wide">

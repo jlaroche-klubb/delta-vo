@@ -161,6 +161,11 @@ const en: TranslationSchema = {
     pushNEDone: "✅ {{pushed}}/{{total}} return(s) synced to Nacelle Expert",
     pushNEError: "Error while syncing to Nacelle Expert",
   },
+  typeNacelle: {
+    select: "-- Select --",
+    other: "OTHER",
+    otherPlaceholder: "Enter the platform type...",
+  },
   editInfos: {
     title: "Edit administrative info",
     fieldClient: "Client",

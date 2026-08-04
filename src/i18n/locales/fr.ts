@@ -160,6 +160,11 @@ const fr = {
     pushNEDone: "✅ {{pushed}}/{{total}} restitution(s) synchronisée(s) vers Nacelle Expert",
     pushNEError: "Erreur pendant la synchronisation vers Nacelle Expert",
   },
+  typeNacelle: {
+    select: "-- Sélectionner --",
+    other: "AUTRE",
+    otherPlaceholder: "Saisir le type de nacelle...",
+  },
   editInfos: {
     title: "Modifier les infos administratives",
     fieldClient: "Client",

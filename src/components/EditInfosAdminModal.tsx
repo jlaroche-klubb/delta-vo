@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Machine } from "../types/machine";
 import { useMachines } from "../contexts/MachinesContext";
 import { useTranslation } from "react-i18next";
+import TypeNacelleSelect from "./TypeNacelleSelect";
 
 /**
  * ✏️ Modal d'édition des infos ADMINISTRATIVES d'une fiche machine
@@ -98,11 +99,9 @@ export default function EditInfosAdminModal({ machine, onClose }: EditInfosAdmin
           </div>
           <div className="form-field">
             <label>{t("editInfos.fieldType")}</label>
-            <input
-              type="text"
+            <TypeNacelleSelect
               value={typeNacelle}
-              onChange={(e) => setTypeNacelle(e.target.value)}
-              placeholder="K20, K26, K32…"
+              onChange={setTypeNacelle}
             />
           </div>
           <div className="form-field">

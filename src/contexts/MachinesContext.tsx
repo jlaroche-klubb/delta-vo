@@ -15,6 +15,7 @@ import { MOCK_CLOTUREES } from "../data/mockCloturees";
 import { syncHubspotProduct } from "../services/hubspotService";
 import { getAllExpertises } from "../services/nacelleExpertService";
 import { pushInfosAdminToNacelleExpert } from "../services/nacelleExpertPushService";
+import { normalizeImmat } from "../utils/immat";
 import type { ParsedStockMachine } from "../utils/importStock";
 
 export interface StockImportSummary {
@@ -478,7 +479,8 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
   }
 
   async function createMachineRestitution(machine: Machine) {
-    const immatId = (machine.immat || "").trim().toUpperCase();
+    // ⚠️ Normalisation SIV (AB-123-CD) : même clé de jointure que Nacelle Expert
+    const immatId = normalizeImmat((machine.immat || "").trim());
 
     // ✅ PERSISTANCE FIREBASE : la machine est écrite dans machines_vo
     // (ID = immat MAJUSCULES, clé de jointure avec Nacelle-Expert et VOG).

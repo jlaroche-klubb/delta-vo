@@ -14,6 +14,7 @@ import { MOCK_EN_COURS } from "../data/mockEnCours";
 import { MOCK_CLOTUREES } from "../data/mockCloturees";
 import { syncHubspotProduct } from "../services/hubspotService";
 import { getAllExpertises } from "../services/nacelleExpertService";
+import { pushInfosAdminToNacelleExpert } from "../services/nacelleExpertPushService";
 import type { ParsedStockMachine } from "../utils/importStock";
 
 export interface StockImportSummary {
@@ -52,6 +53,19 @@ function flattenNePhotos(val: any): string[] | undefined {
   return urls.length ? urls : undefined;
 }
 
+/**
+ * Infos administratives modifiables sur une fiche machine
+ * (secrétaire/ADV) — JAMAIS les photos ni le contenu d'expertise.
+ */
+export interface InfosAdminUpdate {
+  client_precedent?: string;
+  contrat?: string;
+  email_client?: string;
+  modele_porteur?: string;
+  type_nacelle?: string;
+  annee_circulation?: string;
+}
+
 interface MachinesContextType {
   machines: Machine[];
   toggleEtapeRestitution: (
@@ -60,6 +74,8 @@ interface MachinesContextType {
   ) => void;
   setDateDemandeRecup: (machineId: string, date: string) => void;
   createMachineRestitution: (machine: Machine) => void;
+  updateInfosAdmin: (machineId: string, infos: InfosAdminUpdate) => Promise<boolean>;
+  pushRestitutionsToNacelleExpert: () => Promise<{ pushed: number; total: number }>;
   updatePrice: (
     machineId: string,
     prixFr: number | undefined,
@@ -187,11 +203,14 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             annee_circulation: data.annee_fab || '',
             statut: statutFirebase,
             
-            date_retour: data.dossier_nacelle_expert?.date_retour || '',
+            // ✅ Fallback sur les champs saisis par les secrétaires (page Restitutions)
+            // quand la machine n'a pas (encore) de dossier d'expertise Nacelle-Expert.
+            date_retour: data.dossier_nacelle_expert?.date_retour || data.date_retour || '',
             // ✅ Auto-remplir date_demande_recuperation (machine déjà récupérée)
             date_demande_recuperation: data.date_demande_recuperation || data.dossier_nacelle_expert?.date_retour || data.dossier_nacelle_expert?.date_depart || '',
-            client_precedent: data.dossier_nacelle_expert?.client || '',
-            contrat: data.dossier_nacelle_expert?.contrat || '',
+            client_precedent: data.dossier_nacelle_expert?.client || data.client_precedent || '',
+            contrat: data.dossier_nacelle_expert?.contrat || data.contrat || '',
+            email_client: data.email_client || data.dossier_nacelle_expert?.email || undefined,
             
             heures_nacelle: parseInt(data.heures) || undefined,
             km_porteur: parseInt(data.km_porteur) || undefined,
@@ -263,7 +282,10 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             facture_ok: data.facture_ok ?? false,
             facture_reglee_ok: data.facture_reglee_ok ?? false,
             fiche_vo_creee: ficheVoCreee,
-            expertise_recue: true,
+            // ✅ expertise_recue : true par défaut (docs historiques créés par la synchro),
+            // false si écrit explicitement (machines créées par les secrétaires,
+            // en attente d'expertise Nacelle-Expert).
+            expertise_recue: data.expertise_recue ?? true,
             import_vog: data.import_vog ?? false,
             
             // ✅ date_mise_stock pour les machines visibles en Disponibles
@@ -455,10 +477,161 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  function createMachineRestitution(machine: Machine) {
-    setMockMachines((prev) => [machine, ...prev]);
+  async function createMachineRestitution(machine: Machine) {
+    const immatId = (machine.immat || "").trim().toUpperCase();
+
+    // ✅ PERSISTANCE FIREBASE : la machine est écrite dans machines_vo
+    // (ID = immat MAJUSCULES, clé de jointure avec Nacelle-Expert et VOG).
+    // Avant, la machine n'existait qu'en mémoire et disparaissait au rechargement.
+    try {
+      await setDoc(
+        doc(db, "machines_vo", immatId),
+        {
+          immat: immatId,
+          modele: machine.modele_porteur || "",
+          type_nacelle: machine.type_nacelle || "",
+          annee_fab: machine.annee_circulation || "",
+          client_precedent: machine.client_precedent || "",
+          contrat: machine.contrat || "",
+          email_client: machine.email_client || "",
+          date_retour: machine.date_retour || "",
+          statut: "restitution",
+          recuperation_ok: false,
+          expertise_ok: false,
+          facture_ok: false,
+          facture_reglee_ok: false,
+          fiche_vo_creee: false,
+          expertise_recue: false, // ⏳ Pas encore d'expertise Nacelle-Expert
+          date_ajout: new Date(),
+          date_modification: new Date(),
+        },
+        { merge: true }
+      );
+      console.log(`✅ Restitution ${immatId} créée dans Firebase`);
+    } catch (err) {
+      console.error("❌ Erreur création restitution Firebase:", err);
+      // Fallback : au moins visible localement pour ne pas bloquer la saisie
+      setMockMachines((prev) => [machine, ...prev]);
+    }
+
+    // 📤 SYNCHRO INVERSE : pré-créer/compléter le dossier Nacelle Expert
+    // pour que l'expert retrouve client + contrat + email pré-remplis.
+    pushInfosAdminToNacelleExpert({
+      immat: immatId,
+      client: machine.client_precedent,
+      contrat: machine.contrat,
+      email: machine.email_client,
+      modele: machine.modele_porteur,
+      type_nacelle: machine.type_nacelle,
+      annee_fab: machine.annee_circulation,
+    });
   }
-  
+
+  /**
+   * ✏️ Modifier les infos ADMINISTRATIVES d'une fiche (secrétaire/ADV) :
+   * client, contrat, email, modèle... — y compris sur les fiches arrivées
+   * par la synchro d'expertise. Les photos et le contenu d'expertise
+   * (zones, dégâts, signatures) ne sont JAMAIS touchés.
+   * La correction est répercutée vers le dossier Nacelle Expert.
+   */
+  async function updateInfosAdmin(
+    machineId: string,
+    infos: InfosAdminUpdate
+  ): Promise<boolean> {
+    const machine = machines.find((m) => m.id === machineId);
+    const immat = (machine?.immat || machineId || "").trim().toUpperCase();
+
+    if (isFirebaseMachine(machineId)) {
+      try {
+        const updates: any = {
+          date_modification: new Date(),
+          updatedAt: new Date().toISOString(),
+        };
+        // Champs canoniques du document machines_vo
+        if (infos.client_precedent !== undefined) updates.client_precedent = infos.client_precedent;
+        if (infos.contrat !== undefined) updates.contrat = infos.contrat;
+        if (infos.email_client !== undefined) updates.email_client = infos.email_client;
+        if (infos.modele_porteur !== undefined) updates.modele = infos.modele_porteur;
+        if (infos.type_nacelle !== undefined) updates.type_nacelle = infos.type_nacelle;
+        if (infos.annee_circulation !== undefined) updates.annee_fab = infos.annee_circulation;
+
+        // Si la fiche vient d'une expertise, corriger aussi le bloc
+        // dossier_nacelle_expert (prioritaire à l'affichage) — champs admin uniquement.
+        if (machine?.dossier_nacelle_expert) {
+          if (infos.client_precedent !== undefined)
+            updates["dossier_nacelle_expert.client"] = infos.client_precedent;
+          if (infos.contrat !== undefined)
+            updates["dossier_nacelle_expert.contrat"] = infos.contrat;
+          if (infos.email_client !== undefined)
+            updates["dossier_nacelle_expert.email"] = infos.email_client;
+        }
+
+        await updateDoc(doc(db, "machines_vo", machineId), updates);
+        console.log(`✅ Infos admin mises à jour pour ${immat}`);
+      } catch (err) {
+        console.error("❌ Erreur mise à jour infos admin:", err);
+        return false;
+      }
+    } else {
+      setMockMachines((prev) =>
+        prev.map((m) =>
+          m.id === machineId
+            ? {
+                ...m,
+                ...(infos.client_precedent !== undefined && { client_precedent: infos.client_precedent }),
+                ...(infos.contrat !== undefined && { contrat: infos.contrat }),
+                ...(infos.email_client !== undefined && { email_client: infos.email_client }),
+                ...(infos.modele_porteur !== undefined && { modele_porteur: infos.modele_porteur }),
+                ...(infos.type_nacelle !== undefined && { type_nacelle: infos.type_nacelle }),
+                ...(infos.annee_circulation !== undefined && { annee_circulation: infos.annee_circulation }),
+                updatedAt: new Date().toISOString(),
+              }
+            : m
+        )
+      );
+    }
+
+    // 📤 Répercuter la correction vers Nacelle Expert (bloc info uniquement)
+    if (immat) {
+      pushInfosAdminToNacelleExpert({
+        immat,
+        client: infos.client_precedent,
+        contrat: infos.contrat,
+        email: infos.email_client,
+        modele: infos.modele_porteur,
+        type_nacelle: infos.type_nacelle,
+        annee_fab: infos.annee_circulation,
+      });
+    }
+    return true;
+  }
+
+  /**
+   * 🔄 RATTRAPAGE : pousser en une fois les infos admin de toutes les
+   * machines en restitution vers Nacelle Expert (stock existant).
+   * Déclenché manuellement par un bouton admin (page Restitutions).
+   */
+  async function pushRestitutionsToNacelleExpert(): Promise<{ pushed: number; total: number }> {
+    const restitutions = machines.filter(
+      (m) => !m.import_vog && !m.archived && m.statut === "restitution"
+    );
+    let pushed = 0;
+    for (const m of restitutions) {
+      const ok = await pushInfosAdminToNacelleExpert({
+        immat: m.immat,
+        client: m.client_precedent,
+        contrat: m.contrat,
+        email: m.email_client,
+        modele: m.modele_porteur,
+        type_nacelle: m.type_nacelle,
+        annee_fab: m.annee_circulation,
+      });
+      if (ok) pushed++;
+    }
+    console.log(`🔄 Rattrapage Nacelle Expert : ${pushed}/${restitutions.length} restitutions poussées`);
+    return { pushed, total: restitutions.length };
+  }
+
   async function updatePrice(
     machineId: string,
     prixFr: number | undefined,
@@ -1283,6 +1456,8 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       toggleEtapeRestitution,
       setDateDemandeRecup,
       createMachineRestitution,
+      updateInfosAdmin,
+      pushRestitutionsToNacelleExpert,
       updatePrice,
       basculerEnLld,
       toggleEtapePrepa,

@@ -3,9 +3,11 @@ import MachineThumb from "./MachineThumb";
 import { Machine } from "../types/machine";
 import ExpertiseModal from "./ExpertiseModal";
 import ConfirmDeleteModal from "./ConfirmDeleteModal";
+import EditInfosAdminModal from "./EditInfosAdminModal";
 import { useMachines } from "../contexts/MachinesContext";
 import { useAuth } from "../AuthContext";
 import { useTranslation } from "react-i18next";
+import { canEditInfosAdmin } from "../utils/permissions";
 
 interface MachineCardProps {
   machine: Machine;
@@ -29,11 +31,15 @@ export default function MachineCard({
 }: MachineCardProps) {
   const [showExpertise, setShowExpertise] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
+  const [showEditInfos, setShowEditInfos] = useState(false);
 
   // const { archiveMachine, unarchiveMachine } = useMachines();
   const { profile } = useAuth();
   // En DEV_MODE (profile null) → tout le monde est admin pour pouvoir tester
   const isAdmin = !profile || profile.role === "admin";
+  // ✏️ Édition des infos administratives (client, contrat, email...) —
+  // admin + secrétaire/ADV. Jamais les photos ni le contenu d'expertise.
+  const canEditInfos = !profile || canEditInfosAdmin(profile.role);
 
   const step1Done = !!machine.date_demande_recuperation;
   const step2Done = machine.recuperation_ok;
@@ -141,6 +147,16 @@ export default function MachineCard({
             <MetaItem label={t("mcard.metaClient")} value={machine.client_precedent} />
             <MetaItem label={t("mcard.metaReturn")} value={formatDate(machine.date_retour)} />
             <MetaItem label={t("mcard.metaContract")} value={machine.contrat} />
+            {canEditInfos && !machine.archived && (
+              <button
+                className="btn-edit-infos"
+                onClick={() => setShowEditInfos(true)}
+                title={t("mcard.editInfosTitle")}
+                style={{ background: "none", border: "1px solid var(--border, #d8dbe6)", borderRadius: 6, cursor: "pointer", padding: "4px 8px", fontSize: 13 }}
+              >
+                ✏️
+              </button>
+            )}
             {canDelete && !machine.archived && (
               <button
                 className="btn-delete-machine"
@@ -304,6 +320,13 @@ export default function MachineCard({
         <ExpertiseModal
           machine={machine}
           onClose={() => setShowExpertise(false)}
+        />
+      )}
+
+      {showEditInfos && (
+        <EditInfosAdminModal
+          machine={machine}
+          onClose={() => setShowEditInfos(false)}
         />
       )}
 

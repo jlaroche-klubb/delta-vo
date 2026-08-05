@@ -8,6 +8,8 @@ import {
   isMiseDispoEnRetard,
 } from "../types/machine";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "../AuthContext";
+import { canViewExpertiseReport } from "../utils/permissions";
 
 interface EnCoursCardProps {
   machine: Machine;
@@ -44,6 +46,9 @@ export default function EnCoursCard({
 }: EnCoursCardProps) {
   const [newEtapeLabel, setNewEtapeLabel] = useState("");
   const { t } = useTranslation();
+  const { profile } = useAuth();
+  // En DEV_MODE (profile null) → visible, comme les autres permissions carte
+  const canSeeExpertise = !profile || canViewExpertiseReport(profile.role);
   const isLld = machine.type_sortie === "lld";
   const isConfigured = !!machine.type_prepa;
   const isEnEtat = machine.type_prepa === "en_etat";
@@ -106,6 +111,23 @@ export default function EnCoursCard({
           )}
         </div>
       </div>
+
+      {/* 💶 Expertise NE : montant global de la retenue + rapport à jour */}
+      {canSeeExpertise && machine.rapport_expertise?.total_retenue_ht != null && (
+        <div style={{ padding: "0 0 4px", fontSize: 13 }}>
+          🔧 <b>{t("encard.expTotal", { total: machine.rapport_expertise.total_retenue_ht.toLocaleString("fr-FR") })}</b>
+          {machine.rapport_expertise.rapport_url && (
+            <a
+              href={machine.rapport_expertise.rapport_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ marginLeft: 8, color: "#1a2a6e", fontWeight: 600, textDecoration: "underline" }}
+            >
+              📄 {t("encard.expReport")}
+            </a>
+          )}
+        </div>
+      )}
 
       {onOpenDocuments && (
         <div style={{ padding: "0 0 4px" }}>

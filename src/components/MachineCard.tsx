@@ -124,6 +124,12 @@ export default function MachineCard({
                   {machine.devis_recu_items.map((it) => `${it.label} : ${it.montant.toLocaleString("fr-FR")} € HT`).join(" · ")}
                 </div>
               ) : null}
+              {/* 💶 Montant global de l'expertise (provisoire tant que des postes sont en attente) */}
+              {machine.rapport_expertise?.total_retenue_ht != null && (
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#b3541e", marginTop: 4 }}>
+                  {t("mcard.expTotalProvisoire", { total: machine.rapport_expertise.total_retenue_ht.toLocaleString("fr-FR") })}
+                </div>
+              )}
             </div>
           ) : (
             <div style={{ background: "#eefaf2", border: "1px solid #b5dfc4", borderRadius: 6, padding: "8px 12px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
@@ -141,6 +147,12 @@ export default function MachineCard({
                     <div style={{ marginTop: 3, fontWeight: 700, borderTop: "1px solid #b5dfc4", paddingTop: 3 }}>
                       {t("mcard.devisTotal", { total: machine.devis_recu_items.reduce((s, it) => s + (it.montant || 0), 0).toLocaleString("fr-FR") })}
                     </div>
+                    {/* 💶 Montant GLOBAL de l'expertise (postes fixes + devis) */}
+                    {machine.rapport_expertise?.total_retenue_ht != null && (
+                      <div style={{ marginTop: 2, fontWeight: 700, color: "#14532d" }}>
+                        {t("mcard.expTotal", { total: machine.rapport_expertise.total_retenue_ht.toLocaleString("fr-FR") })}
+                      </div>
+                    )}
                   </div>
                 ) : null}
                 <div style={{ fontSize: 11, color: "#3a7a52", marginTop: 2 }}>{t("mcard.devisReceivedNote")}</div>
@@ -277,17 +289,24 @@ export default function MachineCard({
           </div>
         )}
 
-        {/* Lien vers le rapport complet Nacelle-Expert envoyé au client */}
-        {machine.dossier_nacelle_expert?.rapport_url && (
+        {/* Lien vers le rapport complet Nacelle-Expert envoyé au client.
+            Priorité au rapport dynamique (toujours à jour après chiffrage devis) ;
+            repli sur le PDF historique pour les anciens dossiers. */}
+        {(machine.rapport_expertise?.rapport_url || machine.dossier_nacelle_expert?.rapport_url) && (
           <div style={{ padding: "2px 0 6px" }}>
             <a
-              href={machine.dossier_nacelle_expert.rapport_url}
+              href={machine.rapport_expertise?.rapport_url || machine.dossier_nacelle_expert?.rapport_url}
               target="_blank"
               rel="noopener noreferrer"
               style={{ color: "#1a2a6e", fontWeight: 600, fontSize: 13, textDecoration: "underline" }}
             >
               📄 {t("mcard.fullReport")}
             </a>
+            {machine.rapport_expertise?.total_retenue_ht != null && (
+              <span style={{ marginLeft: 8, fontSize: 13, fontWeight: 700, color: "#1a2a6e" }}>
+                {machine.rapport_expertise.total_retenue_ht.toLocaleString("fr-FR")} € HT
+              </span>
+            )}
           </div>
         )}
 

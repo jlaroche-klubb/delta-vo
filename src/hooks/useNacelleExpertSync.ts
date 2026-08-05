@@ -52,6 +52,19 @@ interface NacelleExpertDossier {
   devis_valide?: { par?: string; date?: string } | null;
   /** Montants saisis par l'atelier via le lien de chiffrage, par id de poste tarifaire */
   devis_recu?: Record<string, { montant?: number; reference?: string; date?: string; label?: string }>;
+  /** 💶 Résumé d'expertise produit par Nacelle Expert (dégâts, montants, total retenue).
+   *  Recalculé à chaque chiffrage atelier — copié tel quel dans machines_vo.rapport_expertise. */
+  expertise_resume?: {
+    date_expertise?: string;
+    agent?: string;
+    heures_nacelle?: number;
+    km_porteur?: number;
+    taux_vetuste?: number;
+    degats?: { zone?: string; description?: string; montant?: number }[];
+    total_retenue_ht?: number;
+    notes?: string;
+    nb_attente?: number;
+  };
 }
 
 interface MachineVO {
@@ -204,6 +217,14 @@ export function useNacelleExpertSync() {
               montant: Number(e?.montant) || 0,
               reference: e?.reference || '',
             })),
+            // 💶 Résumé d'expertise NE → rapport_expertise (total retenue, dégâts) :
+            // alimente le montant global et la modale expertise partout dans Delta VO
+            ...(dossier.expertise_resume ? {
+              rapport_expertise: {
+                ...dossier.expertise_resume,
+                rapport_url: `https://nacelle-expert2.vercel.app/api/rapport/${encodeURIComponent(immatId)}`,
+              },
+            } : {}),
             
             // Données du dossier nacelle-expert
             dossier_nacelle_expert: {
@@ -265,6 +286,9 @@ export function useNacelleExpertSync() {
               devis_complet: machineVOData.devis_complet,
               devis_valide: machineVOData.devis_valide,
               devis_recu_items: machineVOData.devis_recu_items,
+              // 💶 Résumé d'expertise à jour (total retenue global) — uniquement
+              // si présent, pour ne pas écraser un rapport legacy existant
+              ...(machineVOData.rapport_expertise ? { rapport_expertise: machineVOData.rapport_expertise } : {}),
 
               // ✅ Nouvelle date de récupération pour ce cycle de relocation
               date_demande_recuperation: dateRecup,

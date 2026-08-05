@@ -117,11 +117,32 @@ export default function MachineCard({
                 {machine.devis_pending_labels.join(" · ")}
               </div>
               <div style={{ fontSize: 11, color: "#8a5a30", marginTop: 2 }}>{t("mcard.devisPendingNote")}</div>
+              {/* 💶 Postes déjà chiffrés par l'atelier (chiffrage partiel) */}
+              {machine.devis_recu_items?.length ? (
+                <div style={{ fontSize: 12, color: "#1e7e46", marginTop: 4 }}>
+                  ✓ {t("mcard.devisPartial")}{" "}
+                  {machine.devis_recu_items.map((it) => `${it.label} : ${it.montant.toLocaleString("fr-FR")} € HT`).join(" · ")}
+                </div>
+              ) : null}
             </div>
           ) : (
             <div style={{ background: "#eefaf2", border: "1px solid #b5dfc4", borderRadius: 6, padding: "8px 12px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
               <div>
                 <strong style={{ color: "#1e7e46" }}>✓ {t("mcard.devisReceived")}</strong>
+                {/* 💶 Détail du chiffrage de l'atelier : montant HT (+ référence) par poste */}
+                {machine.devis_recu_items?.length ? (
+                  <div style={{ fontSize: 12, color: "#2a6a44", marginTop: 4 }}>
+                    {machine.devis_recu_items.map((it, i) => (
+                      <div key={i}>
+                        {it.label} : <b>{it.montant.toLocaleString("fr-FR")} € HT</b>
+                        {it.reference ? <span style={{ color: "#5a8a6c" }}> — {t("mcard.devisRef")} {it.reference}</span> : null}
+                      </div>
+                    ))}
+                    <div style={{ marginTop: 3, fontWeight: 700, borderTop: "1px solid #b5dfc4", paddingTop: 3 }}>
+                      {t("mcard.devisTotal", { total: machine.devis_recu_items.reduce((s, it) => s + (it.montant || 0), 0).toLocaleString("fr-FR") })}
+                    </div>
+                  </div>
+                ) : null}
                 <div style={{ fontSize: 11, color: "#3a7a52", marginTop: 2 }}>{t("mcard.devisReceivedNote")}</div>
               </div>
               {canEditInfos && (

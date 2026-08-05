@@ -118,6 +118,8 @@ export interface Machine {
   devis_complet?: boolean | null;
   /** Validation de la secrétaire (envoi de l'expertise complète au client) */
   devis_valide?: { par?: string; date?: string } | null;
+  /** 💶 Détail du devis chiffré par l'atelier : libellé, montant HT, référence */
+  devis_recu_items?: { label: string; montant: number; reference?: string }[];
 
   heures_nacelle?: number;
   km_porteur?: number;

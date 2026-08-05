@@ -50,6 +50,8 @@ interface NacelleExpertDossier {
   devis_pending_labels?: string[];
   devis_complet?: boolean;
   devis_valide?: { par?: string; date?: string } | null;
+  /** Montants saisis par l'atelier via le lien de chiffrage, par id de poste tarifaire */
+  devis_recu?: Record<string, { montant?: number; reference?: string; date?: string }>;
 }
 
 interface MachineVO {
@@ -119,6 +121,20 @@ export function useNacelleExpertSync() {
         return;
       }
 
+      // 🏷️ Libellés des postes tarifaires NE : devis_recu est stocké par id de
+      // poste, on le traduit en libellés lisibles pour la secrétaire (bandeau
+      // « Devis reçu » avec montants). Échec non bloquant : repli sur l'id.
+      const tarifLabels: Record<string, string> = {};
+      try {
+        const tarifsSnap = await getDoc(doc(dbNacelleExpert, 'config', 'tarifs'));
+        const tarifsArr: any[] = tarifsSnap.exists() && Array.isArray((tarifsSnap.data() as any).data)
+          ? (tarifsSnap.data() as any).data
+          : [];
+        tarifsArr.forEach((t: any) => { if (t?.id) tarifLabels[t.id] = t.label || t.id; });
+      } catch (e) {
+        console.warn('⚠️ Tarifs NE non chargés (libellés du devis) :', e);
+      }
+
       let successCount = 0;
       let errorCount = 0;
 
@@ -180,6 +196,12 @@ export function useNacelleExpertSync() {
             devis_pending_labels: dossier.devis_pending_labels || [],
             devis_complet: dossier.devis_complet ?? null,
             devis_valide: dossier.devis_valide || null,
+            // 💶 Détail du devis chiffré par l'atelier (affiché à la secrétaire)
+            devis_recu_items: Object.entries(dossier.devis_recu || {}).map(([id, e]) => ({
+              label: tarifLabels[id] || id,
+              montant: Number(e?.montant) || 0,
+              reference: e?.reference || '',
+            })),
             
             // Données du dossier nacelle-expert
             dossier_nacelle_expert: {
@@ -240,6 +262,7 @@ export function useNacelleExpertSync() {
               devis_pending_labels: machineVOData.devis_pending_labels,
               devis_complet: machineVOData.devis_complet,
               devis_valide: machineVOData.devis_valide,
+              devis_recu_items: machineVOData.devis_recu_items,
 
               // ✅ Nouvelle date de récupération pour ce cycle de relocation
               date_demande_recuperation: dateRecup,

@@ -212,6 +212,11 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             client_precedent: data.dossier_nacelle_expert?.client || data.client_precedent || '',
             contrat: data.dossier_nacelle_expert?.contrat || data.contrat || '',
             email_client: data.email_client || data.dossier_nacelle_expert?.email || undefined,
+
+            // ⏳ Devis en attente (Nacelle Expert)
+            devis_pending_labels: Array.isArray(data.devis_pending_labels) ? data.devis_pending_labels : [],
+            devis_complet: data.devis_complet ?? null,
+            devis_valide: data.devis_valide || null,
             
             heures_nacelle: parseInt(data.heures) || undefined,
             km_porteur: parseInt(data.km_porteur) || undefined,

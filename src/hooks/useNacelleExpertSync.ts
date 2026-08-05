@@ -45,6 +45,11 @@ interface NacelleExpertDossier {
   synced_to_delta_vo?: boolean;
   createdAt?: any;
   createdBy?: string;
+  // ⏳ Devis en attente (postes sur devis non chiffrés par l'atelier)
+  devis_pending?: string[];
+  devis_pending_labels?: string[];
+  devis_complet?: boolean;
+  devis_valide?: { par?: string; date?: string } | null;
 }
 
 interface MachineVO {
@@ -170,6 +175,11 @@ export function useNacelleExpertSync() {
             // 📍 Localisation = lieu de restitution saisi par l'expert
             // (normalisée : « Ferrière »/« Ferrières », « St-Alban »/« St Alban »...)
             localite: normalizeLocalite(dossier.retour?.lieu_restitution) || '',
+
+            // ⏳ Devis en attente (postes sur devis non chiffrés) — badge + blocage facture
+            devis_pending_labels: dossier.devis_pending_labels || [],
+            devis_complet: dossier.devis_complet ?? null,
+            devis_valide: dossier.devis_valide || null,
             
             // Données du dossier nacelle-expert
             dossier_nacelle_expert: {
@@ -225,6 +235,11 @@ export function useNacelleExpertSync() {
               // 📍 Nouveau lieu de restitution (relocation) — uniquement si renseigné,
               // sinon on conserve la localisation existante (posée à la main)
               ...(machineVOData.localite ? { localite: machineVOData.localite } : {}),
+
+              // ⏳ État du devis (remonte toujours : attente, complet, validé)
+              devis_pending_labels: machineVOData.devis_pending_labels,
+              devis_complet: machineVOData.devis_complet,
+              devis_valide: machineVOData.devis_valide,
 
               // ✅ Nouvelle date de récupération pour ce cycle de relocation
               date_demande_recuperation: dateRecup,

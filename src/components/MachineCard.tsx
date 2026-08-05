@@ -8,6 +8,7 @@ import { useMachines } from "../contexts/MachinesContext";
 import { useAuth } from "../AuthContext";
 import { useTranslation } from "react-i18next";
 import { canEditInfosAdmin } from "../utils/permissions";
+import { validerDevisEtEnvoyer } from "../services/devisService";
 
 interface MachineCardProps {
   machine: Machine;
@@ -32,6 +33,7 @@ export default function MachineCard({
   const [showExpertise, setShowExpertise] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [showEditInfos, setShowEditInfos] = useState(false);
+  const [validatingDevis, setValidatingDevis] = useState(false);
 
   // const { archiveMachine, unarchiveMachine } = useMachines();
   const { profile } = useAuth();
@@ -105,6 +107,43 @@ export default function MachineCard({
             )}
           </div>
         )}
+
+        {/* ⏳ Bandeau devis en attente / devis reçu (postes sur devis Nacelle Expert) */}
+        {!machine.archived && (machine.devis_pending_labels?.length || (machine.devis_complet && !machine.devis_valide)) ? (
+          machine.devis_pending_labels?.length ? (
+            <div style={{ background: "#fdf3ec", border: "1px solid #e8c9a8", borderRadius: 6, padding: "8px 12px", marginBottom: 8 }}>
+              <strong style={{ color: "#b3541e" }}>⏳ {t("mcard.devisPending", { count: machine.devis_pending_labels.length })}</strong>
+              <div style={{ fontSize: 12, color: "#8a5a30", marginTop: 2 }}>
+                {machine.devis_pending_labels.join(" · ")}
+              </div>
+              <div style={{ fontSize: 11, color: "#8a5a30", marginTop: 2 }}>{t("mcard.devisPendingNote")}</div>
+            </div>
+          ) : (
+            <div style={{ background: "#eefaf2", border: "1px solid #b5dfc4", borderRadius: 6, padding: "8px 12px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
+              <div>
+                <strong style={{ color: "#1e7e46" }}>✓ {t("mcard.devisReceived")}</strong>
+                <div style={{ fontSize: 11, color: "#3a7a52", marginTop: 2 }}>{t("mcard.devisReceivedNote")}</div>
+              </div>
+              {canEditInfos && (
+                <button
+                  className="btn-primary"
+                  disabled={validatingDevis}
+                  style={{ fontSize: 13 }}
+                  onClick={async () => {
+                    if (!window.confirm(t("mcard.devisValidateConfirm", { immat: machine.immat }))) return;
+                    setValidatingDevis(true);
+                    const r = await validerDevisEtEnvoyer(machine.immat);
+                    setValidatingDevis(false);
+                    if (r.ok) alert(r.email_envoye ? t("mcard.devisValidatedSent", { client: r.client }) : t("mcard.devisValidatedNoEmail"));
+                    else alert(t("mcard.devisValidateError", { error: r.error }));
+                  }}
+                >
+                  {validatingDevis ? "⏳" : "📧"} {t("mcard.devisValidateBtn")}
+                </button>
+              )}
+            </div>
+          )
+        ) : null}
 
         {/* Bandeau expertise reçue */}
         {expertiseRecue && !machine.archived && (

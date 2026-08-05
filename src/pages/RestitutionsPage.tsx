@@ -136,6 +136,22 @@ export default function RestitutionsPage() {
     id: string,
     field: "recuperation_ok" | "expertise_ok" | "facture_ok" | "facture_reglee_ok"
   ) {
+    // 🛡️ Blocage : pas de facturation tant que des postes sont en attente de devis
+    // (le montant de la retenue serait incomplet)
+    const machine = allMachines.find((m) => m.id === id);
+    if (
+      field === "facture_ok" &&
+      machine &&
+      !machine.facture_ok &&
+      (machine.devis_pending_labels?.length || (machine.devis_complet && !machine.devis_valide))
+    ) {
+      alert(
+        machine.devis_pending_labels?.length
+          ? t("resti.factureBloqueeDevis", { count: machine.devis_pending_labels.length })
+          : t("resti.factureBloqueeValidation")
+      );
+      return;
+    }
     toggleEtapeRestitution(id, field);
   }
 

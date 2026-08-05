@@ -112,6 +112,13 @@ export interface Machine {
   /** Email du client (repris dans Nacelle Expert pour l'envoi du rapport) */
   email_client?: string;
 
+  /** ⏳ Devis en attente : libellés des postes sur devis non chiffrés (Nacelle Expert) */
+  devis_pending_labels?: string[];
+  /** Devis complet (tous les postes chiffrés par l'atelier), en attente de validation secrétaire */
+  devis_complet?: boolean | null;
+  /** Validation de la secrétaire (envoi de l'expertise complète au client) */
+  devis_valide?: { par?: string; date?: string } | null;
+
   heures_nacelle?: number;
   km_porteur?: number;
   agent_expertise?: string;

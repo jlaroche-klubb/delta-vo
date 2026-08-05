@@ -51,7 +51,7 @@ interface NacelleExpertDossier {
   devis_complet?: boolean;
   devis_valide?: { par?: string; date?: string } | null;
   /** Montants saisis par l'atelier via le lien de chiffrage, par id de poste tarifaire */
-  devis_recu?: Record<string, { montant?: number; reference?: string; date?: string }>;
+  devis_recu?: Record<string, { montant?: number; reference?: string; date?: string; label?: string }>;
 }
 
 interface MachineVO {
@@ -198,7 +198,9 @@ export function useNacelleExpertSync() {
             devis_valide: dossier.devis_valide || null,
             // 💶 Détail du devis chiffré par l'atelier (affiché à la secrétaire)
             devis_recu_items: Object.entries(dossier.devis_recu || {}).map(([id, e]) => ({
-              label: tarifLabels[id] || id,
+              // Libellé : mémorisé au chiffrage par NE en priorité (config/tarifs
+              // peut ne pas exister tant que le barème par défaut n'a pas été modifié)
+              label: e?.label || tarifLabels[id] || id,
               montant: Number(e?.montant) || 0,
               reference: e?.reference || '',
             })),

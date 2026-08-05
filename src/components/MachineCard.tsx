@@ -208,6 +208,10 @@ export default function MachineCard({
               )}
             </span>
             <span className="modele">
+              {/* 🏷️ N° occasion : référence commerciale (documents externes) */}
+              {machine.numero_occasion && (
+                <span style={{ fontWeight: 700, color: "#1a2a6e" }}>{t("card.occasionShort")} {machine.numero_occasion} · </span>
+              )}
               {machine.type_nacelle} · {machine.modele_porteur}
               {machine.annee_circulation && (
                 <span className="annee"> · {machine.annee_circulation}</span>

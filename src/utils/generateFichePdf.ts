@@ -106,7 +106,10 @@ export async function generateFichePdf({
   // Nom du fichier
   const today = new Date().toISOString().slice(0, 10);
   const ficheNum = machine.fiche_commerciale?.numero_fiche || "SANS-NUM";
-  const filename = `delta-vo_fiche-${ficheNum}_${machine.immat}_${today}.pdf`;
+  // 🏷️ Nom de fichier SANS immatriculation (fiche destinée à l'extérieur) :
+  // référence = N° occasion, repli sur le n° de fiche seul.
+  const refExterne = machine.numero_occasion ? `occ-${machine.numero_occasion}` : "vo";
+  const filename = `delta-vo_fiche-${ficheNum}_${refExterne}_${today}.pdf`;
 
   pdf.save(filename);
 }

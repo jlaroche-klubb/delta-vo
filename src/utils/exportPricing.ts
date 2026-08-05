@@ -33,7 +33,9 @@ export function exportPricingToExcel({ machines }: ExportPricingOptions) {
   const rows = disponibles.map((m) => {
     const row: any = {
       "N° Dossier": m.numero_dossier || "",
-      Immatriculation: m.immat || "",
+      // 🏷️ Document exportable : N° occasion à la place de l'immatriculation
+      // (règle PDG : pas d'immat sur ce qui peut partir à l'extérieur)
+      "N° occasion": m.numero_occasion || "",
       "Type nacelle": m.type_nacelle || "",
       "Modèle porteur": m.modele_porteur || "",
       "Mise en circulation": m.annee_circulation || "",

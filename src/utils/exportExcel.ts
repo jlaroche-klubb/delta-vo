@@ -7,6 +7,7 @@ export function exportMachinesToExcel(machines: Machine[], filename = "delta-vo-
     const etape = getCurrentStep(m);
     return {
       "Immatriculation": m.immat,
+      "N° occasion": m.numero_occasion || "",
       "Type nacelle": m.type_nacelle,
       "Modèle porteur": m.modele_porteur,
       "Mise en circulation": m.annee_circulation,

@@ -27,7 +27,9 @@ import DisponiblesFilters, {
 } from "../components/DisponiblesFilters";
 import { exportPricingToExcel } from "../utils/exportPricing";
 import { importPricingFromExcel, ImportResult } from "../utils/importPricing";
-import { parseStockExcel } from "../utils/importStock";
+import { parseStockExcel, ParsedStockMachine } from "../utils/importStock";
+import { simulateVogImport, VogSimulation } from "../utils/importVogMerge";
+import ImportSimulationModal from "../components/ImportSimulationModal";
 import { runNacelleExpertRattrapage } from "../hooks/useNacelleExpertSync";
 import { useTranslation } from "react-i18next";
 import { generateFichePdf } from "../utils/generateFichePdf";
@@ -116,6 +118,9 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
   const fileInputRef = useRef<HTMLInputElement>(null);
   const stockInputRef = useRef<HTMLInputElement>(null);
   const [importingStock, setImportingStock] = useState(false);
+  // 🔎 Simulation d'import VOG (rapport à blanc avant écriture)
+  const [stockSimulation, setStockSimulation] = useState<VogSimulation | null>(null);
+  const [stockParsed, setStockParsed] = useState<ParsedStockMachine[]>([]);
   const [refreshingExpertise, setRefreshingExpertise] = useState(false);
   const [rattrapage, setRattrapage] = useState(false);
   const { t } = useTranslation();
@@ -456,36 +461,41 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
     const file = e.target.files?.[0];
     if (!file) return;
 
-    setImportingStock(true);
+    // 1️⃣ Lecture + SIMULATION À BLANC : rien n'est écrit à ce stade.
+    // Le rapport (créées / mises à jour / prix modifiés / ignorées) est montré
+    // dans une modale ; l'écriture n'a lieu qu'après « Confirmer l'import ».
     try {
       const { parsed, skipped, totalRows } = await parseStockExcel(file);
       if (parsed.length === 0) {
-        alert(
-          `Aucune machine "à vendre" trouvée dans le fichier (${totalRows} lignes lues).`
-        );
+        alert(`Aucune machine exploitable trouvée dans le fichier (${totalRows} lignes lues).`);
         return;
       }
-      const ok = window.confirm(
-        `Import du stock VOG :\n\n` +
-          `• ${parsed.length} machine(s) à vendre détectée(s)\n` +
-          `• ${skipped.length} ligne(s) ignorée(s) (pas à vendre)\n\n` +
-          `Les machines déjà présentes seront complétées (sans écraser prix/fiche).\n\n` +
-          `Lancer l'import ?`
-      );
-      if (!ok) return;
+      setStockParsed(parsed);
+      setStockSimulation(simulateVogImport(parsed, machines, skipped, totalRows));
+    } catch (err: any) {
+      alert("Erreur lors de la lecture du fichier : " + err.message);
+    } finally {
+      if (stockInputRef.current) stockInputRef.current.value = "";
+    }
+  }
 
-      const res = await importStockMachines(parsed);
+  async function handleStockImportConfirm() {
+    // 2️⃣ Import réel — même logique de fusion que la simulation (importVogMerge)
+    setImportingStock(true);
+    try {
+      const res = await importStockMachines(stockParsed);
+      setStockSimulation(null);
+      setStockParsed([]);
       alert(
         `✅ Import terminé :\n\n` +
           `• ${res.created} machine(s) créée(s)\n` +
-          `• ${res.merged} machine(s) complétée(s)\n` +
-          `• ${res.skipped} inchangée(s) / ignorée(s)`
+          `• ${res.merged} machine(s) mise(s) à jour\n` +
+          `• ${res.skipped} inchangée(s) / en erreur`
       );
     } catch (err: any) {
       alert("Erreur lors de l'import du stock : " + err.message);
     } finally {
       setImportingStock(false);
-      if (stockInputRef.current) stockInputRef.current.value = "";
     }
   }
 
@@ -802,6 +812,21 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
         <ImportResultModal
           result={importResult}
           onClose={() => setImportResult(null)}
+        />
+      )}
+
+      {/* 🔎 Simulation d'import VOG : rapport à blanc avant écriture */}
+      {stockSimulation && (
+        <ImportSimulationModal
+          sim={stockSimulation}
+          importing={importingStock}
+          onConfirm={handleStockImportConfirm}
+          onCancel={() => {
+            if (!importingStock) {
+              setStockSimulation(null);
+              setStockParsed([]);
+            }
+          }}
         />
       )}
 

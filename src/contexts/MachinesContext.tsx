@@ -17,6 +17,7 @@ import { getAllExpertises } from "../services/nacelleExpertService";
 import { pushInfosAdminToNacelleExpert } from "../services/nacelleExpertPushService";
 import { normalizeImmat } from "../utils/immat";
 import type { ParsedStockMachine } from "../utils/importStock";
+import { computeVogUpdates, buildNewVogDoc } from "../utils/importVogMerge";
 
 export interface StockImportSummary {
   created: number;
@@ -313,6 +314,26 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             prix_modifie_le: data.prix_modifie_le,
             prix_modifie_par: data.prix_modifie_par,
             prix_modifie_manuellement: data.prix_modifie_manuellement,
+
+            // 🏷️ Nouvelle base VOG : N° occasion (référence commerciale externe) + admin
+            numero_occasion: data.numero_occasion || undefined,
+            proprietaire: data.proprietaire || undefined,
+            categorie_vehicule: data.categorie_vehicule || undefined,
+            numero_cube: data.numero_cube || undefined,
+            histovec: data.histovec || undefined,
+            num_chassis: data.num_chassis || undefined,
+            etat_exterieur: data.etat_exterieur || undefined,
+            etat_nacelle_vog: data.etat_nacelle_vog || undefined,
+            etat_note_vog: data.etat_note_vog || undefined,
+            date_mise_en_service: data.date_mise_en_service || undefined,
+            fiche_occasion_vog: data.fiche_occasion_vog || undefined,
+            date_ajout_vog: data.date_ajout_vog || undefined,
+            carte_grise_vog: data.carte_grise_vog || undefined,
+            date_prix_vog: data.date_prix_vog || undefined,
+            km_note: data.km_note || undefined,
+            heures_note: data.heures_note || undefined,
+            vr_vnc: data.vr_vnc ?? undefined,
+            diffusion: data.diffusion || undefined,
             
             // ✅ Conserver la fiche commerciale depuis Firebase
             fiche_commerciale: data.fiche_commerciale,
@@ -905,6 +926,8 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
   }
 
   async function importStockMachines(parsed: ParsedStockMachine[]): Promise<StockImportSummary> {
+    // ⚠ La logique de fusion vit dans utils/importVogMerge.ts, PARTAGÉE avec la
+    // simulation à blanc : le rapport montré avant import = ce qui est écrit ici.
     let created = 0;
     let merged = 0;
     let skipped = 0;
@@ -919,45 +942,16 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       );
 
       if (existing) {
-        // Machine déjà connue -> on ne complète QUE les champs vides (jamais d'écrasement)
-        // ⚠️ Noms de champs Firestore = ceux lus par la conversion (modele/annee_fab/heures)
-        const updates: any = {};
-        if (!existing.modele_porteur && p.modele_porteur) updates.modele = p.modele_porteur;
-        if (!existing.type_nacelle && p.type_nacelle) updates.type_nacelle = p.type_nacelle;
-        if (!existing.annee_circulation && p.annee_circulation) updates.annee_fab = p.annee_circulation;
-        if (existing.km_porteur == null && p.km_porteur != null) updates.km_porteur = p.km_porteur;
-        if (existing.heures_nacelle == null && p.heures_nacelle != null) updates.heures = p.heures_nacelle;
-        if (!existing.localite && p.localite) updates.localite = p.localite;
-        if (!existing.numero_dossier && p.numero_dossier) updates.numero_dossier = p.numero_dossier;
-        // 💶 Prix de vente : le fichier VOG fait foi -> on MET À JOUR le prix
-        // dès que le VOG en fournit un (même si la machine en avait déjà un).
-        if (p.prix_fr != null && p.prix_fr !== existing.prix_fr) {
-          updates.prix_fr = p.prix_fr;
-          updates.prix_modifie_le = new Date().toISOString().slice(0, 10);
-          updates.prix_modifie_par = "Import VOG";
-        }
-
-        // ✅ Marqueur définitif : cette machine vient du stock VOG.
-        // La page Restitution exclut catégoriquement les machines import_vog.
-        updates.import_vog = true;
-
-        // Ces machines sont en STOCK (présentes dans le VOG "à vendre").
-        // Si elles ont été tirées en restitution par la synchro, on les remet disponibles.
-        // On ne touche PAS aux machines en prépa / louées / vendues.
-        if (existing.statut === "restitution" || existing.statut === "disponible") {
-          updates.statut = "disponible";
-          updates.fiche_vo_creee = true;
-          updates.facture_reglee_ok = true;
-        }
-
-        if (Object.keys(updates).length > 0) {
+        const { updates } = computeVogUpdates(existing, p);
+        const significatif = Object.keys(updates).filter((k) => k !== "import_vog");
+        if (significatif.length > 0 || !existing.import_vog) {
           updates.updatedAt = now;
           try {
             // On écrit sur l'ID du doc RÉELLEMENT trouvé (existing.id), pas sur
             // p.docId : sinon un match par immat sur un doc legacy créerait un doublon.
             await updateDoc(doc(db, "machines_vo", existing.id), updates);
             merged++;
-            details.push({ ref: p.source, action: "complétée" });
+            details.push({ ref: p.source, action: "mise à jour" });
           } catch (e) {
             skipped++;
             details.push({ ref: p.source, action: "erreur MAJ" });
@@ -965,34 +959,17 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
           }
         } else {
           skipped++;
-          details.push({ ref: p.source, action: "déjà complète" });
+          details.push({ ref: p.source, action: "déjà à jour" });
         }
-        const prix = updates.prix_fr ?? existing.prix_fr;
+        const prix = (updates.prix_fr as number | undefined) ?? existing.prix_fr;
         if (prix) {
           const label = `${existing.type_nacelle || p.type_nacelle} ${existing.modele_porteur || p.modele_porteur}`.trim();
           await syncHubspotProduct("upsert", p.docId, label, prix);
         }
       } else {
-        // Nouvelle machine — noms de champs Firestore = ceux lus par la conversion
-        const newDoc: any = {
-          immat: p.immat || p.docId,
-          modele: p.modele_porteur,
-          type_nacelle: p.type_nacelle,
-          annee_fab: p.annee_circulation,
-          statut: "disponible",
-          import_vog: true,
-          date_ajout: Timestamp.fromDate(new Date()),
-          recuperation_ok: true,
-          expertise_ok: true,
-          createdAt: now,
-          updatedAt: now,
-        };
-        if (p.numero_dossier) newDoc.numero_dossier = p.numero_dossier;
-        if (p.km_porteur != null) newDoc.km_porteur = p.km_porteur;
-        if (p.heures_nacelle != null) newDoc.heures = p.heures_nacelle;
-        if (p.localite) newDoc.localite = p.localite;
-        if (p.prix_fr != null) newDoc.prix_fr = p.prix_fr;
-
+        // Nouvelle machine du stock VOG
+        const newDoc = buildNewVogDoc(p);
+        newDoc.date_ajout = Timestamp.fromDate(new Date());
         try {
           await setDoc(doc(db, "machines_vo", p.docId), newDoc);
           created++;

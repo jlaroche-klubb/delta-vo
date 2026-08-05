@@ -126,6 +126,39 @@ export interface Machine {
   agent_expertise?: string;
   rapport_expertise?: RapportExpertise;
 
+  // ─── Nouvelle base VOG (import « Liste complète ») ───
+  /** 🏷️ Référence commerciale : figure sur les documents externes À LA PLACE de l'immat */
+  numero_occasion?: string;
+  /** Propriétaire du véhicule : DS (Delta Services) / KF (Klubb France) */
+  proprietaire?: string;
+  /** Catégorie VL / PL / TR */
+  categorie_vehicule?: string;
+  numero_cube?: string;
+  histovec?: string;
+  num_chassis?: string;
+  etat_exterieur?: string;
+  etat_nacelle_vog?: string;
+  etat_note_vog?: string;
+  date_mise_en_service?: string;
+  fiche_occasion_vog?: string;
+  date_ajout_vog?: string;
+  carte_grise_vog?: string;
+  date_prix_vog?: string;
+  /** Mention d'origine quand KM/heures ne sont pas numériques ("PAS DE CLES", "NC"...) */
+  km_note?: string;
+  heures_note?: string;
+  /** 💶 VR ou VNC (valeur résiduelle/comptable) — affichage réservé aux admins */
+  vr_vnc?: number;
+  /** Diffusion des annonces (stockée pour le futur système de mise en ligne, pas d'UI) */
+  diffusion?: {
+    mascus?: string;
+    viamobilis?: string;
+    site_delta?: string;
+    klubb_com?: string;
+    klubb_france?: string;
+    lot?: string;
+  };
+
   photos_commerciales?: {
     av_droit?: string;
     av_gauche?: string;

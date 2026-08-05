@@ -146,6 +146,8 @@ export default function DisponibleCard({
           </div>
           <div className="dispo-modele">
             {[
+              // 🏷️ N° occasion = référence commerciale (celle qui part à l'extérieur)
+              machine.numero_occasion ? `${t("card.occasionShort")} ${machine.numero_occasion}` : null,
               machine.type_nacelle ? machine.immat : null,
               machine.modele_porteur,
               machine.annee_circulation,
@@ -350,13 +352,20 @@ export default function DisponibleCard({
           </div>
           {/* ← BOUTON AJOUTÉ ICI */}
           {onViewExpertise && (
-            <button 
+            <button
               className="btn-view-expertise"
               onClick={() => onViewExpertise(machine)}
             >
               🔍 {t("card.viewExpertise")}
             </button>
           )}
+        </div>
+      )}
+
+      {/* 💶 VR/VNC (valeur résiduelle/comptable) — réservé aux admins */}
+      {isAdmin && machine.vr_vnc != null && machine.vr_vnc > 0 && (
+        <div style={{ fontSize: 12, color: "#666", padding: "2px 0" }}>
+          🔒 {t("card.vrVnc")} : <b>{machine.vr_vnc.toLocaleString("fr-FR")} €</b>
         </div>
       )}
 

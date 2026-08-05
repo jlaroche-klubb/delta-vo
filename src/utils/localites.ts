@@ -16,11 +16,14 @@ export const LOCALITES = ["EGI", "Ferrières", "Croissy", "Avignon", "St Alban"]
 
 const CANON: Record<string, string> = {
   egi: "EGI",
+  egi08: "EGI", // libellé VOG « EGI 08 »
   ferriere: "Ferrières",
   ferrieres: "Ferrières",
   croissy: "Croissy",
   avignon: "Avignon",
+  avignon84: "Avignon", // libellé VOG « Avignon 84 »
   stalban: "St Alban",
+  stalban31: "St Alban", // libellé VOG « St Alban 31 »
   saintalban: "St Alban",
 };
 

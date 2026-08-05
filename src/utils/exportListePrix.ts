@@ -29,7 +29,9 @@ export function exportListePrix(machines: Machine[], userRole: UserRole) {
   // Préparer les données
   const rows = machinesAvecPrix.map((m) => {
     const row: any = {
-      Immatriculation: m.immat || "",
+      // 🏷️ Document exportable : N° occasion à la place de l'immatriculation
+      // (règle PDG : pas d'immat sur ce qui peut partir à l'extérieur)
+      "N° occasion": m.numero_occasion || "",
       "Type nacelle": m.type_nacelle || "",
       "Modèle porteur": m.modele_porteur || "",
       "Mise en circulation": m.annee_circulation || "",

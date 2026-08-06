@@ -1111,8 +1111,10 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
         console.error('❌ Erreur cancelEnCours Firebase:', err);
       }
       // Retour en stock -> re-publier le produit HubSpot si la machine a un prix
+      // ⛔ sauf machine ARCHIVÉE (vendue/sortie du parc) : annuler sa prépa ne
+      // doit pas la faire réapparaître dans le catalogue HubSpot
       const mm = machines.find((x) => x.id === machineId);
-      if (mm?.prix_fr && mm.prix_fr > 0) {
+      if (mm?.prix_fr && mm.prix_fr > 0 && !mm.archived) {
         syncHubspotProduct("upsert", machineId, modeleLabel(mm), mm.prix_fr);
       }
     } else {

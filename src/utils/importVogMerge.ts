@@ -100,7 +100,12 @@ export function computeVogUpdates(existing: Machine, p: ParsedStockMachine): Vog
 
   // Machines du VOG « à vendre » encore en cycle -> repassent disponibles.
   // On ne touche PAS aux machines en prépa / louées / vendues.
-  if (enStock) {
+  // ⚠ Ni aux RESTITUTIONS EN COURS : le fichier du parc (format VOG) circule
+  // compta → ADV → PDG et les contient pour l'attribution des N° occasion —
+  // son réimport ne doit JAMAIS clore leur facturation de frais.
+  const restitutionEnCours =
+    existing.statut === "restitution" && !(existing.facture_ok && existing.facture_reglee_ok);
+  if (enStock && !restitutionEnCours) {
     if (existing.statut !== "disponible") changes.push("statut : disponible (stock VOG)");
     updates.statut = "disponible";
     updates.fiche_vo_creee = true;

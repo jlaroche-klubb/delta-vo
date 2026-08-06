@@ -31,19 +31,35 @@ export async function parseVncExcel(file: File, machines: Machine[]): Promise<Vn
     rows.push(...XLSX.utils.sheet_to_json<any>(wb.Sheets[sheetName]));
   }
 
-  if (rows.length > 0 && !rows.some((r) => Object.keys(r).some((k) => k.trim().startsWith("VNC")))) {
+  if (
+    rows.length > 0 &&
+    !rows.some((r) => Object.keys(r).some((k) => {
+      const kk = k.replace(/\s+/g, " ").trim().toUpperCase();
+      return kk.startsWith("VNC") || kk.startsWith("VR OU VNC");
+    }))
+  ) {
     throw new Error(
-      "Le fichier ne correspond pas au modèle VNC (colonne « VNC (€) » introuvable). Utilisez le fichier envoyé à la compta."
+      "Le fichier ne correspond pas au modèle (colonne « VNC » ou « VR OU VNC EUR » introuvable). Utilisez le fichier du parc envoyé à la compta."
     );
   }
 
   const success: VncImportResult["success"] = [];
   const errors: VncImportResult["errors"] = [];
 
+  // Lecture tolérante des en-têtes : accepte le format VOG (« IMMAT »,
+  // « N° OCCASION », « VR OU VNC EUR ») comme l'ancien format VNC
+  const getCol = (row: any, ...candidats: string[]): any => {
+    for (const k of Object.keys(row)) {
+      const kk = k.replace(/\s+/g, " ").trim().toUpperCase();
+      if (candidats.some((c) => kk === c || kk.startsWith(c))) return row[k];
+    }
+    return undefined;
+  };
+
   rows.forEach((row, idx) => {
     const rowNum = idx + 2;
-    const immat = String(row["Immatriculation"] || "").trim().toUpperCase();
-    const occasion = String(row["N° occasion"] || "").trim().replace(/\.0$/, "");
+    const immat = String(getCol(row, "IMMAT", "IMMATRICULATION") ?? "").trim().toUpperCase();
+    const occasion = String(getCol(row, "N° OCCASION") ?? "").trim().replace(/\.0$/, "");
     if (!immat && !occasion) {
       errors.push({ ref: `Ligne ${rowNum}`, raison: "Ni immatriculation ni N° occasion" });
       return;
@@ -59,8 +75,7 @@ export async function parseVncExcel(file: File, machines: Machine[]): Promise<Vn
       return;
     }
 
-    const vncKey = Object.keys(row).find((k) => k.trim().startsWith("VNC"));
-    const raw = vncKey ? row[vncKey] : undefined;
+    const raw = getCol(row, "VNC", "VR OU VNC");
     if (raw === undefined || raw === null || String(raw).trim() === "") {
       errors.push({ ref: machine.immat, raison: "VNC vide — ligne ignorée" });
       return;
@@ -86,33 +101,67 @@ export async function parseVncExcel(file: File, machines: Machine[]): Promise<Vn
  * 📤 Fichier VNC pour la compta (même format que l'envoi automatique du cron
  * Nacelle Expert — utile pour un envoi manuel hors calendrier).
  */
+export function buildVogRow(m: Machine): Record<string, any> {
+  // Marque / Porteur : le VOG les sépare, Delta VO les stocke combinés
+  const mp = (m.modele_porteur || "").trim();
+  const marque = mp.split(" ")[0] || "";
+  const porteur = mp.split(" ").slice(1).join(" ");
+  return {
+    "Dossier Delta ou KLUBB France": m.numero_dossier || "",
+    "N° OCCASION": m.numero_occasion || "", // vide = à attribuer par l'ADV
+    "Propriétaire": m.proprietaire || "",
+    "Fiche d'occasion": m.fiche_occasion_vog || "",
+    "Data ajout vog": m.date_ajout_vog || "",
+    "Carte grise": m.carte_grise_vog || "",
+    "VL / PL /TR": m.categorie_vehicule || "",
+    "N° de cube": m.numero_cube || "",
+    "IMMAT": m.immat || "",
+    "Vérification HISTOVEC": m.histovec || "",
+    "N° de châssis": m.num_chassis || "",
+    "Etat général extérieur": m.etat_exterieur || "",
+    "Etat de la nacelle": m.etat_nacelle_vog || "",
+    "Etat": m.etat_note_vog || "",
+    "Date de mise en service": m.date_mise_en_service || "",
+    "Année de mise en service": m.annee_circulation || "",
+    "Marque porteur": marque,
+    "Porteur": porteur,
+    "Type nacelle": m.type_nacelle || "",
+    "KM porteur": m.km_porteur ?? (m.km_note || ""),
+    "Heures de la nacelle": m.heures_nacelle ?? (m.heures_note || ""),
+    "Lieu de stockage du véhicule": m.localite || "",
+    // 💶 Montant de la retenue d'expertise (aide à la décision de prix du PDG)
+    "Montant expertise VO (€)": m.rapport_expertise?.total_retenue_ht ?? "",
+    "PRIX DE VENTE HT": m.prix_fr ?? "", // ← rempli / révisé par le PDG
+    "Date prix de vente": m.prix_modifie_le || m.date_prix_vog || "",
+    "VR OU VNC EUR": m.vr_vnc ?? "", // ← rempli / mis à jour par la COMPTA
+    "Mascus": m.diffusion?.mascus || "",
+    "ViaMobilis": m.diffusion?.viamobilis || "",
+    "Site Delta": m.diffusion?.site_delta || "",
+    "Klubb.com": m.diffusion?.klubb_com || "",
+    "Klubb France": m.diffusion?.klubb_france || "",
+    "LOT": m.diffusion?.lot || "",
+  };
+}
+
 export function exportVncToExcel(machines: Machine[]) {
   const now = new Date();
   const dateStr = `${now.getDate().toString().padStart(2, "0")}-${(now.getMonth() + 1)
     .toString()
     .padStart(2, "0")}-${now.getFullYear()}`;
 
+  // Tout le parc actif : les restitutions en cours y figurent aussi, pour que
+  // l'ADV leur ATTRIBUE leur N° occasion (colonne vide à compléter) en même
+  // temps qu'elle vérifie la cohérence du fichier.
   const actives = machines.filter((m) => !m.archived);
-  const rows = actives.map((m) => ({
-    "N° occasion": m.numero_occasion || "",
-    "Immatriculation": m.immat || "",
-    "N° de châssis": m.num_chassis || "",
-    "Type nacelle": m.type_nacelle || "",
-    "Modèle porteur": m.modele_porteur || "",
-    "Date de mise en service": m.date_mise_en_service || "",
-    "Mise en circulation": m.annee_circulation || "",
-    "Propriétaire": m.proprietaire || "",
-    "Catégorie": m.categorie_vehicule || "",
-    "Prix de vente HT (€)": m.prix_fr ?? "",
-    "VNC (€)": m.vr_vnc ?? "",
-  }));
+  const rows = actives
+    .map(buildVogRow)
+    .sort((a, b) => String(a["N° OCCASION"]).localeCompare(String(b["N° OCCASION"]), "fr", { numeric: true }));
 
   const ws = XLSX.utils.json_to_sheet(rows);
-  ws["!cols"] = [
-    { wch: 12 }, { wch: 13 }, { wch: 20 }, { wch: 14 }, { wch: 20 },
-    { wch: 18 }, { wch: 14 }, { wch: 12 }, { wch: 10 }, { wch: 16 }, { wch: 14 },
-  ];
+  ws["!cols"] = Object.keys(rows[0] || {}).map((k) => ({ wch: Math.max(12, Math.min(24, k.length + 2)) }));
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "VNC");
-  XLSX.writeFile(wb, `delta-vo_vnc-compta_${dateStr}.xlsx`);
+  // ⚠ Nom de feuille « Liste complète » : le fichier se réimporte tel quel
+  // via « Import du stock VOG » (compta → VNC, PDG → prix, ADV → N° occasion)
+  XLSX.utils.book_append_sheet(wb, ws, "Liste complète");
+  XLSX.writeFile(wb, `delta-vo_parc-vog_${dateStr}.xlsx`);
 }

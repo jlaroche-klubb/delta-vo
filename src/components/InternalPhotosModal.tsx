@@ -32,22 +32,65 @@ export default function InternalPhotosModal({
   const [preview, setPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  /** ⏱ Garde-fou : l'upload ne peut pas rester bloqué indéfiniment */
+  function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+    return Promise.race([
+      p,
+      new Promise<T>((_, rej) =>
+        setTimeout(() => rej(new Error(`Délai dépassé (${label})`)), ms)
+      ),
+    ]);
+  }
+
+  /** 🗜 Compression côté navigateur : photos d'état « telles quelles »,
+   *  1600 px max, JPEG — uploads rapides même depuis le téléphone */
+  async function compress(file: File): Promise<Blob> {
+    try {
+      const bitmap = await createImageBitmap(file);
+      const MAX = 1600;
+      const scale = Math.min(1, MAX / Math.max(bitmap.width, bitmap.height));
+      const w = Math.round(bitmap.width * scale);
+      const h = Math.round(bitmap.height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return file;
+      ctx.drawImage(bitmap, 0, 0, w, h);
+      const blob = await new Promise<Blob | null>((res) =>
+        canvas.toBlob(res, "image/jpeg", 0.82)
+      );
+      return blob && blob.size < file.size ? blob : file;
+    } catch {
+      return file; // format non décodable par le navigateur : envoi tel quel
+    }
+  }
+
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
     setError(null);
     setUploading(true);
+    const ajoutees: PhotoSupplementaire[] = [];
     try {
-      const ajoutees: PhotoSupplementaire[] = [];
       for (const file of Array.from(files)) {
         if (!file.type.startsWith("image/")) {
           setError(t("modals.photoOnlyImages"));
           continue;
         }
-        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-        const path = `machines/${machine.immat}/internes/${Date.now()}_${safeName}`;
+        const blob = await compress(file);
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_").replace(/\.[^.]+$/, "");
+        // 📁 Même dossier de stockage que les photos supplémentaires (chemin
+        // déjà autorisé par les règles Storage) — préfixe "interne_" pour les
+        // distinguer. La confidentialité est portée par le champ Firestore
+        // photos_internes, jamais lu par la fiche VO / le partage / la galerie.
+        const path = `machines/${machine.immat}/supplementaires/interne_${Date.now()}_${safeName}.jpg`;
         const storageRef = ref(storage, path);
-        await uploadBytes(storageRef, file);
-        const url = await getDownloadURL(storageRef);
+        await withTimeout(
+          uploadBytes(storageRef, blob, { contentType: "image/jpeg" }),
+          90000,
+          file.name
+        );
+        const url = await withTimeout(getDownloadURL(storageRef), 30000, file.name);
         ajoutees.push({
           url,
           nom: file.name,
@@ -56,15 +99,17 @@ export default function InternalPhotosModal({
           ajout_par: userName,
         });
       }
+    } catch (e: any) {
+      console.error("❌ Erreur upload photo interne:", e);
+      const code = e?.code ? ` [${e.code}]` : e?.message ? ` — ${e.message}` : "";
+      setError(`${t("modals.docUploadFail")}${code}`);
+    } finally {
+      // Les photos déjà envoyées sont conservées même si une suivante a échoué
       if (ajoutees.length > 0) {
         const next = [...photos, ...ajoutees];
         setPhotos(next);
         onSave(machine.id, next); // enregistrement immédiat
       }
-    } catch (e) {
-      console.error("❌ Erreur upload photo interne:", e);
-      setError(t("modals.docUploadFail"));
-    } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }

@@ -93,6 +93,8 @@ interface MachinesContextType {
   addEtapePrepa: (machineId: string, label: string) => void;
   removeEtapePrepa: (machineId: string, etapeId: string) => void;
   importStockMachines: (parsed: ParsedStockMachine[], archiveIds?: string[]) => Promise<StockImportSummary>;
+  /** 💶 Circuit VNC : applique les VNC validées par la compta (import ADV) */
+  updateVncValues: (items: { immat: string; nouvelle: number }[]) => Promise<number>;
   refreshExpertiseMontants: () => Promise<{ updated: number; matched: number; total: number }>;
   configureEnCours: (
     machineId: string,
@@ -339,6 +341,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             km_note: data.km_note || undefined,
             heures_note: data.heures_note || undefined,
             vr_vnc: data.vr_vnc ?? undefined,
+            vnc_maj_le: data.vnc_maj_le || undefined,
             diffusion: data.diffusion || undefined,
             
             // ✅ Conserver la fiche commerciale depuis Firebase
@@ -1016,6 +1019,28 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     return { created, merged, skipped, archived, details };
   }
 
+  // 💶 Circuit VNC : applique les VNC du fichier compta (correspondance par immat,
+  // seule la VNC est modifiée). Retourne le nombre de machines mises à jour.
+  async function updateVncValues(items: { immat: string; nouvelle: number }[]): Promise<number> {
+    let updated = 0;
+    const today = new Date().toISOString().slice(0, 10);
+    for (const it of items) {
+      const machine = machines.find((m) => m.immat.toUpperCase() === it.immat.toUpperCase());
+      if (!machine) continue;
+      try {
+        await updateDoc(doc(db, "machines_vo", machine.id), {
+          vr_vnc: it.nouvelle,
+          vnc_maj_le: today,
+          updatedAt: new Date().toISOString(),
+        });
+        updated++;
+      } catch (e) {
+        console.warn("MAJ VNC impossible pour", it.immat, e);
+      }
+    }
+    return updated;
+  }
+
   async function configureEnCours(
     machineId: string,
     typePrepa: "normale" | "en_etat",
@@ -1474,6 +1499,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       addEtapePrepa,
       removeEtapePrepa,
       importStockMachines,
+      updateVncValues,
       refreshExpertiseMontants,
       configureEnCours,
       cancelEnCours,

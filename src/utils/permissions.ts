@@ -93,6 +93,11 @@ export function canImportExcelPricing(role: UserRole): boolean {
   return role === "admin";
 }
 
+/** 💶 Circuit VNC (compta -> ADV) : import du fichier VNC et export manuel */
+export function canManageVnc(role: UserRole): boolean {
+  return ["admin", "secretaire"].includes(role);
+}
+
 /**
  * Export liste de prix commerciale (pour envoyer aux clients)
  * Accessible à tous sauf chef et atelier

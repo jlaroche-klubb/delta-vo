@@ -29,6 +29,7 @@ import { exportPricingToExcel } from "../utils/exportPricing";
 import { importPricingFromExcel, ImportResult } from "../utils/importPricing";
 import { parseStockExcel, ParsedStockMachine } from "../utils/importStock";
 import { simulateVogImport, VogSimulation } from "../utils/importVogMerge";
+import { parseVncExcel, exportVncToExcel } from "../utils/importVnc";
 import ImportSimulationModal from "../components/ImportSimulationModal";
 import { runNacelleExpertRattrapage } from "../hooks/useNacelleExpertSync";
 import { useTranslation } from "react-i18next";
@@ -42,6 +43,7 @@ import {
   canCreateLLD,
   canGenerateFicheVO,
   canEditFicheCommerciale,
+  canManageVnc,
   canManagePhotosSupplementaires,
 } from "../utils/permissions";
 import { useAuth } from "../AuthContext";
@@ -89,6 +91,7 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
     creerOffre,
     annulerOffre,
     importStockMachines,
+    updateVncValues,
     refreshExpertiseMontants,
   } = useMachinesFiltered(showArchived);
 
@@ -121,6 +124,9 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
   // 🔎 Simulation d'import VOG (rapport à blanc avant écriture)
   const [stockSimulation, setStockSimulation] = useState<VogSimulation | null>(null);
   const [stockParsed, setStockParsed] = useState<ParsedStockMachine[]>([]);
+  // 💶 Circuit VNC (fichier compta)
+  const vncInputRef = useRef<HTMLInputElement>(null);
+  const [importingVnc, setImportingVnc] = useState(false);
   const [refreshingExpertise, setRefreshingExpertise] = useState(false);
   const [rattrapage, setRattrapage] = useState(false);
   const { t } = useTranslation();
@@ -501,6 +507,36 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
     }
   }
 
+  // 💶 Import VNC : fichier renvoyé par la compta -> aperçu -> application
+  async function handleVncFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportingVnc(true);
+    try {
+      const res = await parseVncExcel(file, machines);
+      if (res.success.length === 0) {
+        alert(`Aucune VNC à mettre à jour (${res.totalRows} lignes lues, ${res.errors.length} ignorée(s)/inchangée(s)).`);
+        return;
+      }
+      const apercu = res.success
+        .slice(0, 20)
+        .map((s) => `• ${s.immat} : ${s.ancienne != null ? s.ancienne.toLocaleString("fr-FR") + " €" : "—"} → ${s.nouvelle.toLocaleString("fr-FR")} €`)
+        .join("\n");
+      const suite = res.success.length > 20 ? `\n… et ${res.success.length - 20} autre(s)` : "";
+      const ok = window.confirm(
+        `Import VNC (fichier compta) :\n\n${res.success.length} VNC à mettre à jour\n${res.errors.length} ligne(s) ignorée(s) (vides, inchangées ou introuvables)\n\n${apercu}${suite}\n\nAppliquer ?`
+      );
+      if (!ok) return;
+      const updated = await updateVncValues(res.success);
+      alert(`✅ ${updated} VNC mise(s) à jour.\n\nProchaine étape : vérifiez la cohérence puis générez le fichier « Export Pricing PDG » (prix à faire / à revoir).`);
+    } catch (err: any) {
+      alert("Erreur lors de l'import VNC : " + err.message);
+    } finally {
+      setImportingVnc(false);
+      if (vncInputRef.current) vncInputRef.current.value = "";
+    }
+  }
+
   async function handleRefreshExpertise() {
     setRefreshingExpertise(true);
     try {
@@ -590,6 +626,27 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
           </button>
         )}
 
+        {/* 💶 Circuit VNC : export manuel + import du fichier compta (ADV) */}
+        {canManageVnc(userRole as any) && (
+          <button
+            className="btn-export-liste"
+            onClick={() => exportVncToExcel(machines)}
+            title={t("dispo.exportVncTitle")}
+          >
+            🧾 {t("dispo.exportVnc")}
+          </button>
+        )}
+        {canManageVnc(userRole as any) && (
+          <button
+            className="btn-import"
+            onClick={() => vncInputRef.current?.click()}
+            disabled={importingVnc}
+            title={t("dispo.importVncTitle")}
+          >
+            {importingVnc ? `⏳ ${t("dispo.importingVnc")}` : `🧾 ${t("dispo.importVnc")}`}
+          </button>
+        )}
+
         {canImportExcelPricing(userRole as any) && (
           <button className="btn-import" onClick={handleImportClick} disabled={importing}>
             {importing ? `⏳ ${t("dispo.importing")}` : `📤 ${t("dispo.importPricing")}`}
@@ -647,6 +704,13 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
           accept=".xlsx,.xls"
           style={{ display: "none" }}
           onChange={handleFileChange}
+        />
+        <input
+          ref={vncInputRef}
+          type="file"
+          accept=".xlsx,.xls"
+          style={{ display: "none" }}
+          onChange={handleVncFileChange}
         />
         <input
           ref={stockInputRef}

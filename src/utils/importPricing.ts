@@ -38,20 +38,23 @@ export async function importPricingFromExcel({
     throw new Error("Le fichier Excel est vide.");
   }
 
-  // On lit l'onglet "Pricing PDG" ; à défaut, le premier onglet du classeur
-  // (tolérant si l'onglet a été renommé en l'enregistrant).
-  const sheetName = wb.SheetNames.includes(SOURCE) ? SOURCE : wb.SheetNames[0];
-  const ws = wb.Sheets[sheetName];
-  const rows = XLSX.utils.sheet_to_json<any>(ws);
+  // 📄 On lit TOUTES les feuilles du classeur : le fichier Pricing PDG contient
+  // désormais « Prix à faire » et « Prix à revoir » (l'ancien format mono-feuille
+  // « Pricing PDG » reste accepté).
+  const rows: any[] = [];
+  for (const sheetName of wb.SheetNames) {
+    rows.push(...XLSX.utils.sheet_to_json<any>(wb.Sheets[sheetName]));
+  }
 
   const success: ImportSuccess[] = [];
   const errors: ImportError[] = [];
 
   // Vérifier que le fichier ressemble bien au modèle (colonnes de prix présentes)
   if (rows.length > 0) {
-    const cols = Object.keys(rows[0]);
-    const aLesColonnes =
-      cols.includes("Prix France HT (€)") || cols.includes("Prix Dealer HT (€)");
+    const aLesColonnes = rows.some((r) => {
+      const cols = Object.keys(r);
+      return cols.includes("Prix France HT (€)") || cols.includes("Prix Dealer HT (€)");
+    });
     if (!aLesColonnes) {
       throw new Error(
         "Le fichier ne correspond pas au modèle Pricing PDG (colonnes « Prix France HT (€) » / « Prix Dealer HT (€) » introuvables). Utilisez le fichier exporté depuis « Export Pricing PDG »."
@@ -74,17 +77,23 @@ function processRow(
   errors: ImportError[]
 ) {
   const immat = String(row["Immatriculation"] || "").trim().toUpperCase();
+  // 🏷️ Correspondance par immat OU par N° occasion (référence commerciale)
+  const occasion = String(row["N° occasion"] || "").trim().replace(/\.0$/, "");
 
-  if (!immat) {
-    errors.push({ immat: `Ligne ${rowNum}`, raison: "Immatriculation manquante", source: SOURCE });
+  if (!immat && !occasion) {
+    errors.push({ immat: `Ligne ${rowNum}`, raison: "Ni immatriculation ni N° occasion", source: SOURCE });
     return;
   }
 
-  const machine = machines.find((m) => m.immat.toUpperCase() === immat);
+  const machine = machines.find(
+    (m) =>
+      (immat && m.immat.toUpperCase() === immat) ||
+      (occasion && m.numero_occasion === occasion)
+  );
   if (!machine) {
     errors.push({
-      immat,
-      raison: `Immatriculation introuvable dans Delta VO (ligne ${rowNum})`,
+      immat: immat || `occasion ${occasion}`,
+      raison: `Machine introuvable dans Delta VO (ligne ${rowNum})`,
       source: SOURCE,
     });
     return;
@@ -108,24 +117,26 @@ function processRow(
 
   if (prixFr === null && prixDealer === null) {
     errors.push({
-      immat,
-      raison: "Aucun prix renseigné (Prix France HT et Prix Dealer HT vides)",
+      immat: machine.immat,
+      raison: "Aucun nouveau prix renseigné — ligne ignorée",
       source: SOURCE,
     });
     return;
   }
 
   if (prixFr !== null && prixFr < 0) {
-    errors.push({ immat, raison: "Prix France HT négatif", source: SOURCE });
+    errors.push({ immat: machine.immat, raison: "Prix France HT négatif", source: SOURCE });
     return;
   }
   if (prixDealer !== null && prixDealer < 0) {
-    errors.push({ immat, raison: "Prix Dealer HT négatif", source: SOURCE });
+    errors.push({ immat: machine.immat, raison: "Prix Dealer HT négatif", source: SOURCE });
     return;
   }
 
   success.push({
-    immat,
+    // ⚠ Toujours l'immat de la machine TROUVÉE : l'application des prix
+    // (DisponiblesPage) retrouve la machine par cette valeur.
+    immat: machine.immat,
     prixFr: prixFr === null ? undefined : prixFr,
     prixDealer: prixDealer === null ? undefined : prixDealer,
     source: SOURCE,

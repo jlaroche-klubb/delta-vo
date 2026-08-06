@@ -149,6 +149,8 @@ export interface Machine {
   heures_note?: string;
   /** 💶 VR ou VNC (valeur résiduelle/comptable) — affichage réservé aux admins */
   vr_vnc?: number;
+  /** Date de la dernière mise à jour VNC (import compta) */
+  vnc_maj_le?: string;
   /** Diffusion des annonces (stockée pour le futur système de mise en ligne, pas d'UI) */
   diffusion?: {
     mascus?: string;

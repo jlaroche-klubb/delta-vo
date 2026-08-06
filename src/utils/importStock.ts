@@ -133,6 +133,11 @@ function dateStr(v: any): string {
   if (m) return m[1];
   m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
   if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+  const n = Number(s);
+  if (Number.isFinite(n) && n > 20000 && n < 80000) {
+    // n° de série Excel stocké en texte (legs de l'import initial)
+    return new Date(Math.round((n - 25569) * 86400000)).toISOString().slice(0, 10);
+  }
   return s;
 }
 

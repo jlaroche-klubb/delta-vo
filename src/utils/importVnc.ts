@@ -104,7 +104,8 @@ export async function parseVncExcel(file: File, machines: Machine[]): Promise<Vn
 /** Colonnes date du fichier VOG (vraies cellules Excel, format jj/mm/aaaa) */
 export const VOG_DATE_COLS = ["Data ajout vog", "Date de mise en service", "Date prix de vente"];
 
-/** "2026-08-05" ou "05/08/2026" → Date Excel ; sinon la valeur brute (texte) */
+/** "2026-08-05", "05/08/2026" ou n° de série Excel ("45307", legs de l'import
+ *  VOG initial) → Date Excel ; sinon la valeur brute (texte) */
 function toExcelDate(v?: string): Date | string {
   const s = String(v || "").trim();
   if (!s) return "";
@@ -112,6 +113,10 @@ function toExcelDate(v?: string): Date | string {
   if (m) return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
   m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
   if (m) return new Date(Date.UTC(+m[3], +m[2] - 1, +m[1]));
+  const n = Number(s);
+  if (Number.isFinite(n) && n > 20000 && n < 80000) {
+    return new Date(Math.round((n - 25569) * 86400000)); // série Excel -> date
+  }
   return s;
 }
 

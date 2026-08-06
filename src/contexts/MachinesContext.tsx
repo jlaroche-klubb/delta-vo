@@ -475,6 +475,13 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       updates.statut = "disponible";
       console.log(`✅ Machine ${machine.immat} basculée en disponible`);
     }
+
+    // 🔄 HubSpot : l'étape Expertise validée fait entrer la machine dans les
+    // Disponibles → si elle a déjà un prix (retour de location), elle
+    // RERENTRE automatiquement dans le catalogue produits.
+    if (field === "expertise_ok" && newVal && !machine.archived && (machine.prix_fr ?? 0) > 0) {
+      syncHubspotProduct("upsert", machineId, modeleLabel(machine), machine.prix_fr);
+    }
     
     // ✅ Si machine Firebase → mettre à jour Firestore
     if (isFirebaseMachine(machineId)) {
@@ -1011,6 +1018,8 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
         });
         archived++;
         details.push({ ref: id, action: "archivée (purge VOG)" });
+        // 🗄️ HubSpot : machine archivée → SORT du catalogue (best-effort)
+        await syncHubspotProduct("archive", id);
       } catch (e) {
         details.push({ ref: id, action: "erreur archivage" });
       }
@@ -1071,6 +1080,9 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         console.error('❌ Erreur configureEnCours Firebase:', err);
       }
+      // 🗄️ HubSpot : machine vendue / partie en préparation → SORT du catalogue
+      // (le serveur ne supprime que les produits marqués Delta VO — règle stricte)
+      syncHubspotProduct("archive", machineId);
     } else {
       setMockMachines((prev) =>
         prev.map((m) =>
@@ -1422,6 +1434,8 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         console.error("❌ Erreur suppression Firebase:", err);
       }
+      // 🗄️ HubSpot : machine supprimée → SORT du catalogue (règle stricte côté serveur)
+      syncHubspotProduct("archive", machineId);
     } else {
       setMockMachines((prev) => prev.filter((m) => m.id !== machineId));
     }

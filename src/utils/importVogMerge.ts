@@ -174,8 +174,54 @@ export interface VogSimulation {
   aMettreAJour: VogSimulationLine[];
   inchangees: VogSimulationLine[];
   ignorees: { ref: string; raison: string }[];
+  /** 🗄️ Purge exceptionnelle : machines hors fichier ET hors restitutions en
+   *  cours -> ARCHIVÉES (récupérables) si l'utilisateur coche la case. */
+  aArchiver: (VogSimulationLine & { id: string })[];
   nbPrixModifies: number;
   totalRows: number;
+}
+
+/**
+ * 🗄️ Purge « base de départ » (validée par Jonathan, exceptionnelle) :
+ * le fichier VOG devient LA référence. Toute machine absente du fichier est
+ * ARCHIVÉE (jamais supprimée : récupérable), SAUF les restitutions dont la
+ * facturation des frais n'est pas terminée. Les dossiers Nacelle Expert
+ * (photos, expertises) ne sont pas touchés.
+ */
+export function computeVogPurge(
+  parsed: ParsedStockMachine[],
+  machines: Machine[]
+): (VogSimulationLine & { id: string })[] {
+  const inFile = new Set<string>();
+  for (const p of parsed) {
+    inFile.add(p.docId);
+    if (p.immat) inFile.add(p.immat.toUpperCase());
+  }
+
+  const motif = (m: Machine): string => {
+    switch (m.statut) {
+      case "cloturee": return "vendue / clôturée";
+      case "en_cours": return "vente ou préparation en cours";
+      case "louee_lld": return "location LLD";
+      case "restitution": return "restitution terminée (facture réglée)";
+      default: return "absente du fichier VOG";
+    }
+  };
+
+  return machines
+    .filter((m) => {
+      if (m.archived) return false; // déjà archivée
+      if (inFile.has(m.id) || (m.immat && inFile.has(m.immat.toUpperCase()))) return false;
+      // ✅ Conservées : restitutions avec facturation des frais en cours
+      if (m.statut === "restitution" && !(m.facture_ok && m.facture_reglee_ok)) return false;
+      return true;
+    })
+    .map((m) => ({
+      id: m.id,
+      ref: m.immat || m.id,
+      label: `${m.type_nacelle || ""} ${m.modele_porteur || ""}`.trim() || "—",
+      detail: [motif(m)],
+    }));
 }
 
 export function simulateVogImport(
@@ -189,6 +235,7 @@ export function simulateVogImport(
     aMettreAJour: [],
     inchangees: [],
     ignorees: [...skipped],
+    aArchiver: computeVogPurge(parsed, machines),
     nbPrixModifies: 0,
     totalRows,
   };

@@ -23,6 +23,7 @@ export interface StockImportSummary {
   created: number;
   merged: number;
   skipped: number;
+  archived: number;
   details: { ref: string; action: string }[];
 }
 
@@ -91,7 +92,7 @@ interface MachinesContextType {
   setEtapeNonNecessaire: (machineId: string, etapeId: string) => void;
   addEtapePrepa: (machineId: string, label: string) => void;
   removeEtapePrepa: (machineId: string, etapeId: string) => void;
-  importStockMachines: (parsed: ParsedStockMachine[]) => Promise<StockImportSummary>;
+  importStockMachines: (parsed: ParsedStockMachine[], archiveIds?: string[]) => Promise<StockImportSummary>;
   refreshExpertiseMontants: () => Promise<{ updated: number; matched: number; total: number }>;
   configureEnCours: (
     machineId: string,
@@ -295,6 +296,11 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             // en attente d'expertise Nacelle-Expert).
             expertise_recue: data.expertise_recue ?? true,
             import_vog: data.import_vog ?? false,
+
+            // 🗄️ Archivage (purge base VOG, machines hors périmètre) — récupérable
+            archived: data.archived ?? false,
+            archived_at: data.archived_at || undefined,
+            archived_by: data.archived_by || undefined,
             
             // ✅ date_mise_stock pour les machines visibles en Disponibles
             // (disponible OU restitution avec expertise reçue) — sinon "Stock depuis le —"
@@ -925,7 +931,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     return { updated, matched, total: machines.length };
   }
 
-  async function importStockMachines(parsed: ParsedStockMachine[]): Promise<StockImportSummary> {
+  async function importStockMachines(parsed: ParsedStockMachine[], archiveIds: string[] = []): Promise<StockImportSummary> {
     // ⚠ La logique de fusion vit dans utils/importVogMerge.ts, PARTAGÉE avec la
     // simulation à blanc : le rapport montré avant import = ce qui est écrit ici.
     let created = 0;
@@ -989,7 +995,25 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    return { created, merged, skipped, details };
+    // 🗄️ Purge exceptionnelle « base de départ VOG » : ARCHIVAGE (récupérable)
+    // des machines hors fichier et hors restitutions en cours. Jamais de delete.
+    let archived = 0;
+    for (const id of archiveIds) {
+      try {
+        await updateDoc(doc(db, "machines_vo", id), {
+          archived: true,
+          archived_at: new Date().toISOString(),
+          archived_by: "Purge base VOG",
+          updatedAt: new Date().toISOString(),
+        });
+        archived++;
+        details.push({ ref: id, action: "archivée (purge VOG)" });
+      } catch (e) {
+        details.push({ ref: id, action: "erreur archivage" });
+      }
+    }
+
+    return { created, merged, skipped, archived, details };
   }
 
   async function configureEnCours(

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { VogSimulation, VogSimulationLine } from "../utils/importVogMerge";
 import { useTranslation } from "react-i18next";
 
@@ -11,7 +12,8 @@ import { useTranslation } from "react-i18next";
 interface ImportSimulationModalProps {
   sim: VogSimulation;
   importing: boolean;
-  onConfirm: () => void;
+  /** purgeIds : ids des machines à ARCHIVER (vide si la purge n'est pas cochée) */
+  onConfirm: (purgeIds: string[]) => void;
   onCancel: () => void;
 }
 
@@ -40,6 +42,8 @@ function Section({ title, color, lines }: { title: string; color: string; lines:
 
 export default function ImportSimulationModal({ sim, importing, onConfirm, onCancel }: ImportSimulationModalProps) {
   const { t } = useTranslation();
+  // 🗄️ Purge exceptionnelle : case à cocher EXPLICITE, décochée par défaut
+  const [purgeChecked, setPurgeChecked] = useState(false);
 
   return (
     <div
@@ -93,14 +97,48 @@ export default function ImportSimulationModal({ sim, importing, onConfirm, onCan
             </div>
           )}
           <Section title={t("importVog.simUnchanged")} color="#999" lines={sim.inchangees} />
+
+          {/* 🗄️ Purge exceptionnelle : archivage des machines hors périmètre */}
+          {sim.aArchiver.length > 0 && (
+            <div style={{ marginTop: 8, padding: "12px 14px", background: "#fdf3ec", border: "1px solid #e8c9a8", borderRadius: 6 }}>
+              <label style={{ display: "flex", alignItems: "flex-start", gap: 8, cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#8a4a10" }}>
+                <input
+                  type="checkbox"
+                  checked={purgeChecked}
+                  onChange={(e) => setPurgeChecked(e.target.checked)}
+                  disabled={importing}
+                  style={{ width: "auto", marginTop: 2 }}
+                />
+                <span>{t("importVog.purgeCheck", { count: sim.aArchiver.length })}</span>
+              </label>
+              <div style={{ fontSize: 12, color: "#8a5a30", margin: "6px 0 10px 24px" }}>
+                {t("importVog.purgeNote")}
+              </div>
+              {purgeChecked && (
+                <div style={{ maxHeight: 180, overflowY: "auto" }}>
+                  {sim.aArchiver.map((l, i) => (
+                    <div key={i} style={{ padding: "4px 10px", borderLeft: "3px solid #b3541e", background: "#fff", marginBottom: 3, fontSize: 12.5 }}>
+                      <b>{l.ref}</b> <span style={{ color: "#666" }}>— {l.label} · {l.detail.join(", ")}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 16 }}>
           <button className="btn-secondary" onClick={onCancel} disabled={importing}>
             {t("importVog.simCancel")}
           </button>
-          <button className="btn-primary" onClick={onConfirm} disabled={importing || (sim.aCreer.length + sim.aMettreAJour.length === 0)}>
-            {importing ? `⏳ ${t("importVog.simImporting")}` : `✓ ${t("importVog.simConfirm")}`}
+          <button
+            className="btn-primary"
+            onClick={() => onConfirm(purgeChecked ? sim.aArchiver.map((l) => l.id) : [])}
+            disabled={importing || (sim.aCreer.length + sim.aMettreAJour.length === 0 && !purgeChecked)}
+          >
+            {importing
+              ? `⏳ ${t("importVog.simImporting")}`
+              : `✓ ${purgeChecked ? t("importVog.simConfirmPurge", { count: sim.aArchiver.length }) : t("importVog.simConfirm")}`}
           </button>
         </div>
       </div>

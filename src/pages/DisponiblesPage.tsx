@@ -479,18 +479,20 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
     }
   }
 
-  async function handleStockImportConfirm() {
-    // 2️⃣ Import réel — même logique de fusion que la simulation (importVogMerge)
+  async function handleStockImportConfirm(purgeIds: string[]) {
+    // 2️⃣ Import réel — même logique de fusion que la simulation (importVogMerge).
+    // purgeIds : machines hors périmètre à ARCHIVER (case cochée explicitement).
     setImportingStock(true);
     try {
-      const res = await importStockMachines(stockParsed);
+      const res = await importStockMachines(stockParsed, purgeIds);
       setStockSimulation(null);
       setStockParsed([]);
       alert(
         `✅ Import terminé :\n\n` +
           `• ${res.created} machine(s) créée(s)\n` +
           `• ${res.merged} machine(s) mise(s) à jour\n` +
-          `• ${res.skipped} inchangée(s) / en erreur`
+          `• ${res.skipped} inchangée(s) / en erreur` +
+          (res.archived ? `\n• 🗄️ ${res.archived} machine(s) archivée(s) (récupérables)` : "")
       );
     } catch (err: any) {
       alert("Erreur lors de l'import du stock : " + err.message);

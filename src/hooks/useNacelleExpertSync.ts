@@ -295,6 +295,17 @@ export function useNacelleExpertSync() {
 
               // ✅ Une machine qui revient (dossier Nacelle-Expert resynchronisé)
               // repasse en cycle restitution pour nouvelle expertise/facturation.
+              // 🗄️→✅ DÉSARCHIVAGE AUTOMATIQUE : une machine archivée (ex. purge
+              // VOG alors qu'elle était en réalité partie en location) qui
+              // revient avec une expertise reprend le circuit normal — sinon
+              // son expertise arriverait sur une fiche invisible.
+              ...(existingData.archived ? {
+                archived: false,
+                archived_at: null,
+                archived_by: null,
+                desarchivee_le: new Date().toISOString(),
+                desarchivee_motif: 'Expertise retour reçue (retour de location)',
+              } : {}),
               statut: 'restitution',
               recuperation_ok: true,
               expertise_ok: true,

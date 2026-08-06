@@ -120,11 +120,20 @@ function occStr(v: any): string {
   return s.endsWith(".0") ? s.slice(0, -2) : s;
 }
 
-/** Dates Excel : garde l'ISO court si présent, sinon la valeur brute */
+/** Dates Excel -> ISO court "AAAA-MM-JJ". Accepte : objet Date (cellule date),
+ *  n° de série Excel, "AAAA-MM-JJ...", "JJ/MM/AAAA" ; sinon la valeur brute. */
 function dateStr(v: any): string {
+  if (v instanceof Date && !isNaN(v.getTime())) return v.toISOString().slice(0, 10);
+  if (typeof v === "number" && v > 20000 && v < 80000) {
+    // n° de série Excel (jours depuis 1900) -> date
+    return new Date(Math.round((v - 25569) * 86400000)).toISOString().slice(0, 10);
+  }
   const s = str(v);
-  const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
-  return m ? m[1] : s;
+  let m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (m) return m[1];
+  m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+  return s;
 }
 
 // Lecture d'une colonne tolérante aux espaces / retours ligne / casse dans

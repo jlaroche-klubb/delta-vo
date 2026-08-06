@@ -36,9 +36,9 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
   const [docsMachine, setDocsMachine] = useState<Machine | null>(null);
 
   const canEditPrepa = canEditEtapesPreparation(userRole as any);
-  const canConfigure = userRole === "secretaire" || userRole === "admin";
-  const canFacturer = userRole === "secretaire" || userRole === "admin";
-  const canCancel = userRole === "admin";  // ✅ Admin only
+  const canConfigure = ["secretaire", "admin", "superadmin"].includes(userRole);
+  const canFacturer = ["secretaire", "admin", "superadmin"].includes(userRole);
+  const canCancel = ["admin", "superadmin"].includes(userRole); // annulation simple (retour en Disponibles)
   const canManageDocuments = canEditPrepa || canConfigure; // atelier + secrétaire + admin
 
   const baseEnCours = useMemo(

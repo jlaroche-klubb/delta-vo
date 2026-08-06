@@ -131,7 +131,9 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
   const [rattrapage, setRattrapage] = useState(false);
   const { t } = useTranslation();
 
-  const isAdmin = userRole === "admin";
+  const isAdmin = userRole === "admin" || userRole === "superadmin";
+  // 🔒 Structure : import VOG (et purge) réservé au super admin
+  const isSuperAdminUser = userRole === "superadmin";
   // ✅ Visible par TOUS les rôles (demande) : Mise en location, Compléter fiche, Photos
   const canLld = true;
   const canFiche = true;
@@ -139,7 +141,7 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
   const canGenFiche = true;
   const canManagePhotos = true;
   // ✅ Créer une offre HubSpot : admin, vendeur_fr, dealer
-  const canOffre = ["admin", "vendeur_fr", "dealer"].includes(userRole);
+  const canOffre = ["superadmin", "admin", "vendeur_fr", "dealer"].includes(userRole);
 
   const baseDispo = useMemo(
     () => machines.filter((m) => m.statut === "disponible" || (m.statut === "restitution" && m.expertise_ok)),
@@ -653,7 +655,7 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
           </button>
         )}
 
-        {isAdmin && (
+        {isSuperAdminUser && (
           <button
             className="btn-import"
             onClick={() => stockInputRef.current?.click()}

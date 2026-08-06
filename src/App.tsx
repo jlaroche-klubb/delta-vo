@@ -23,7 +23,7 @@ const FAKE_PROFILE = {
   email: "jlaroche@klubb.com",
   nom: "Laroche",
   prenom: "Jonathan",
-  role: "admin" as const,
+  role: "superadmin" as const,
   createdAt: new Date().toISOString(),
 };
 
@@ -68,7 +68,7 @@ function AppContent() {
   const userName = `${activeProfile!.prenom} ${activeProfile!.nom}`;
   const userEmail = activeProfile!.email;
   const userRole = activeProfile!.role;
-  const isAdmin = userRole === "admin";
+  const isAdmin = userRole === "admin" || userRole === "superadmin";
 
   const pageLabel = (p: Page): string => {
     switch (p) {

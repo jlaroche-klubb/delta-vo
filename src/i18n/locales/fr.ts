@@ -486,6 +486,7 @@ const fr = {
     activeTitle: "Utilisateurs actifs",
     cancel: "Annuler",
     editRole: "Modifier rôle",
+    roleSuperAdmin: "🏆 Super administrateur",
     roleAdmin: "👑 Administrateur",
     roleSecretary: "📋 Secrétaire / ADV",
     roleSalesFr: "🇫🇷 Vendeur France",

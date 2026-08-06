@@ -23,8 +23,8 @@ export function exportListePrix(machines: Machine[], userRole: UserRole) {
   }
 
   // Déterminer quels prix afficher selon le rôle
-  const showPrixFR = ["admin", "secretaire", "vendeur_fr"].includes(userRole);
-  const showprixDealer= ["admin", "secretaire", "dealer"].includes(userRole);
+  const showPrixFR = ["superadmin", "admin", "secretaire", "vendeur_fr"].includes(userRole);
+  const showprixDealer= ["superadmin", "admin", "secretaire", "dealer"].includes(userRole);
 
   // Préparer les données
   const rows = machinesAvecPrix.map((m) => {

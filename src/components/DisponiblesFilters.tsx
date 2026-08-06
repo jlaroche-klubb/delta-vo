@@ -90,7 +90,7 @@ export default function DisponiblesFilters({
   // Rôle : les commerciaux sont verrouillés sur leur type de prix
   const isVendeurFr = userRole === "vendeur_fr";
   const isVendeurDealer = userRole === "dealer";
-  const isAdmin = userRole === "admin";
+  const isAdmin = userRole === "admin" || userRole === "superadmin";
   const lockedPriceType = isVendeurFr || isVendeurDealer;
 
   // Si le commercial est verrouillé, forcer priceType
@@ -430,7 +430,7 @@ export function applyDispoFilters(
   const kmMaxNum = f.kmMax ? parseInt(f.kmMax, 10) : null;
   const anneeMinNum = f.anneeMin ? parseInt(f.anneeMin, 10) : null;
   const anneeMaxNum = f.anneeMax ? parseInt(f.anneeMax, 10) : null;
-  const isAdmin = userRole === "admin";
+  const isAdmin = userRole === "admin" || userRole === "superadmin";
   const ageMinNum = isAdmin && f.ageMin ? parseInt(f.ageMin, 10) : null;
   const ageMaxNum = isAdmin && f.ageMax ? parseInt(f.ageMax, 10) : null;
 

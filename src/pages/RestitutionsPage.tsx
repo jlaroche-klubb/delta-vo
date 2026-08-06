@@ -56,7 +56,7 @@ export default function RestitutionsPage() {
 
   const { profile } = useAuth();
   const userRole = profile?.role || "atelier";
-  const isAdmin = userRole === "admin";
+  const isAdmin = userRole === "admin" || userRole === "superadmin";
 
   const [search, setSearch] = useState("");
   const { t } = useTranslation();

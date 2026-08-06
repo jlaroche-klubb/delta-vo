@@ -301,6 +301,27 @@ export default function PhotosModal({
             </div>
           )}
 
+          {/* ─── 🔒 Photos internes (état du stock, ajoutées par le super admin) ───
+               Lecture seule ici : visibles par les commerciaux, mais JAMAIS
+               dans la fiche VO ni dans le lien de partage client. ─── */}
+          {(machine.photos_internes?.length ?? 0) > 0 && (
+            <>
+              <h3 style={sectionTitle}>
+                🔒 {t("modals.photoInternes")} <span style={lockNote}>{t("modals.photoInternesNote")}</span>
+              </h3>
+              <div style={gridStyle}>
+                {(machine.photos_internes || []).map((p) => (
+                  <div key={p.url} style={tileLocked}>
+                    <img src={p.url} alt={p.nom || "photo"} style={imgStyle} />
+                    <div style={tileLabel}>
+                      🔒 {p.ajout_at ? new Date(p.ajout_at).toLocaleDateString() : ""}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
           {/* ─── Pool Nacelle-Expert où piocher ─── */}
           {pool.length > 0 && (
             <>

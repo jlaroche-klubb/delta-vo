@@ -487,6 +487,7 @@ const en: TranslationSchema = {
     activeTitle: "Active users",
     cancel: "Cancel",
     editRole: "Edit role",
+    roleSuperAdmin: "🏆 Super administrator",
     roleAdmin: "👑 Administrator",
     roleSecretary: "📋 Secretary / Admin",
     roleSalesFr: "🇫🇷 France salesperson",

@@ -38,7 +38,7 @@ export default function MachineCard({
   // const { archiveMachine, unarchiveMachine } = useMachines();
   const { profile } = useAuth();
   // En DEV_MODE (profile null) → tout le monde est admin pour pouvoir tester
-  const isAdmin = !profile || profile.role === "admin";
+  const isAdmin = !profile || profile.role === "admin" || profile.role === "superadmin";
   // ✏️ Édition des infos administratives (client, contrat, email...) —
   // admin + secrétaire/ADV. Jamais les photos ni le contenu d'expertise.
   const canEditInfos = !profile || canEditInfosAdmin(profile.role);

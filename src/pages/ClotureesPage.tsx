@@ -51,8 +51,9 @@ export default function ClotureesPage({ userRole, userName }: ClotureesPageProps
   const [sortDesc, setSortDesc] = useState(true);
   const [markingPaid, setMarkingPaid] = useState<Machine | null>(null);
 
-  const isAdmin = userRole === "admin";
-  const canEdit = userRole === "secretaire" || userRole === "admin";
+  // 🔒 Annuler une clôture (efface facture + règlement) : super admin uniquement
+  const isAdmin = userRole === "superadmin";
+  const canEdit = ["secretaire", "admin", "superadmin"].includes(userRole);
 
   // ⚠ IMPORTANT : on filtre uniquement les machines avec statut "cloturee"
   // Les machines en LLD ont le statut "louee_lld" et n'apparaissent PAS ici

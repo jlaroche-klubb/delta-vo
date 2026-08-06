@@ -22,7 +22,7 @@ interface User {
   activatedAt?: string;
 }
 
-type UserRole = "admin" | "secretaire" | "vendeur_fr" | "dealer" | "chef" | "atelier";
+type UserRole = "superadmin" | "admin" | "secretaire" | "vendeur_fr" | "dealer" | "chef" | "atelier";
 
 export default function AdminPage() {
   const { user } = useAuth();
@@ -32,6 +32,7 @@ export default function AdminPage() {
   const OWNER_EMAIL = "jlaroche@klubb.com";
   const isOwner = (user?.email || "").trim().toLowerCase() === OWNER_EMAIL;
   const ROLES: { value: UserRole; label: string }[] = [
+    { value: "superadmin", label: t("admin.roleSuperAdmin") },
     { value: "admin", label: t("admin.roleAdmin") },
     { value: "secretaire", label: t("admin.roleSecretary") },
     { value: "vendeur_fr", label: t("admin.roleSalesFr") },

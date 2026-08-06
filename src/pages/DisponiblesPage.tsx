@@ -19,6 +19,7 @@ import ChoixPrixModal from "../components/ChoixPrixModal";
 import ExpertiseModal from "../components/ExpertiseModal";
 import NacelleExpertModal from "../components/NacelleExpertModal";
 import PhotosModal from "../components/PhotosModal";
+import InternalPhotosModal from "../components/InternalPhotosModal";
 import FicheVoTemplate from "../components/FicheVoTemplate";
 import DisponiblesFilters, {
   DispoFilterState,
@@ -84,6 +85,7 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
     basculerEnLld,
     updateFicheCommerciale,
     updatePhotosSupplementaires,
+    updatePhotosInternes,
     updateShareToken,
     updateLocalite,
     attribuerNumeroFiche,
@@ -109,6 +111,7 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
   const [expertiseMachine, setExpertiseMachine] = useState<Machine | null>(null);
   const [neMachine, setNeMachine] = useState<Machine | null>(null);
   const [photosMachine, setPhotosMachine] = useState<Machine | null>(null);
+  const [internalPhotosMachine, setInternalPhotosMachine] = useState<Machine | null>(null); // 🔒 super admin
   const [phoneSetupOpen, setPhoneSetupOpen] = useState(false);
   const [pendingGenerate, setPendingGenerate] = useState<Machine | null>(null);
   const [choixPrixMachine, setChoixPrixMachine] = useState<Machine | null>(null);
@@ -765,6 +768,8 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
                 onLocaliteChange={updateLocalite}
                 canManagePhotos={canManagePhotos}
                 onManagePhotos={setPhotosMachine}
+                canInternalPhotos={isSuperAdminUser}
+                onInternalPhotos={setInternalPhotosMachine}
                 canDelete={canDeleteMachine(userRole as any)}
                 onDelete={handleDeleteMachine}
               />
@@ -806,6 +811,8 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
                 onLocaliteChange={updateLocalite}
                 canManagePhotos={canManagePhotos}
                 onManagePhotos={setPhotosMachine}
+                canInternalPhotos={isSuperAdminUser}
+                onInternalPhotos={setInternalPhotosMachine}
                 canDelete={canDeleteMachine(userRole as any)}
                 onDelete={handleDeleteMachine}
               />
@@ -839,6 +846,8 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
                 onLocaliteChange={updateLocalite}
                 canManagePhotos={canManagePhotos}
                 onManagePhotos={setPhotosMachine}
+                canInternalPhotos={isSuperAdminUser}
+                onInternalPhotos={setInternalPhotosMachine}
                 canDelete={canDeleteMachine(userRole as any)}
                 onDelete={handleDeleteMachine}
               />
@@ -954,6 +963,15 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
           onClose={() => setPhotosMachine(null)}
           onSave={handleSavePhotos}
           onShareTokenChange={updateShareToken}
+        />
+      )}
+
+      {internalPhotosMachine && (
+        <InternalPhotosModal
+          machine={internalPhotosMachine}
+          userName={userName}
+          onClose={() => setInternalPhotosMachine(null)}
+          onSave={updatePhotosInternes}
         />
       )}
 

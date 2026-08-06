@@ -179,6 +179,10 @@ export interface Machine {
 
   photos_supplementaires?: PhotoSupplementaire[];
 
+  // 🔒 Photos internes (stock) — visibles et gérées par le SUPER ADMIN uniquement.
+  // Jamais utilisées par la fiche VO, le lien de partage client ou la galerie.
+  photos_internes?: PhotoSupplementaire[];
+
   photos_ne_depart?: string[];
   photos_ne_retour?: string[];
 

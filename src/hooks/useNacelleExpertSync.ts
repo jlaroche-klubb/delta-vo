@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, doc, updateDoc, setDoc, onSnapshot, getDoc } from 'firebase/firestore';
 import { notifyExpertiseArrivee } from '../services/emailService';
 import { db, dbNacelleExpert } from '../firebase';
+import { syncHubspotProduct } from '../services/hubspotService';
 import { normalizeLocalite } from '../utils/localites';
 
 interface NacelleExpertDossier {
@@ -334,6 +335,16 @@ export function useNacelleExpertSync() {
             
             await updateDoc(machineVORef, smartUpdate);
             console.log(`✅ Machine ${dossier.immat} mise à jour (relocation détectée)`);
+
+            // 🔄 HubSpot : la machine revient de location (expertise reçue) et
+            // entre dans les Disponibles — si elle a un prix conservé, elle
+            // RERENTRE automatiquement dans le catalogue produits.
+            const prixRetour = Number(existingData.prix_fr) || 0;
+            if (prixRetour > 0) {
+              const labelRetour = [dossier.info?.type_nacelle, dossier.info?.modele]
+                .filter(Boolean).join(' ');
+              syncHubspotProduct('upsert', immatId, labelRetour || undefined, prixRetour);
+            }
             notifyExpertiseArrivee({
               immat: immatId,
               modele: dossier.info?.modele,

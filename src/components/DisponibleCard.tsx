@@ -21,6 +21,8 @@ interface DisponibleCardProps {
   onLocaliteChange?: (machineId: string, localite: string) => void;
   canManagePhotos?: boolean;
   onManagePhotos?: (machine: Machine) => void;
+  canInternalPhotos?: boolean; // 🔒 super admin uniquement
+  onInternalPhotos?: (machine: Machine) => void;
   canDelete?: boolean;
   onDelete?: (id: string) => void;
   // ✅ Offre HubSpot
@@ -48,6 +50,8 @@ export default function DisponibleCard({
   onLocaliteChange,
   canManagePhotos = false,
   onManagePhotos,
+  canInternalPhotos = false,
+  onInternalPhotos,
   canDelete = false,
   onDelete,
   canOffre = false,
@@ -203,6 +207,18 @@ export default function DisponibleCard({
                 📸 {t("card.photos")}
                 {machine.photos_supplementaires && machine.photos_supplementaires.length > 0
                   ? ` (${machine.photos_supplementaires.length})`
+                  : ""}
+              </button>
+            )}
+            {canInternalPhotos && onInternalPhotos && (
+              <button
+                className="btn-fiche-edit"
+                onClick={() => onInternalPhotos(machine)}
+                title={t("card.internalPhotosTitle")}
+              >
+                🔒 {t("card.internalPhotos")}
+                {machine.photos_internes && machine.photos_internes.length > 0
+                  ? ` (${machine.photos_internes.length})`
                   : ""}
               </button>
             )}

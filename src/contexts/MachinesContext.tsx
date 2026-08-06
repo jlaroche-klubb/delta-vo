@@ -114,6 +114,7 @@ interface MachinesContextType {
   annulerCloture: (machineId: string) => void;  // ✅ Revenir en arrière (admin)
   updateFicheCommerciale: (machineId: string, fiche: FicheCommerciale) => void;
   updatePhotosSupplementaires: (machineId: string, photos: PhotoSupplementaire[]) => void;
+  updatePhotosInternes: (machineId: string, photos: PhotoSupplementaire[]) => void; // 🔒 super admin
   updateShareToken: (machineId: string, token: string | null) => void;
   updateLocalite: (machineId: string, localite: string) => void;
   updateDocumentsVO: (machineId: string, documents: DocumentVO[]) => void;
@@ -275,6 +276,11 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             // ✅ Photos supplémentaires (optionnelles) stockées dans Delta VO
             photos_supplementaires: Array.isArray(data.photos_supplementaires)
               ? data.photos_supplementaires
+              : undefined,
+
+            // 🔒 Photos internes (super admin uniquement)
+            photos_internes: Array.isArray(data.photos_internes)
+              ? data.photos_internes
               : undefined,
 
             // ✅ Pool de photos Nacelle-Expert (départ/retour) où piocher — lecture seule.
@@ -1242,6 +1248,32 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // 🔒 Photos internes du stock — réservées au super admin (jamais côté client)
+  async function updatePhotosInternes(
+    machineId: string,
+    photos: PhotoSupplementaire[]
+  ) {
+    if (isFirebaseMachine(machineId)) {
+      try {
+        await updateDoc(doc(db, "machines_vo", machineId), {
+          photos_internes: photos,
+          updatedAt: new Date().toISOString(),
+        });
+        console.log(`✅ Photos internes mises à jour dans Firebase`);
+      } catch (err) {
+        console.error("❌ Erreur Firebase photos internes:", err);
+      }
+    } else {
+      setMockMachines((prev) =>
+        prev.map((m) =>
+          m.id === machineId
+            ? { ...m, photos_internes: photos, updatedAt: new Date().toISOString() }
+            : m
+        )
+      );
+    }
+  }
+
   async function updateShareToken(machineId: string, token: string | null) {
     if (isFirebaseMachine(machineId)) {
       try {
@@ -1508,6 +1540,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       annulerCloture,
       updateFicheCommerciale,
       updatePhotosSupplementaires,
+      updatePhotosInternes,
       updateShareToken,
       updateLocalite,
       updateDocumentsVO,

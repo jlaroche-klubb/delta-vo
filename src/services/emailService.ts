@@ -77,18 +77,24 @@ export async function notifyExpertiseArrivee(info: {
 }
 
 
+// 👑 Compte super admin d'amorçage : reçoit TOUJOURS la notification,
+// même si son rôle en base est encore « admin » (cf. AuthContext).
+const BOOTSTRAP_SUPERADMIN = { email: 'jlaroche@klubb.com', prenom: 'Jonathan' };
+
 /**
- * Récupère tous les emails des admins depuis Firebase
+ * Destinataires de la notification « nouvel utilisateur » : les SUPER ADMINS
+ * uniquement (validé avec Jonathan) — ce sont les seuls à pouvoir valider le
+ * compte et attribuer un rôle depuis l'onglet Admin.
  */
 async function getAdminEmails(): Promise<{ email: string; prenom: string }[]> {
   try {
-    console.log('📧 [emailService] Recherche des admins dans Firebase...');
+    console.log('📧 [emailService] Recherche des super admins dans Firebase...');
     const adminQuery = query(
       collection(db, 'users'),
-      where('role', '==', 'admin')
+      where('role', '==', 'superadmin')
     );
     const snapshot = await getDocs(adminQuery);
-    
+
     const admins = snapshot.docs.map(doc => {
       const data = doc.data();
       return {
@@ -96,12 +102,18 @@ async function getAdminEmails(): Promise<{ email: string; prenom: string }[]> {
         prenom: data.prenom || 'Admin',
       };
     }).filter(admin => admin.email !== '');
-    
-    console.log(`📧 [emailService] ${admins.length} admin(s) trouvé(s):`, admins.map(a => a.email));
+
+    // Filet de sécurité : le compte d'amorçage est toujours destinataire
+    if (!admins.some(a => a.email.toLowerCase() === BOOTSTRAP_SUPERADMIN.email)) {
+      admins.push({ ...BOOTSTRAP_SUPERADMIN });
+    }
+
+    console.log(`📧 [emailService] ${admins.length} super admin(s) trouvé(s):`, admins.map(a => a.email));
     return admins;
   } catch (err) {
     console.error('❌ [emailService] Erreur récupération admins:', err);
-    return [];
+    // Même en cas d'erreur Firestore, on prévient au moins le super admin d'amorçage
+    return [{ ...BOOTSTRAP_SUPERADMIN }];
   }
 }
 

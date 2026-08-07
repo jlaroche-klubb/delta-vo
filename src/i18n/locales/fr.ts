@@ -694,7 +694,7 @@ const fr = {
     photoOnlyImages: "Seules les images sont acceptées.",
     internalTitle: "Photos internes",
     photoInternes: "Photos internes (état du stock)",
-    photoInternesNote: "ajoutées par le super admin — jamais sur la fiche VO ni dans le lien client",
+    photoInternesNote: "ajoutées par le super admin — cliquez pour les ajouter au lien de partage client (jamais sur la fiche VO)",
     internalNote: "🔒 Seul le super administrateur peut ajouter ou supprimer ces photos d'état du stock (telles quelles, sans détourage). Les commerciaux les voient dans « 📷 Photos », mais elles n'apparaissent jamais sur la fiche VO ni dans le lien de partage client. Chaque ajout ou suppression est enregistré immédiatement.",
     internalAdd: "Ajouter des photos",
     internalRemove: "Supprimer cette photo",

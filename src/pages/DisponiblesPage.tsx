@@ -841,6 +841,8 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
                 seuilRepricer={SEUIL_REPRICER}
                 isAdmin={isAdmin}
                 onEditPrice={setEditingMachine}
+                canLld={canLld}
+                onLld={setLldMachine}
                 onViewExpertise={setExpertiseMachine}
                 onViewNacelleExpert={setNeMachine}
                 onLocaliteChange={updateLocalite}

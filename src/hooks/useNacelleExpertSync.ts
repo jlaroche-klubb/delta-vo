@@ -167,6 +167,77 @@ export function useNacelleExpertSync() {
             continue;
           }
 
+          // 🚚 SÉCURITÉ DÉPART (validée avec Jonathan) : dossier avec une
+          // expertise DÉPART seule (retour: null) → la machine vient de
+          // PARTIR en location. Delta VO suit la réalité du terrain ;
+          // on ne crée JAMAIS de restitution ici.
+          if (dossier.depart && !dossier.retour) {
+            const immatDepart = (dossier.info?.immat || dossier.immat || '').trim().toUpperCase();
+            try {
+              if (immatDepart) {
+                const refDepart = doc(db, 'machines_vo', immatDepart);
+                const snapDepart = await getDoc(refDepart);
+                if (snapDepart.exists()) {
+                  const m: any = snapDepart.data();
+                  const dateDepart = dossier.depart?.date || new Date().toISOString().slice(0, 10);
+                  const trace = {
+                    depart_constate_ne: dateDepart, // 🧾 trace « départ constaté par Nacelle Expert »
+                    updatedAt: new Date().toISOString(),
+                  };
+                  if (m.statut === 'disponible' || m.archived) {
+                    // Partie directement depuis le stock (« au cas où ») —
+                    // bascule automatique en location LLD, désarchivée si besoin
+                    await updateDoc(refDepart, {
+                      ...trace,
+                      statut: 'louee_lld',
+                      type_sortie: 'lld',
+                      client_lld: m.client_lld || dossier.info?.client || '',
+                      date_mise_dispo_lld: dateDepart,
+                      archived: false, archived_at: null, archived_by: null,
+                    });
+                    syncHubspotProduct('archive', immatDepart); // sortie du catalogue
+                    console.log(`🚚 ${immatDepart} : départ NE → louée LLD (était ${m.archived ? 'archivée' : m.statut})`);
+                  } else if (m.statut === 'en_cours' && m.type_sortie === 'lld') {
+                    // LLD en préparation : le départ vaut mise à disposition
+                    await updateDoc(refDepart, {
+                      ...trace,
+                      statut: 'louee_lld',
+                      date_mise_dispo_lld: m.date_mise_dispo_lld || dateDepart,
+                    });
+                    console.log(`🚚 ${immatDepart} : départ NE → mise à disposition LLD`);
+                  } else if (m.statut === 'en_cours') {
+                    // Vente en préparation : machine physiquement partie →
+                    // étapes restantes validées, elle passe « Prête à facturer »
+                    const etapes = Array.isArray(m.etapes_prepa)
+                      ? m.etapes_prepa.map((e: any) =>
+                          e.done || e.non_necessaire
+                            ? e
+                            : { ...e, done: true, done_by: 'Départ Nacelle Expert', done_at: new Date().toISOString() }
+                        )
+                      : m.etapes_prepa;
+                    await updateDoc(refDepart, {
+                      ...trace,
+                      ...(m.type_prepa ? {} : { type_prepa: 'en_etat' }),
+                      ...(etapes ? { etapes_prepa: etapes } : {}),
+                    });
+                    console.log(`🚚 ${immatDepart} : départ NE → prête à facturer (étapes validées)`);
+                  } else {
+                    console.log(`⏭️ ${immatDepart} : départ NE, statut « ${m.statut} » — rien à changer`);
+                  }
+                } else {
+                  // Machine du parc LOCATION (hors stock VO) : on ne crée rien
+                  console.log(`⏭️ ${immatDepart} : départ NE d'une machine hors parc VO — ignoré`);
+                }
+              }
+            } catch (e) {
+              console.error(`❌ Sécurité départ ${immatDepart}:`, e);
+            }
+            // Dossier traité : on le marque pour ne pas le reprendre en boucle
+            await updateDoc(doc(dbNacelleExpert, 'dossiers', dossierDoc.id), { synced_to_delta_vo: true });
+            successCount++;
+            continue;
+          }
+
           if (!dossier.info?.immat) {
             console.warn(`⚠️ Dossier sans immatriculation, ignoré`);
             continue;

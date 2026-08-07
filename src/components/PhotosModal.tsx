@@ -302,22 +302,40 @@ export default function PhotosModal({
           )}
 
           {/* ─── 🔒 Photos internes (état du stock, ajoutées par le super admin) ───
-               Lecture seule ici : visibles par les commerciaux, mais JAMAIS
-               dans la fiche VO ni dans le lien de partage client. ─── */}
+               Sélectionnables comme le pool NE : un clic les ajoute au lien de
+               partage client (état réel, sans détourage). Jamais sur la fiche
+               VO PDF — seules les 4 officielles y figurent. ─── */}
           {(machine.photos_internes?.length ?? 0) > 0 && (
             <>
               <h3 style={sectionTitle}>
                 🔒 {t("modals.photoInternes")} <span style={lockNote}>{t("modals.photoInternesNote")}</span>
               </h3>
               <div style={gridStyle}>
-                {(machine.photos_internes || []).map((p) => (
-                  <div key={p.url} style={tileLocked}>
-                    <img src={p.url} alt={p.nom || "photo"} style={imgStyle} />
-                    <div style={tileLabel}>
-                      🔒 {p.ajout_at ? new Date(p.ajout_at).toLocaleDateString() : ""}
+                {(machine.photos_internes || []).map((p) => {
+                  const selected = isSelected(p.url);
+                  return (
+                    <div
+                      key={p.url}
+                      style={{
+                        ...tile,
+                        cursor: "pointer",
+                        outline: selected ? "3px solid #30a050" : "1px solid #e5e8ec",
+                      }}
+                      onClick={() => togglePoolPhoto(p.url)}
+                    >
+                      <img src={p.url} alt={p.nom || "photo"} style={imgStyle} />
+                      <div
+                        style={{
+                          ...tileLabel,
+                          color: selected ? "#30a050" : "#6a7488",
+                          fontWeight: 700,
+                        }}
+                      >
+                        {selected ? t("modals.photoAdded") : `+ ${t("modals.ficheAdd")}`}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </>
           )}

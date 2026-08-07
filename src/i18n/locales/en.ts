@@ -695,7 +695,7 @@ const en: TranslationSchema = {
     photoOnlyImages: "Only images are accepted.",
     internalTitle: "Internal photos",
     photoInternes: "Internal photos (stock condition)",
-    photoInternesNote: "added by the super admin — never on the VO sheet or in the customer link",
+    photoInternesNote: "added by the super admin — click to add them to the customer share link (never on the VO sheet)",
     internalNote: "🔒 Only the super administrator can add or remove these as-is stock condition photos (no background removal). Sales staff can see them in “📷 Photos”, but they never appear on the VO sheet or in the customer share link. Every addition or removal is saved immediately.",
     internalAdd: "Add photos",
     internalRemove: "Remove this photo",

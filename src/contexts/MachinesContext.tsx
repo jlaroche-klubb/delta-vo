@@ -3,6 +3,7 @@ import { collection, onSnapshot, doc, updateDoc, setDoc, Timestamp } from "fireb
 import { db, dbNacelleExpert } from "../firebase";
 import {
   Machine,
+  EtapePrepa,
   creerEtapesPrepa,
   FicheCommerciale,
   PhotoSupplementaire,
@@ -756,6 +757,8 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       }
       // Machine sortie du stock -> archiver le produit HubSpot
       syncHubspotProduct("archive", machineId);
+      // 🚚 Mise en location → pré-départ NE (client LLD pré-rempli pour l'expert)
+      pushPreDepartNacelleExpert(machines.find((x) => x.id === machineId), clientLld);
     } else {
       setMockMachines((prev) =>
         prev.map((m) =>
@@ -764,6 +767,24 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       );
     }
   }
+
+  // 🚚 PRÉ-DÉPART : quand une machine est prête à SORTIR (prépa terminée,
+  // vendue en l'état, ou bascule LLD), on pré-remplit son dossier Nacelle
+  // Expert (client, modèle, type) — l'expert retrouve tout déjà rempli en
+  // tapant l'immatriculation dans « + Nouveau départ ». Best-effort.
+  function pushPreDepartNacelleExpert(m: Machine | undefined, client?: string) {
+    if (!m?.immat) return;
+    pushInfosAdminToNacelleExpert({
+      immat: m.immat,
+      client: (client || m.client_lld || m.acheteur || "").trim() || undefined,
+      modele: m.modele_porteur || undefined,
+      type_nacelle: m.type_nacelle || undefined,
+      annee_fab: m.annee_circulation || undefined,
+    }).catch(() => {});
+  }
+
+  const etapesToutesFaites = (etapes: EtapePrepa[] | null | undefined) =>
+    !!etapes && etapes.length > 0 && etapes.every((e) => e.done || e.non_necessaire);
 
   async function toggleEtapePrepa(machineId: string, etapeId: string, userName: string) {
     const now = new Date().toISOString();
@@ -792,6 +813,10 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
         });
       } catch (err) {
         console.error("❌ Erreur toggleEtapePrepa Firebase:", err);
+      }
+      // 🚚 Dernière étape validée → la machine passe « prête » : pré-départ NE
+      if (!etapesToutesFaites(machine.etapes_prepa) && etapesToutesFaites(updatedEtapes)) {
+        pushPreDepartNacelleExpert(machine);
       }
     } else {
       setMockMachines((prev) =>
@@ -826,6 +851,10 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
           etapes_prepa: updatedEtapes,
           updatedAt: now,
         });
+        // 🚚 Dernière étape réglée (non nécessaire) → machine « prête » : pré-départ NE
+        if (!etapesToutesFaites(machine.etapes_prepa) && etapesToutesFaites(updatedEtapes)) {
+          pushPreDepartNacelleExpert(machine);
+        }
       } catch (err) {
         console.error("❌ Erreur setEtapeNonNecessaire Firebase:", err);
       }
@@ -1089,6 +1118,10 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       // 🗄️ HubSpot : machine vendue / partie en préparation → SORT du catalogue
       // (le serveur ne supprime que les produits marqués Delta VO — règle stricte)
       syncHubspotProduct("archive", machineId);
+      // 🚚 « Vendue en l'état » : prête immédiatement → pré-départ NE
+      if (typePrepa === "en_etat") {
+        pushPreDepartNacelleExpert(machines.find((x) => x.id === machineId), acheteur);
+      }
     } else {
       setMockMachines((prev) =>
         prev.map((m) =>

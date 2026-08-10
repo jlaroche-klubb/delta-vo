@@ -71,6 +71,14 @@ export default function DisponibleCard({
 
   const offreEnCours = machine.offre_en_cours === true;
 
+  // 📷 Indicateur photos (SUPER ADMIN) : fiche + supplémentaires + internes
+  const nbPhotosFiche = machine.photos_ventes
+    ? Object.values(machine.photos_ventes).filter(Boolean).length
+    : 0;
+  const nbPhotosSupp = machine.photos_supplementaires?.length || 0;
+  const nbPhotosInternes = machine.photos_internes?.length || 0;
+  const nbPhotosTotal = nbPhotosFiche + nbPhotosSupp + nbPhotosInternes;
+
   return (
     <div
       className={`dispo-card ${!hasPrice ? "no-price" : ""}`}
@@ -160,6 +168,21 @@ export default function DisponibleCard({
               .filter((x) => x && String(x).trim())
               .join(" · ")}
           </div>
+          {canInternalPhotos && (
+            <div
+              title={t("card.photosIndicatorTitle")}
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                marginTop: 2,
+                color: nbPhotosTotal === 0 ? "#c0392b" : "#1e7e46",
+              }}
+            >
+              {nbPhotosTotal === 0
+                ? `📷 ${t("card.photosNone")}`
+                : `📷 ${t("card.photosCount", { fiche: nbPhotosFiche, supp: nbPhotosSupp, internes: nbPhotosInternes })}`}
+            </div>
+          )}
         </div>
         </div>
         <div className="dispo-header-right">

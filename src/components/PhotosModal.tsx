@@ -42,6 +42,16 @@ export default function PhotosModal({
   const [copied, setCopied] = useState(false);
   const shareUrl = shareToken ? `${window.location.origin}/galerie/${shareToken}` : "";
 
+  // ── 📄 Remplacement des photos de la FICHE DE VENTE (rotation + détourage) ──
+  const [ficheSlot, setFicheSlot] = useState<string | null>(null);   // slot en cours de remplacement
+  const [pick, setPick] = useState<{ url: string } | null>(null);    // photo choisie
+  const [pickRot, setPickRot] = useState(0);                          // quarts de tour
+  const [pickDetour, setPickDetour] = useState(true);
+  const [ficheBusy, setFicheBusy] = useState(false);
+  const [ficheMsg, setFicheMsg] = useState<string | null>(null);
+  const [slotOverrides, setSlotOverrides] = useState<Record<string, string>>({});
+  const [rotBusy, setRotBusy] = useState<string | null>(null);
+
   const officielles = machine.photos_commerciales || {};
 
   // URLs des 4 photos officielles : on les exclut du pool pour éviter les doublons
@@ -80,6 +90,102 @@ export default function PhotosModal({
             },
           ]
     );
+  }
+
+  // ── Outils image : téléchargement, rotation, upload ──
+  async function urlToBase64(url: string): Promise<string> {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error("téléchargement " + r.status);
+    const blob = await r.blob();
+    return await new Promise<string>((res, rej) => {
+      const fr = new FileReader();
+      fr.onload = () => res(String(fr.result));
+      fr.onerror = rej;
+      fr.readAsDataURL(blob);
+    });
+  }
+
+  async function rotateBase64(b64: string, quarter: number, quality = 0.9): Promise<string> {
+    if (!quarter) return b64;
+    const img = await new Promise<HTMLImageElement>((res, rej) => {
+      const i = new Image();
+      i.onload = () => res(i);
+      i.onerror = rej;
+      i.src = b64;
+    });
+    const c = document.createElement("canvas");
+    const swap = quarter % 2 === 1;
+    c.width = swap ? img.height : img.width;
+    c.height = swap ? img.width : img.height;
+    const ctx = c.getContext("2d")!;
+    ctx.translate(c.width / 2, c.height / 2);
+    ctx.rotate(((quarter % 4) * Math.PI) / 2);
+    ctx.drawImage(img, -img.width / 2, -img.height / 2);
+    return c.toDataURL("image/jpeg", quality);
+  }
+
+  async function uploadBase64(b64: string, path: string): Promise<string> {
+    const blob = await (await fetch(b64)).blob();
+    const storageRef = ref(storage, path);
+    await uploadBytes(storageRef, blob);
+    return await getDownloadURL(storageRef);
+  }
+
+  // ↻ Rotation d'une photo supplémentaire (persistée au clic sur Enregistrer)
+  async function rotatePhotoSupp(pPhoto: PhotoSupplementaire) {
+    try {
+      setRotBusy(pPhoto.url);
+      const b64 = await rotateBase64(await urlToBase64(pPhoto.url), 1);
+      const url = await uploadBase64(b64, `machines/${machine.immat}/supplementaires/rot_${Date.now()}.jpg`);
+      setPhotos((prev) => prev.map((x) => (x.url === pPhoto.url ? { ...x, url } : x)));
+    } catch (e) {
+      console.error("❌ Rotation:", e);
+      setError(t("modals.ficheRotateFail"));
+    } finally {
+      setRotBusy(null);
+    }
+  }
+
+  // 📄 Applique la photo choisie (rotation + détourage éventuel) au slot de la fiche
+  async function applyFichePhoto() {
+    if (!ficheSlot || !pick) return;
+    setFicheBusy(true);
+    setError(null);
+    try {
+      let b64 = await urlToBase64(pick.url);
+      b64 = await rotateBase64(b64, pickRot);
+      if (pickDetour) {
+        const raw = b64.replace(/^data:image\/\w+;base64,/, "");
+        const resp = await fetch("/api/removebg", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ imageBase64: raw }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok || !data.imageBase64) throw new Error(data?.error || "détourage indisponible");
+        b64 = "data:image/png;base64," + data.imageBase64;
+      }
+      const url = await uploadBase64(
+        b64,
+        `machines/${machine.immat}/fiche/${ficheSlot}_${Date.now()}.${pickDetour ? "png" : "jpg"}`
+      );
+      // Source canonique lue par la fiche VO (machine.photos_ventes)
+      await updateDoc(doc(db, "machines_vo", machine.id), {
+        [`dossier_nacelle_expert.photos_commerciales.${ficheSlot}`]: { url, type: "storage" },
+        updatedAt: new Date().toISOString(),
+      });
+      setSlotOverrides((prev) => ({ ...prev, [ficheSlot]: url }));
+      setFicheMsg(t("modals.ficheDone"));
+      setTimeout(() => setFicheMsg(null), 4000);
+      setFicheSlot(null);
+      setPick(null);
+      setPickRot(0);
+    } catch (e: any) {
+      console.error("❌ Photo de fiche:", e);
+      setError(t("modals.ficheFail") + (e?.message ? ` (${e.message})` : ""));
+    } finally {
+      setFicheBusy(false);
+    }
   }
 
   function removePhoto(url: string) {
@@ -251,6 +357,75 @@ export default function PhotosModal({
             })}
           </div>
 
+          {/* ─── 📄 Photos de la fiche de vente (remplaçables, avec détourage) ─── */}
+          <h3 style={sectionTitle}>
+            📄 {t("modals.ficheSection")} <span style={lockNote}>{t("modals.ficheSectionNote")}</span>
+          </h3>
+          {ficheMsg && (
+            <div style={{ color: "#1e7e46", fontSize: 13, marginBottom: 8 }}>{ficheMsg}</div>
+          )}
+          <div style={gridStyle}>
+            {([
+              ["vente_3_4_av_droit", t("modals.ficheSlotAvD"), machine.photos_ventes?.trois_quart_av_droit],
+              ["vente_3_4_ar_gauche", t("modals.ficheSlotArG"), machine.photos_ventes?.trois_quart_ar_gauche],
+              ["vente_habitacle_av", t("modals.ficheSlotHabAv"), machine.photos_ventes?.habitacle_av],
+              ["vente_habitacle_ar", t("modals.ficheSlotHabAr"), machine.photos_ventes?.habitacle_ar],
+            ] as [string, string, string | undefined][]).map(([slot, label, current]) => {
+              const url = slotOverrides[slot] || current;
+              const active = ficheSlot === slot;
+              return (
+                <div key={slot} style={{ ...tileLocked, outline: active ? "3px solid #c9a227" : undefined }}>
+                  {url ? <img src={url} alt={label} style={imgStyle} /> : <div style={placeholder}>—</div>}
+                  <div style={tileLabel}>{label}</div>
+                  <button
+                    className="btn-secondary"
+                    style={{ width: "100%", fontSize: 11, padding: "4px 0" }}
+                    disabled={ficheBusy}
+                    onClick={() => {
+                      setFicheSlot(active ? null : slot);
+                      setPick(null);
+                      setPickRot(0);
+                      setPickDetour(slot.includes("3_4")); // détourage par défaut sur les vues 3/4
+                    }}
+                  >
+                    {active ? t("modals.ficheCancelBtn") : `✏️ ${t("modals.ficheReplace")}`}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+          {ficheSlot && !pick && (
+            <div style={{ background: "#fdf8e8", border: "1px solid #e6d9a8", borderRadius: 8, padding: "10px 14px", fontSize: 13, margin: "10px 0" }}>
+              👉 {t("modals.fichePickHint")}
+            </div>
+          )}
+          {ficheSlot && pick && (
+            <div style={{ background: "#eef1fb", border: "1px solid #b9c2d0", borderRadius: 8, padding: 14, margin: "10px 0", display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+              <img
+                src={pick.url}
+                alt=""
+                style={{ maxHeight: 140, maxWidth: 200, borderRadius: 6, transform: `rotate(${pickRot * 90}deg)`, transition: "transform .2s" }}
+              />
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <button className="btn-secondary" onClick={() => setPickRot((r) => (r + 1) % 4)} disabled={ficheBusy}>
+                  ↻ {t("modals.ficheRotate")}
+                </button>
+                <label style={{ fontSize: 13, display: "flex", gap: 6, alignItems: "center" }}>
+                  <input type="checkbox" checked={pickDetour} onChange={(e) => setPickDetour(e.target.checked)} disabled={ficheBusy} />
+                  🪄 {t("modals.ficheDetour")}
+                </label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button className="btn-primary" onClick={applyFichePhoto} disabled={ficheBusy}>
+                    {ficheBusy ? t("modals.ficheApplying") : `✓ ${t("modals.ficheApply")}`}
+                  </button>
+                  <button className="btn-secondary" onClick={() => { setPick(null); setPickRot(0); }} disabled={ficheBusy}>
+                    {t("modals.ficheCancelBtn")}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ─── Upload ─── */}
           <h3 style={sectionTitle}>➕ {t("modals.photoAddExtra")}</h3>
           <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
@@ -288,9 +463,21 @@ export default function PhotosModal({
           ) : (
             <div style={gridStyle}>
               {photos.map((p) => (
-                <div key={p.url} style={tile}>
+                <div
+                  key={p.url}
+                  style={{ ...tile, ...(ficheSlot ? { cursor: "pointer", outline: pick?.url === p.url ? "3px solid #c9a227" : undefined } : {}) }}
+                  onClick={() => { if (ficheSlot) { setPick({ url: p.url }); setPickRot(0); } }}
+                >
                   <img src={p.url} alt={p.nom || "photo"} style={imgStyle} />
-                  <button style={removeBtn} title={t("modals.photoRemove")} onClick={() => removePhoto(p.url)}>
+                  <button
+                    style={{ ...removeBtn, right: 34, background: "rgba(26,42,110,.85)" }}
+                    title={t("modals.ficheRotate")}
+                    disabled={rotBusy === p.url}
+                    onClick={(e) => { e.stopPropagation(); rotatePhotoSupp(p); }}
+                  >
+                    {rotBusy === p.url ? "…" : "↻"}
+                  </button>
+                  <button style={removeBtn} title={t("modals.photoRemove")} onClick={(e) => { e.stopPropagation(); removePhoto(p.url); }}>
                     ✕
                   </button>
                   <div style={tileLabel}>
@@ -321,7 +508,7 @@ export default function PhotosModal({
                         cursor: "pointer",
                         outline: selected ? "3px solid #30a050" : "1px solid #e5e8ec",
                       }}
-                      onClick={() => togglePoolPhoto(p.url)}
+                      onClick={() => (ficheSlot ? (setPick({ url: p.url }), setPickRot(0)) : togglePoolPhoto(p.url))}
                     >
                       <img src={p.url} alt={p.nom || "photo"} style={imgStyle} />
                       <div
@@ -357,7 +544,7 @@ export default function PhotosModal({
                         cursor: "pointer",
                         outline: selected ? "3px solid #30a050" : "1px solid #e5e8ec",
                       }}
-                      onClick={() => togglePoolPhoto(url)}
+                      onClick={() => (ficheSlot ? (setPick({ url }), setPickRot(0)) : togglePoolPhoto(url))}
                     >
                       <img src={url} alt="photo nacelle-expert" style={imgStyle} />
                       <div

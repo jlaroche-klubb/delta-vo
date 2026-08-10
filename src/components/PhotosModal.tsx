@@ -94,15 +94,30 @@ export default function PhotosModal({
 
   // ── Outils image : téléchargement, rotation, upload ──
   async function urlToBase64(url: string): Promise<string> {
-    const r = await fetch(url);
-    if (!r.ok) throw new Error("téléchargement " + r.status);
-    const blob = await r.blob();
-    return await new Promise<string>((res, rej) => {
-      const fr = new FileReader();
-      fr.onload = () => res(String(fr.result));
-      fr.onerror = rej;
-      fr.readAsDataURL(blob);
+    // 1) Téléchargement direct (fonctionne pour la plupart des photos)
+    try {
+      const r = await fetch(url);
+      if (r.ok) {
+        const blob = await r.blob();
+        return await new Promise<string>((res, rej) => {
+          const fr = new FileReader();
+          fr.onload = () => res(String(fr.result));
+          fr.onerror = rej;
+          fr.readAsDataURL(blob);
+        });
+      }
+    } catch {
+      /* CORS ou réseau : on passe par le serveur */
+    }
+    // 2) Repli : le serveur Delta VO récupère l'image (contourne le CORS)
+    const pr = await fetch("/api/fetch-image", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
     });
+    const data = await pr.json().catch(() => ({}));
+    if (!pr.ok || !data.base64) throw new Error(data?.error || "photo inaccessible");
+    return data.base64;
   }
 
   async function rotateBase64(b64: string, quarter: number, quality = 0.9): Promise<string> {

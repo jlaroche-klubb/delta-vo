@@ -103,7 +103,9 @@ interface MachinesContextType {
     acheteur: string,
     commercial: string,
     dateVente: string,
-    dateLivraison: string
+    dateLivraison: string,
+    contrat?: string,
+    emailClient?: string
   ) => void;
   cancelEnCours: (machineId: string) => void;  // ✅ Annuler mise en préparation
   marquerFacturee: (
@@ -1099,12 +1101,21 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     acheteur: string,
     commercial: string,
     dateVente: string,
-    dateLivraison: string
+    dateLivraison: string,
+    contrat?: string,
+    emailClient?: string
   ) {
     const now = new Date().toISOString();
+    // 🔁 Une machine réservée en LOCATION reste une location quand on
+    // configure sa préparation (ne pas l'écraser en « vente »)
+    const machineCfg = machines.find((x) => x.id === machineId);
+    const estLocation = machineCfg?.type_sortie === "lld";
     const updates = {
       statut: "en_cours" as const,        // ✅ Bug 3 : Passer en en_cours
-      type_sortie: "vente" as const,
+      type_sortie: (estLocation ? "lld" : "vente") as any,
+      // 📋 Location : contrat + email demandés à la configuration
+      ...(contrat ? { contrat } : {}),
+      ...(emailClient ? { email_client: emailClient } : {}),
       type_prepa: typePrepa,
       acheteur,
       commercial_vendeur: commercial,
@@ -1126,8 +1137,11 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       // 🗄️ HubSpot : machine vendue / partie en préparation → SORT du catalogue
       // (le serveur ne supprime que les produits marqués Delta VO — règle stricte)
       syncHubspotProduct("archive", machineId);
-      // (pré-départ NE retiré ici : une VENTE ne déclenche pas d'expertise
-      //  départ — réservé aux mises en location, validé avec Jonathan)
+      // 🚚 LOCATION configurée → pré-départ NE (client, contrat, email).
+      //    Une VENTE ne déclenche jamais d'expertise départ (validé Jonathan).
+      if (estLocation) {
+        pushPreDepartNacelleExpert(machineCfg, machineCfg?.client_lld || acheteur, contrat, emailClient);
+      }
     } else {
       setMockMachines((prev) =>
         prev.map((m) =>

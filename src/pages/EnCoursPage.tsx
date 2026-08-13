@@ -144,7 +144,9 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
       config.acheteur,
       config.commercial_vendeur,
       config.date_vente,
-      config.date_livraison_prevue
+      config.date_livraison_prevue,
+      config.contrat,
+      config.email_client
     );
   }
 

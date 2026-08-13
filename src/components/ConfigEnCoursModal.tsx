@@ -14,6 +14,9 @@ export interface ConfigEnCoursPayload {
   commercial_vendeur: string;
   date_vente: string;
   date_livraison_prevue: string;
+  /** 📋 Locations uniquement : partent dans le pré-départ Nacelle Expert */
+  contrat?: string;
+  email_client?: string;
 }
 
 export default function ConfigEnCoursModal({
@@ -33,6 +36,10 @@ export default function ConfigEnCoursModal({
   const [dateLivraison, setDateLivraison] = useState(
     machine.date_livraison_prevue || ""
   );
+  // 📋 LOCATION : contrat + email client demandés ICI (pas à la réservation)
+  const isLld = machine.type_sortie === "lld";
+  const [contrat, setContrat] = useState(machine.contrat || "");
+  const [emailClient, setEmailClient] = useState(machine.email_client || "");
 
   function handleSave() {
     if (!acheteur.trim()) {
@@ -47,6 +54,16 @@ export default function ConfigEnCoursModal({
       alert(t("modals.errSaleDateReq"));
       return;
     }
+    if (isLld) {
+      if (!contrat.trim()) {
+        alert(t("modals.lldContratRequired"));
+        return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailClient.trim())) {
+        alert(t("modals.lldEmailRequired"));
+        return;
+      }
+    }
 
     onSave(machine.id, {
       type_prepa: typePrepa,
@@ -54,6 +71,7 @@ export default function ConfigEnCoursModal({
       commercial_vendeur: commercial.trim(),
       date_vente: dateVente,
       date_livraison_prevue: dateLivraison || "",
+      ...(isLld ? { contrat: contrat.trim(), email_client: emailClient.trim() } : {}),
     });
     onClose();
   }
@@ -161,6 +179,37 @@ export default function ConfigEnCoursModal({
               </div>
             </div>
           </div>
+
+          {/* 📋 LOCATION : contrat + email client (pré-départ Nacelle Expert) */}
+          {isLld && (
+            <div className="config-row">
+              <div className="config-field">
+                <label>
+                  {t("modals.lldContrat")} <span className="required">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="ex : CTR-2026-114"
+                  value={contrat}
+                  onChange={(e) => setContrat(e.target.value)}
+                />
+              </div>
+              <div className="config-field">
+                <label>
+                  {t("modals.lldEmail")} <span className="required">*</span>
+                </label>
+                <input
+                  type="email"
+                  placeholder="client@entreprise.fr"
+                  value={emailClient}
+                  onChange={(e) => setEmailClient(e.target.value)}
+                />
+                <div className="config-hint">
+                  💡 {t("modals.lldEmailHint")}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Info prix HubSpot */}
           <div className="config-info-box">

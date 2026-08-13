@@ -3,6 +3,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { doc, setDoc, updateDoc } from "firebase/firestore";
 import { storage, db } from "../firebase";
 import { Machine, PhotoSupplementaire } from "../types/machine";
+import { DELTA_LOGO_BASE64 } from "../assets/deltaLogo";
 import { useTranslation } from "react-i18next";
 
 interface PhotosModalProps {
@@ -161,6 +162,79 @@ export default function PhotosModal({
     }
   }
 
+  /** 🎨 Mise en scène IDENTIQUE aux photos de ventes Nacelle Expert :
+   *  fond dégradé ciel/sol, bande bleue Delta + liseré rouge, logo blanc,
+   *  sujet détouré recadré et centré (1080×1080). Référence affichée :
+   *  N° occasion si connu (règle direction), sinon immatriculation. */
+  async function composeFichePhoto(subjectBase64: string): Promise<string | null> {
+    return new Promise((res) => {
+      const W = 1080, H = 1080, barH = 120;
+      const canvas = document.createElement("canvas");
+      canvas.width = W; canvas.height = H;
+      const ctx = canvas.getContext("2d")!;
+      const horizon = Math.round((H - barH) * 0.62);
+      const sky = ctx.createLinearGradient(0, 0, 0, horizon);
+      sky.addColorStop(0, "#cfe0f2"); sky.addColorStop(1, "#eef4fb");
+      ctx.fillStyle = sky; ctx.fillRect(0, 0, W, horizon);
+      const ground = ctx.createLinearGradient(0, horizon, 0, H - barH);
+      ground.addColorStop(0, "#e7e9ec"); ground.addColorStop(1, "#cfd3d8");
+      ctx.fillStyle = ground; ctx.fillRect(0, horizon, W, (H - barH) - horizon);
+      ctx.fillStyle = "#1a2a6e"; ctx.fillRect(0, H - barH, W, barH);
+      ctx.fillStyle = "#c8102e"; ctx.fillRect(0, H - barH - 5, W, 5);
+
+      const subject = new Image();
+      subject.onload = () => {
+        try {
+          const tmpC = document.createElement("canvas");
+          tmpC.width = subject.naturalWidth; tmpC.height = subject.naturalHeight;
+          const tmpCtx = tmpC.getContext("2d")!;
+          tmpCtx.drawImage(subject, 0, 0);
+          const px = tmpCtx.getImageData(0, 0, tmpC.width, tmpC.height).data;
+          let minX = tmpC.width, maxX = 0, minY = tmpC.height, maxY = 0;
+          for (let y = 0; y < tmpC.height; y++)
+            for (let x = 0; x < tmpC.width; x++)
+              if (px[(y * tmpC.width + x) * 4 + 3] > 20) {
+                if (x < minX) minX = x; if (x > maxX) maxX = x;
+                if (y < minY) minY = y; if (y > maxY) maxY = y;
+              }
+          const cW = maxX - minX + 1, cH = maxY - minY + 1;
+          const avail = H - barH - 5, margin = 4;
+          const scale = Math.min((W - margin * 2) / cW, (avail - margin * 2) / cH);
+          const sw = cW * scale, sh = cH * scale;
+          ctx.drawImage(subject, minX, minY, cW, cH, (W - sw) / 2, margin + (avail - margin * 2 - sh) / 2, sw, sh);
+
+          const logo = new Image();
+          const finish = () => {
+            const ref = machine.numero_occasion ? `OCCASION N° ${machine.numero_occasion}` : machine.immat;
+            if (ref) {
+              ctx.fillStyle = "#ffffff";
+              ctx.font = "700 32px monospace";
+              ctx.textAlign = "right";
+              ctx.fillText(ref, W - 36, H - barH + barH / 2 + 11);
+            }
+            res(canvas.toDataURL("image/jpeg", 0.96));
+          };
+          logo.onload = () => {
+            const logoH = 62, logoW = (logo.naturalWidth / logo.naturalHeight) * logoH;
+            const tmpLogo = document.createElement("canvas");
+            tmpLogo.width = logoW; tmpLogo.height = logoH;
+            const lCtx = tmpLogo.getContext("2d")!;
+            lCtx.filter = "brightness(0) invert(1)";
+            lCtx.drawImage(logo, 0, 0, logoW, logoH);
+            ctx.drawImage(tmpLogo, 36, H - barH + (barH - logoH) / 2, logoW, logoH);
+            ctx.strokeStyle = "rgba(255,255,255,0.25)"; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(logoW + 60, H - barH + 18); ctx.lineTo(logoW + 60, H - 18); ctx.stroke();
+            finish();
+          };
+          logo.onerror = finish;
+          logo.src = DELTA_LOGO_BASE64;
+        } catch (e) { console.error("Composition:", e); res(null); }
+      };
+      subject.onerror = () => res(null);
+      subject.src = subjectBase64;
+    });
+  }
+
   // 📄 Applique la photo choisie (rotation + détourage éventuel) au slot de la fiche
   async function applyFichePhoto() {
     if (!ficheSlot || !pick) return;
@@ -179,6 +253,10 @@ export default function PhotosModal({
         const data = await resp.json().catch(() => ({}));
         if (!resp.ok || !data.imageBase64) throw new Error(data?.error || "détourage indisponible");
         b64 = "data:image/png;base64," + data.imageBase64;
+        // 🎨 Même rendu que les photos de ventes automatiques : fond dégradé
+        // + bande Delta (le PNG transparent reste utilisé si la composition échoue)
+        const composed = await composeFichePhoto(b64);
+        if (composed) b64 = composed;
       }
       const url = await uploadBase64(
         b64,

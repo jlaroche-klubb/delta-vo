@@ -430,26 +430,6 @@ export default function PhotosModal({
         </div>
 
         <div style={{ padding: "8px 20px 20px", maxHeight: "70vh", overflowY: "auto" }}>
-          {/* ─── 4 photos officielles (verrouillées) ─── */}
-          <h3 style={sectionTitle}>
-            🔒 {t("modals.photoOfficial")} <span style={lockNote}>{t("modals.photoOfficialNote")}</span>
-          </h3>
-          <div style={gridStyle}>
-            {OFFICIELLES.map(({ key, label }) => {
-              const url = officielles[key];
-              return (
-                <div key={key} style={tileLocked}>
-                  {url ? (
-                    <img src={url} alt={t(label)} style={imgStyle} />
-                  ) : (
-                    <div style={placeholder}>—</div>
-                  )}
-                  <div style={tileLabel}>{t(label)}</div>
-                </div>
-              );
-            })}
-          </div>
-
           {/* ─── 📄 Photos de la fiche de vente (remplaçables, avec détourage) ─── */}
           <h3 style={sectionTitle}>
             📄 {t("modals.ficheSection")} <span style={lockNote}>{t("modals.ficheSectionNote")}</span>

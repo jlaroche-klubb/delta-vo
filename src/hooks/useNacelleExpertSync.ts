@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { collection, query, where, getDocs, doc, updateDoc, setDoc, onSnapshot, getDoc } from 'firebase/firestore';
 import { notifyExpertiseArrivee } from '../services/emailService';
 import { db, dbNacelleExpert } from '../firebase';
@@ -112,7 +112,20 @@ export function useNacelleExpertSync() {
   const [error, setError] = useState<string | null>(null);
   const [syncedCount, setSyncedCount] = useState(0);
 
+  // 🛡️ GARDE DE RÉENTRANCE : le listener redéclenche syncDossiers à chaque
+  // snapshot (y compris ceux provoqués par nos propres écritures synced:true).
+  // Sans ce verrou, plusieurs exécutions traitent les MÊMES dossiers en même
+  // temps → emails d'alerte et upserts HubSpot envoyés en double/triple.
+  const syncEnCoursRef = useRef(false);
+  const resyncDemandeRef = useRef(false);
+
   const syncDossiers = async () => {
+    if (syncEnCoursRef.current) {
+      // Une synchro tourne déjà : on note qu'il faudra repasser après elle
+      resyncDemandeRef.current = true;
+      return;
+    }
+    syncEnCoursRef.current = true;
     setIsLoading(true);
     setError(null);
     setSyncedCount(0);
@@ -426,6 +439,12 @@ export function useNacelleExpertSync() {
           } else {
             // 🆕 Nouvelle nacelle : création normale
             console.log(`💾 Création nouvelle fiche pour ${dossier.immat}`);
+            // ⚠️ Firestore refuse les champs `undefined` (ex. createdBy absent
+            // sur un dossier importé) : on les retire, sinon la fiche ne serait
+            // JAMAIS créée et le dossier resterait bloqué en erreur de synchro.
+            Object.keys(machineVOData).forEach((k) => {
+              if ((machineVOData as any)[k] === undefined) delete (machineVOData as any)[k];
+            });
             await setDoc(machineVORef, machineVOData);
             console.log(`✅ Fiche créée avec succès`);
             notifyExpertiseArrivee({
@@ -466,6 +485,12 @@ export function useNacelleExpertSync() {
       setError(err instanceof Error ? err.message : 'Erreur inconnue');
     } finally {
       setIsLoading(false);
+      syncEnCoursRef.current = false;
+      if (resyncDemandeRef.current) {
+        // Des dossiers sont arrivés pendant la synchro : on repasse une fois
+        resyncDemandeRef.current = false;
+        syncDossiers();
+      }
     }
   };
 

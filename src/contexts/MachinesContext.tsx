@@ -806,13 +806,18 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     const updatedEtapes = machine.etapes_prepa.map((e) => {
       if (e.id !== etapeId) return e;
       const newDone = !e.done;
-      return {
+      const next: any = {
         ...e,
         done: newDone,
         non_necessaire: newDone ? false : e.non_necessaire,
         done_by: newDone ? userName : undefined,
         done_at: newDone ? now : undefined,
       };
+      // ⚠️ Firestore refuse `undefined` : au décochage on SUPPRIME les champs,
+      // sinon l'enregistrement échoue silencieusement et l'étape « revient ».
+      if (next.done_by === undefined) delete next.done_by;
+      if (next.done_at === undefined) delete next.done_at;
+      return next;
     });
 
     if (isFirebaseMachine(machineId)) {
@@ -846,13 +851,17 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     const updatedEtapes = machine.etapes_prepa.map((e) => {
       if (e.id !== etapeId) return e;
       const newNA = !e.non_necessaire;
-      return {
+      // ⚠️ Firestore refuse `undefined` : on retire réellement done_by/done_at
+      // au lieu de les mettre à undefined (sinon le clic n'enregistrait RIEN,
+      // et sur une location le pré-départ Nacelle Expert pouvait ne jamais partir).
+      const next: any = {
         ...e,
         non_necessaire: newNA,
         done: newNA ? false : e.done,
-        done_by: undefined,
-        done_at: undefined,
       };
+      delete next.done_by;
+      delete next.done_at;
+      return next;
     });
 
     if (isFirebaseMachine(machineId)) {

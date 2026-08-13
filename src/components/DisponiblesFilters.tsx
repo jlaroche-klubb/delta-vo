@@ -1,6 +1,7 @@
 import { Machine, calculAgeStock } from "../types/machine";
 import { useTranslation } from "react-i18next";
 import { normalizeLocalite } from "../utils/localites";
+import { normalizeTypeNacelle } from "../utils/nacelles";
 
 export type PriceType = "fr" | "dealer" | "both";
 export type StatutPrix = "tous" | "avec_prix" | "sans_prix" | "a_repricer";
@@ -56,9 +57,10 @@ export default function DisponiblesFilters({
 }: DisponiblesFiltersProps) {
   const { t } = useTranslation();
 
-  // Types dynamiques : uniquement ceux présents dans le stock
+  // Types dynamiques : uniquement ceux présents dans le stock,
+  // NORMALISÉS pour regrouper les variantes d'orthographe (KL32 / Kl32 / KL 32)
   const typesDispo = Array.from(
-    new Set(machines.map((m) => m.type_nacelle).filter(Boolean))
+    new Set(machines.map((m) => normalizeTypeNacelle(m.type_nacelle)).filter(Boolean))
   ).sort();
 
   // Localisations dynamiques (normalisées)
@@ -138,7 +140,9 @@ export default function DisponiblesFilters({
               >
                 {typesDispo.length === 0 && <span style={{ fontSize: 12, color: "#888" }}>—</span>}
                 {typesDispo.map((t) => {
-                  const count = machines.filter((m) => m.type_nacelle === t).length;
+                  const count = machines.filter(
+                    (m) => normalizeTypeNacelle(m.type_nacelle) === t
+                  ).length;
                   const checked = filters.typeNacelle.includes(t);
                   return (
                     <label
@@ -435,8 +439,11 @@ export function applyDispoFilters(
   const ageMaxNum = isAdmin && f.ageMax ? parseInt(f.ageMax, 10) : null;
 
   return machines.filter((m) => {
-    // Type (multi-sélection : OK si vide OU si le type est coché)
-    if (f.typeNacelle.length > 0 && !f.typeNacelle.includes(m.type_nacelle)) return false;
+    // Type (multi-sélection, comparé en version NORMALISÉE)
+    if (
+      f.typeNacelle.length > 0 &&
+      !f.typeNacelle.includes(normalizeTypeNacelle(m.type_nacelle))
+    ) return false;
 
     // Statut prix
     const hasPrice = m.prix_fr !== undefined || m.prix_dealer !== undefined;

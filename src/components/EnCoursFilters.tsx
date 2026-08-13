@@ -1,4 +1,5 @@
 import { Machine, prepaTerminee, isLivraisonEnRetard } from "../types/machine";
+import { normalizeTypeNacelle } from "../utils/nacelles";
 import { useTranslation } from "react-i18next";
 import { normalizeLocalite } from "../utils/localites";
 
@@ -63,8 +64,9 @@ export default function EnCoursFilters({
   const acheteurs = Array.from(
     new Set(machines.map((m) => m.acheteur).filter(Boolean) as string[])
   ).sort();
+  // Types normalisés : une seule entrée par modèle (KL32 / Kl32 / KL 32…)
   const types = Array.from(
-    new Set(machines.map((m) => m.type_nacelle).filter(Boolean))
+    new Set(machines.map((m) => normalizeTypeNacelle(m.type_nacelle)).filter(Boolean))
   ).sort();
   const localites = Array.from(
     new Set(machines.map((m) => normalizeLocalite(m.localite)).filter(Boolean))
@@ -128,7 +130,9 @@ export default function EnCoursFilters({
               >
                 <option value="">{t("encf.allTypes")} ({types.length})</option>
                 {types.map((t) => {
-                  const count = machines.filter((m) => m.type_nacelle === t).length;
+                  const count = machines.filter(
+                    (m) => normalizeTypeNacelle(m.type_nacelle) === t
+                  ).length;
                   return (
                     <option key={t} value={t}>
                       {t} ({count})
@@ -291,7 +295,7 @@ export function applyEnCoursFilters(
     if (f.acheteur && m.acheteur !== f.acheteur) return false;
 
     // Type nacelle
-    if (f.typeNacelle && m.type_nacelle !== f.typeNacelle) return false;
+    if (f.typeNacelle && normalizeTypeNacelle(m.type_nacelle) !== f.typeNacelle) return false;
 
     // 📍 Localisation (normalisée)
     if (f.localite && normalizeLocalite(m.localite) !== f.localite) return false;

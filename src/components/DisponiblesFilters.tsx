@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { Machine, calculAgeStock } from "../types/machine";
 import { useTranslation } from "react-i18next";
 import { normalizeLocalite } from "../utils/localites";
@@ -56,6 +57,21 @@ export default function DisponiblesFilters({
   seuilRepricer,
 }: DisponiblesFiltersProps) {
   const { t } = useTranslation();
+
+  // 🔽 Menu déroulant « Type de nacelle » (multi-sélection) : ouvert/fermé
+  // + fermeture au clic en dehors du panneau
+  const [typeOpen, setTypeOpen] = useState(false);
+  const typeDropRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!typeOpen) return;
+    function onDocClick(e: MouseEvent) {
+      if (typeDropRef.current && !typeDropRef.current.contains(e.target as Node)) {
+        setTypeOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [typeOpen]);
 
   // Types dynamiques : uniquement ceux présents dans le stock,
   // NORMALISÉS pour regrouper les variantes d'orthographe (KL32 / Kl32 / KL 32)
@@ -122,60 +138,120 @@ export default function DisponiblesFilters({
       {isOpen && (
         <div className="filters-panel">
           <div className="filters-grid filters-grid-dispo">
-            {/* Type de nacelle (multi-sélection) */}
-            <div className="filter-field">
-              <label>
-                Type de nacelle
-                {filters.typeNacelle.length > 0 && ` (${filters.typeNacelle.length})`}
-              </label>
-              <div
+            {/* Type de nacelle : menu déroulant multi-sélection */}
+            <div className="filter-field" ref={typeDropRef} style={{ position: "relative" }}>
+              <label>Type de nacelle</label>
+              <button
+                type="button"
+                onClick={() => setTypeOpen((o) => !o)}
                 style={{
+                  width: "100%",
                   display: "flex",
-                  flexWrap: "wrap",
-                  gap: 6,
-                  maxHeight: 120,
-                  overflowY: "auto",
-                  padding: "4px 0",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 8,
+                  padding: "8px 10px",
+                  border: "1px solid " + (filters.typeNacelle.length > 0 ? "#1a2a6e" : "#d0d4da"),
+                  borderRadius: 6,
+                  background: "#fff",
+                  fontSize: 13,
+                  cursor: "pointer",
+                  textAlign: "left",
+                  color: filters.typeNacelle.length > 0 ? "#1a2a6e" : "#333",
+                  fontWeight: filters.typeNacelle.length > 0 ? 700 : 400,
                 }}
               >
-                {typesDispo.length === 0 && <span style={{ fontSize: 12, color: "#888" }}>—</span>}
-                {typesDispo.map((t) => {
-                  const count = machines.filter(
-                    (m) => normalizeTypeNacelle(m.type_nacelle) === t
-                  ).length;
-                  const checked = filters.typeNacelle.includes(t);
-                  return (
-                    <label
-                      key={t}
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {filters.typeNacelle.length === 0
+                    ? "Tous les types"
+                    : filters.typeNacelle.length <= 2
+                    ? filters.typeNacelle.join(", ")
+                    : `${filters.typeNacelle.length} types sélectionnés`}
+                </span>
+                <span style={{ fontSize: 11, color: "#667085" }}>▾</span>
+              </button>
+
+              {typeOpen && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: "100%",
+                    left: 0,
+                    marginTop: 4,
+                    zIndex: 60,
+                    background: "#fff",
+                    border: "1px solid #d0d4da",
+                    borderRadius: 8,
+                    boxShadow: "0 10px 28px rgba(16,24,40,.16)",
+                    minWidth: "100%",
+                    width: "max-content",
+                    maxWidth: 300,
+                    maxHeight: 300,
+                    overflowY: "auto",
+                    padding: 6,
+                  }}
+                >
+                  {filters.typeNacelle.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => onChange({ ...filters, typeNacelle: [] })}
                       style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 4,
+                        width: "100%",
+                        textAlign: "left",
+                        padding: "6px 8px",
+                        border: "none",
+                        background: "transparent",
+                        color: "#c0392b",
                         fontSize: 12,
-                        border: "1px solid " + (checked ? "#1a2a6e" : "#d0d4da"),
-                        background: checked ? "#e8edff" : "#fff",
-                        color: checked ? "#1a2a6e" : "#4a5468",
-                        borderRadius: 4,
-                        padding: "3px 8px",
                         cursor: "pointer",
-                        fontWeight: checked ? 700 : 400,
+                        borderBottom: "1px solid #eef0f4",
+                        marginBottom: 4,
                       }}
                     >
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => {
-                          const next = checked
-                            ? filters.typeNacelle.filter((x) => x !== t)
-                            : [...filters.typeNacelle, t];
-                          onChange({ ...filters, typeNacelle: next });
+                      ✕ Tout décocher ({filters.typeNacelle.length})
+                    </button>
+                  )}
+                  {typesDispo.length === 0 && (
+                    <div style={{ fontSize: 12, color: "#888", padding: "6px 8px" }}>—</div>
+                  )}
+                  {typesDispo.map((t) => {
+                    const count = machines.filter(
+                      (m) => normalizeTypeNacelle(m.type_nacelle) === t
+                    ).length;
+                    const checked = filters.typeNacelle.includes(t);
+                    return (
+                      <label
+                        key={t}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          padding: "6px 8px",
+                          fontSize: 13,
+                          borderRadius: 5,
+                          cursor: "pointer",
+                          background: checked ? "#e8edff" : "transparent",
+                          color: checked ? "#1a2a6e" : "#4a5468",
+                          fontWeight: checked ? 700 : 400,
+                          whiteSpace: "nowrap",
                         }}
-                      />
-                      {t} ({count})
-                    </label>
-                  );
-                })}
-              </div>
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => {
+                            const next = checked
+                              ? filters.typeNacelle.filter((x) => x !== t)
+                              : [...filters.typeNacelle, t];
+                            onChange({ ...filters, typeNacelle: next });
+                          }}
+                        />
+                        {t} ({count})
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Statut de prix */}

@@ -107,6 +107,21 @@ interface MachineVO {
   createdBy?: string;
 }
 
+// 🛡️ FUSION DES PHOTOS COMMERCIALES — protège les remplacements manuels.
+// Les slots remplacés depuis Delta VO (PhotosModal) sont stockés sous
+// machines/{immat}/fiche/ : tant qu'il s'agit de la MÊME expertise, ils
+// restent prioritaires sur les photos venant de Nacelle Expert. Une NOUVELLE
+// expertise (relocation) reprend la main avec ses photos fraîches.
+function fusionPhotosCommerciales(actuelles: any, venantDeNE: any): any {
+  const base: any = { ...(venantDeNE || {}) };
+  if (!actuelles) return base;
+  for (const slot of Object.keys(actuelles)) {
+    const u = String(actuelles[slot]?.url || '');
+    if (u.includes('%2Ffiche%2F') || u.includes('/fiche/')) base[slot] = actuelles[slot];
+  }
+  return base;
+}
+
 export function useNacelleExpertSync() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -360,7 +375,19 @@ export function useNacelleExpertSync() {
               // Nouvelles données d'expertise (remontent toujours)
               heures: machineVOData.heures,
               km_porteur: machineVOData.km_porteur,
-              dossier_nacelle_expert: machineVOData.dossier_nacelle_expert,
+              // Les photos de fiche remplacées dans Delta VO sont conservées
+              // si c'est la même expertise (voir fusionPhotosCommerciales)
+              dossier_nacelle_expert: {
+                ...machineVOData.dossier_nacelle_expert,
+                photos_commerciales:
+                  String(existingData?.dossier_nacelle_expert?.date_retour || '') ===
+                  String(dossier.retour?.date || '')
+                    ? fusionPhotosCommerciales(
+                        existingData?.dossier_nacelle_expert?.photos_commerciales,
+                        machineVOData.dossier_nacelle_expert.photos_commerciales
+                      )
+                    : machineVOData.dossier_nacelle_expert.photos_commerciales,
+              },
 
               // 📍 Nouveau lieu de restitution (relocation) — uniquement si renseigné,
               // sinon on conserve la localisation existante (posée à la main)
@@ -578,12 +605,13 @@ export async function runNacelleExpertRattrapage(): Promise<{ scanned: number; u
         }
       }
 
-      // Photos détourées (commercialPhotos) — comparaison par contenu
+      // Photos détourées (commercialPhotos) — fusion qui PRÉSERVE les
+      // remplacements faits dans Delta VO (le rattrapage les effaçait)
       if (commercialPhotos && Object.keys(commercialPhotos).length > 0) {
-        const current = JSON.stringify(m?.dossier_nacelle_expert?.photos_commerciales ?? null);
-        const nouveau = JSON.stringify(commercialPhotos);
-        if (current !== nouveau) {
-          updates['dossier_nacelle_expert.photos_commerciales'] = commercialPhotos;
+        const actuelles = m?.dossier_nacelle_expert?.photos_commerciales;
+        const fusion = fusionPhotosCommerciales(actuelles, commercialPhotos);
+        if (JSON.stringify(actuelles ?? null) !== JSON.stringify(fusion)) {
+          updates['dossier_nacelle_expert.photos_commerciales'] = fusion;
         }
       }
 

@@ -443,7 +443,15 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       const hA = toUrl(vp.vente_habitacle_av);   if (hA) overlay.habitacle_av = hA;
       const hR = toUrl(vp.vente_habitacle_ar);   if (hR) overlay.habitacle_ar = hR;
       if (Object.keys(overlay).length) {
-        map.set(key, { ...m, photos_ventes: { ...(m.photos_ventes || {}), ...overlay } });
+        // ⚖️ PRIORITÉ : les photos du dossier d'expertise (qui portent aussi
+        // les remplacements faits dans Delta VO) passent DEVANT les photos de
+        // ventes « libres » de Nacelle Expert — même précédence que côté NE.
+        // Les photos libres ne servent qu'à combler les emplacements vides.
+        const duDossier: Record<string, string> = {};
+        Object.entries(m.photos_ventes || {}).forEach(([k, v]) => {
+          if (v) duDossier[k] = v as string; // on ignore les slots vides
+        });
+        map.set(key, { ...m, photos_ventes: { ...overlay, ...duDossier } });
       }
     });
 

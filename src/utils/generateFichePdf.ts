@@ -18,23 +18,42 @@ interface GenerateFicheOptions {
  * problème CORS, car les data URLs sont same-origin.
  */
 async function imageUrlToBase64(url: string): Promise<string | null> {
+  // 1) Essai direct
   try {
     const response = await fetch(url);
-    if (!response.ok) {
-      console.warn(`[generateFichePdf] Échec téléchargement image: ${url} (${response.status})`);
-      return null;
+    if (response.ok) {
+      const blob = await response.blob();
+      return await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
     }
-    const blob = await response.blob();
-    return await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
+    console.warn(`[generateFichePdf] Échec téléchargement direct: ${url} (${response.status})`);
   } catch (e) {
-    console.warn(`[generateFichePdf] Erreur fetch image: ${url}`, e);
-    return null;
+    console.warn(`[generateFichePdf] Fetch direct refusé (CORS ?): ${url}`, e);
   }
+  // 2) Repli : proxy serveur /api/fetch-image — certaines URLs Storage
+  //    (notamment les photos de fiche REMPLACÉES, stockées sur le bucket
+  //    delta-vo) refusent le téléchargement direct par le navigateur.
+  //    Sans ce repli, la photo restait en URL distante et html2canvas la
+  //    rendait VIDE dans le PDF (cases blanches sur la fiche).
+  try {
+    const r = await fetch("/api/fetch-image", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+    });
+    if (r.ok) {
+      const j = await r.json();
+      if (j?.base64) return j.base64 as string;
+    }
+    console.warn(`[generateFichePdf] Proxy image en échec: ${url} (${r.status})`);
+  } catch (e) {
+    console.warn(`[generateFichePdf] Proxy image injoignable: ${url}`, e);
+  }
+  return null;
 }
 
 /**

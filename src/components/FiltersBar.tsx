@@ -1,4 +1,5 @@
 import { Machine } from "../types/machine";
+import { normalizeTypeNacelle } from "../utils/nacelles";
 import { useTranslation } from "react-i18next";
 import { normalizeLocalite } from "../utils/localites";
 
@@ -41,8 +42,9 @@ export default function FiltersBar({
   ).sort();
 
   // Liste unique des types de nacelle
+  // Types normalisés : une seule entrée par modèle (KL32 / Kl32 / KL 32…)
   const types = Array.from(
-    new Set(machines.map((m) => m.type_nacelle).filter(Boolean))
+    new Set(machines.map((m) => normalizeTypeNacelle(m.type_nacelle)).filter(Boolean))
   ).sort();
 
   // Liste unique des localisations (normalisées — regroupe Ferrière/Ferrières...)
@@ -197,7 +199,7 @@ export function applyFilters(machines: Machine[], f: FilterState): Machine[] {
     if (f.client && m.client_precedent !== f.client) return false;
 
     // Filtre type
-    if (f.typeNacelle && m.type_nacelle !== f.typeNacelle) return false;
+    if (f.typeNacelle && normalizeTypeNacelle(m.type_nacelle) !== f.typeNacelle) return false;
 
     // Filtre localisation (normalisée pour regrouper les variantes d'orthographe)
     if (f.localite && normalizeLocalite(m.localite) !== f.localite) return false;

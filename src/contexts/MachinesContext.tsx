@@ -88,7 +88,7 @@ interface MachinesContextType {
     manuel: boolean,
     numeroDossier?: string
   ) => void;
-  basculerEnLld: (machineId: string, clientLld: string, dateMiseDispo: string) => void;
+  basculerEnLld: (machineId: string, clientLld: string, dateMiseDispo: string, contrat?: string, emailClient?: string) => void;
   toggleEtapePrepa: (machineId: string, etapeId: string, userName: string) => void;
   setEtapeNonNecessaire: (machineId: string, etapeId: string) => void;
   addEtapePrepa: (machineId: string, label: string) => void;
@@ -103,7 +103,9 @@ interface MachinesContextType {
     acheteur: string,
     commercial: string,
     dateVente: string,
-    dateLivraison: string
+    dateLivraison: string,
+    contrat?: string,
+    emailClient?: string
   ) => void;
   cancelEnCours: (machineId: string) => void;  // ✅ Annuler mise en préparation
   marquerFacturee: (
@@ -730,7 +732,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function basculerEnLld(machineId: string, clientLld: string, dateMiseDispo: string) {
+  async function basculerEnLld(machineId: string, clientLld: string, dateMiseDispo: string, contrat?: string, emailClient?: string) {
     // ✅ La LLD passe en "en_cours" mais NON CONFIGURÉE
     // → L'ADV/Admin devra choisir le type de prépa (normale / en l'état)
     const updates: any = {
@@ -741,6 +743,9 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       client_lld: clientLld,
       acheteur: clientLld,
       date_mise_dispo_lld: dateMiseDispo,
+      // 📋 Demandés à la mise en location : partent dans le pré-départ NE
+      ...(contrat ? { contrat } : {}),
+      ...(emailClient ? { email_client: emailClient } : {}),
       date_livraison_prevue: dateMiseDispo,
       date_mise_en_cours: new Date().toISOString(),
       etapes_prepa: null,
@@ -757,8 +762,8 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       }
       // Machine sortie du stock -> archiver le produit HubSpot
       syncHubspotProduct("archive", machineId);
-      // 🚚 Mise en location → pré-départ NE (client LLD pré-rempli pour l'expert)
-      pushPreDepartNacelleExpert(machines.find((x) => x.id === machineId), clientLld);
+      // 🚚 Mise en location → pré-départ NE (client, contrat, email pré-remplis)
+      pushPreDepartNacelleExpert(machines.find((x) => x.id === machineId), clientLld, contrat, emailClient);
     } else {
       setMockMachines((prev) =>
         prev.map((m) =>
@@ -772,11 +777,16 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
   // vendue en l'état, ou bascule LLD), on pré-remplit son dossier Nacelle
   // Expert (client, modèle, type) — l'expert retrouve tout déjà rempli en
   // tapant l'immatriculation dans « + Nouveau départ ». Best-effort.
-  function pushPreDepartNacelleExpert(m: Machine | undefined, client?: string) {
+  // ⚠ RÉSERVÉ AUX LOCATIONS (validé avec Jonathan) : une machine VENDUE ne
+  // fait pas l'objet d'une expertise départ — on ne pré-remplit Nacelle
+  // Expert que pour les mises en location.
+  function pushPreDepartNacelleExpert(m: Machine | undefined, client?: string, contrat?: string, email?: string) {
     if (!m?.immat) return;
     pushInfosAdminToNacelleExpert({
       immat: m.immat,
       client: (client || m.client_lld || m.acheteur || "").trim() || undefined,
+      contrat: (contrat || m.contrat || "").trim() || undefined,
+      email: (email || m.email_client || "").trim() || undefined,
       modele: m.modele_porteur || undefined,
       type_nacelle: m.type_nacelle || undefined,
       annee_fab: m.annee_circulation || undefined,
@@ -814,8 +824,8 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         console.error("❌ Erreur toggleEtapePrepa Firebase:", err);
       }
-      // 🚚 Dernière étape validée → la machine passe « prête » : pré-départ NE
-      if (!etapesToutesFaites(machine.etapes_prepa) && etapesToutesFaites(updatedEtapes)) {
+      // 🚚 Dernière étape validée → prête : pré-départ NE (LOCATIONS uniquement)
+      if (machine.type_sortie === "lld" && !etapesToutesFaites(machine.etapes_prepa) && etapesToutesFaites(updatedEtapes)) {
         pushPreDepartNacelleExpert(machine);
       }
     } else {
@@ -851,8 +861,8 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
           etapes_prepa: updatedEtapes,
           updatedAt: now,
         });
-        // 🚚 Dernière étape réglée (non nécessaire) → machine « prête » : pré-départ NE
-        if (!etapesToutesFaites(machine.etapes_prepa) && etapesToutesFaites(updatedEtapes)) {
+        // 🚚 Dernière étape réglée → prête : pré-départ NE (LOCATIONS uniquement)
+        if (machine.type_sortie === "lld" && !etapesToutesFaites(machine.etapes_prepa) && etapesToutesFaites(updatedEtapes)) {
           pushPreDepartNacelleExpert(machine);
         }
       } catch (err) {
@@ -1091,12 +1101,21 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     acheteur: string,
     commercial: string,
     dateVente: string,
-    dateLivraison: string
+    dateLivraison: string,
+    contrat?: string,
+    emailClient?: string
   ) {
     const now = new Date().toISOString();
+    // 🔁 Une machine réservée en LOCATION reste une location quand on
+    // configure sa préparation (ne pas l'écraser en « vente »)
+    const machineCfg = machines.find((x) => x.id === machineId);
+    const estLocation = machineCfg?.type_sortie === "lld";
     const updates = {
       statut: "en_cours" as const,        // ✅ Bug 3 : Passer en en_cours
-      type_sortie: "vente" as const,
+      type_sortie: (estLocation ? "lld" : "vente") as any,
+      // 📋 Location : contrat + email demandés à la configuration
+      ...(contrat ? { contrat } : {}),
+      ...(emailClient ? { email_client: emailClient } : {}),
       type_prepa: typePrepa,
       acheteur,
       commercial_vendeur: commercial,
@@ -1118,9 +1137,10 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       // 🗄️ HubSpot : machine vendue / partie en préparation → SORT du catalogue
       // (le serveur ne supprime que les produits marqués Delta VO — règle stricte)
       syncHubspotProduct("archive", machineId);
-      // 🚚 « Vendue en l'état » : prête immédiatement → pré-départ NE
-      if (typePrepa === "en_etat") {
-        pushPreDepartNacelleExpert(machines.find((x) => x.id === machineId), acheteur);
+      // 🚚 LOCATION configurée → pré-départ NE (client, contrat, email).
+      //    Une VENTE ne déclenche jamais d'expertise départ (validé Jonathan).
+      if (estLocation) {
+        pushPreDepartNacelleExpert(machineCfg, machineCfg?.client_lld || acheteur, contrat, emailClient);
       }
     } else {
       setMockMachines((prev) =>

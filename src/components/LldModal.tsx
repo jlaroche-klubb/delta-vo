@@ -22,6 +22,8 @@ export default function LldModal({ machine, onClose, onConfirm }: LldModalProps)
       alert("La date de mise à disposition est obligatoire");
       return;
     }
+    // ℹ️ Contrat et email client sont demandés PLUS TARD, à la configuration
+    // de la préparation — une simple réservation ne doit pas être bloquée.
     onConfirm(machine.id, clientLld.trim(), dateMiseDispo);
     onClose();
   }
@@ -82,6 +84,8 @@ export default function LldModal({ machine, onClose, onConfirm }: LldModalProps)
               💡 {t("modals.lldHint")}
             </div>
           </div>
+
+
 
           <div className="confirm-warning">
             ⚠ {t("modals.lldWarn1")} <strong>{t("modals.lldWarnAvail")}</strong> {t("modals.lldWarn2")} <strong>{t("modals.lldWarnInProgress")}</strong> {t("modals.lldWarn3")}

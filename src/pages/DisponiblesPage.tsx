@@ -220,8 +220,8 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
     fileInputRef.current?.click();
   }
 
-  function handleLldBascule(machineId: string, clientLld: string, dateMiseDispo: string) {
-    basculerEnLld(machineId, clientLld, dateMiseDispo);
+  function handleLldBascule(machineId: string, clientLld: string, dateMiseDispo: string, contrat: string, emailClient: string) {
+    basculerEnLld(machineId, clientLld, dateMiseDispo, contrat, emailClient);
   }
 
   function handleSaveFiche(machineId: string, fiche: FicheCommerciale) {

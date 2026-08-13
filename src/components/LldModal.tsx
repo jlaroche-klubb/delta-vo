@@ -5,13 +5,15 @@ import { useTranslation } from "react-i18next";
 interface LldModalProps {
   machine: Machine;
   onClose: () => void;
-  onConfirm: (machineId: string, clientLld: string, dateMiseDispo: string) => void;
+  onConfirm: (machineId: string, clientLld: string, dateMiseDispo: string, contrat: string, emailClient: string) => void;
 }
 
 export default function LldModal({ machine, onClose, onConfirm }: LldModalProps) {
   const { t } = useTranslation();
   const [clientLld, setClientLld] = useState("");
   const [dateMiseDispo, setDateMiseDispo] = useState("");
+  const [contrat, setContrat] = useState("");
+  const [emailClient, setEmailClient] = useState("");
 
   function handleConfirm() {
     if (!clientLld.trim()) {
@@ -22,7 +24,17 @@ export default function LldModal({ machine, onClose, onConfirm }: LldModalProps)
       alert("La date de mise à disposition est obligatoire");
       return;
     }
-    onConfirm(machine.id, clientLld.trim(), dateMiseDispo);
+    // 📋 Demandés pour le pré-départ Nacelle Expert (expertise départ +
+    // envoi du rapport au client)
+    if (!contrat.trim()) {
+      alert(t("modals.lldContratRequired"));
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailClient.trim())) {
+      alert(t("modals.lldEmailRequired"));
+      return;
+    }
+    onConfirm(machine.id, clientLld.trim(), dateMiseDispo, contrat.trim(), emailClient.trim());
     onClose();
   }
 
@@ -80,6 +92,33 @@ export default function LldModal({ machine, onClose, onConfirm }: LldModalProps)
             />
             <div className="config-hint">
               💡 {t("modals.lldHint")}
+            </div>
+          </div>
+
+          <div className="lld-field">
+            <label>
+              {t("modals.lldContrat")} <span className="required">*</span>
+            </label>
+            <input
+              type="text"
+              placeholder="ex : CTR-2026-114"
+              value={contrat}
+              onChange={(e) => setContrat(e.target.value)}
+            />
+          </div>
+
+          <div className="lld-field">
+            <label>
+              {t("modals.lldEmail")} <span className="required">*</span>
+            </label>
+            <input
+              type="email"
+              placeholder="client@entreprise.fr"
+              value={emailClient}
+              onChange={(e) => setEmailClient(e.target.value)}
+            />
+            <div className="config-hint">
+              💡 {t("modals.lldEmailHint")}
             </div>
           </div>
 

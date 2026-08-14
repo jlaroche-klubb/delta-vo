@@ -14,6 +14,7 @@ import {
 } from "../utils/permissions";
 import { normalizeImmat } from "../utils/immat";
 import TypeNacelleSelect from "../components/TypeNacelleSelect";
+import ConfirmFactureModal from "../components/ConfirmFactureModal";
 
 interface NewMachineForm {
   immat: string;
@@ -45,6 +46,8 @@ export default function RestitutionsPage() {
   const {
     machines: allMachines,
     toggleEtapeRestitution,
+    facturerRestitution,
+    annulerFacturationRestitution,
     setDateDemandeRecup,
     createMachineRestitution,
     pushRestitutionsToNacelleExpert,
@@ -63,6 +66,8 @@ export default function RestitutionsPage() {
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [factureMachine, setFactureMachine] = useState<Machine | null>(null);
+  const userName = profile ? `${profile.prenom} ${profile.nom}`.trim() : "";
   const [form, setForm] = useState<NewMachineForm>(EMPTY_FORM);
   const [pushingNE, setPushingNE] = useState(false);
 
@@ -150,6 +155,28 @@ export default function RestitutionsPage() {
           ? t("resti.factureBloqueeDevis", { count: machine.devis_pending_labels.length })
           : t("resti.factureBloqueeValidation")
       );
+      return;
+    }
+
+    // 🧾 Mise en facture (validé avec Jonathan) : n° de facture OBLIGATOIRE →
+    // fenêtre dédiée ; l'ANNULATION est réservée aux admins/super admins.
+    if (field === "facture_ok" && machine) {
+      if (!machine.facture_ok) {
+        setFactureMachine(machine); // ouverture de la fenêtre n° + date
+        return;
+      }
+      if (!isAdmin) {
+        alert(t("resti.annulFactureAdmin"));
+        return;
+      }
+      if (
+        !window.confirm(
+          t("resti.annulFactureConfirm", { immat: machine.immat })
+        )
+      ) {
+        return;
+      }
+      annulerFacturationRestitution(id);
       return;
     }
     toggleEtapeRestitution(id, field);
@@ -278,6 +305,17 @@ export default function RestitutionsPage() {
       />
 
       {/* Modal de création */}
+      {factureMachine && (
+        <ConfirmFactureModal
+          machine={factureMachine}
+          mode="restitution"
+          onClose={() => setFactureMachine(null)}
+          onConfirm={(machineId, numero, date) =>
+            facturerRestitution(machineId, numero, date, userName)
+          }
+        />
+      )}
+
       {showForm && (
         <div
           className="modal-overlay"

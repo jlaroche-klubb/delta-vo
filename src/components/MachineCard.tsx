@@ -395,6 +395,37 @@ export default function MachineCard({
           </div>
         )}
 
+        {/* 🧾 Facture de remise en état : n°, date et nom (comme les étapes de
+            prépa) + suivi du règlement avec alerte clignotante > 60 j */}
+        {machine.facture_ok && !machine.archived && (
+          <div className="facture-resti-bloc">
+            {(machine.facture_resti_numero || machine.facture_resti_date) && (
+              <div className="facture-resti-info">
+                📄 {t("mcard.factLine", {
+                  num: machine.facture_resti_numero || "—",
+                  date: machine.facture_resti_date
+                    ? new Date(machine.facture_resti_date).toLocaleDateString("fr-FR")
+                    : "—",
+                })}
+                {machine.facture_resti_par && <> · {machine.facture_resti_par}</>}
+              </div>
+            )}
+            {!machine.facture_reglee_ok && machine.facture_resti_date && (() => {
+              const jours = Math.max(
+                0,
+                Math.floor(
+                  (Date.now() - new Date(machine.facture_resti_date).getTime()) / 86400000
+                )
+              );
+              return (
+                <span className={`facture-jours${jours > 60 ? " blink-red" : ""}`}>
+                  💶 {t("mcard.factDepuis", { j: jours })}
+                </span>
+              );
+            })()}
+          </div>
+        )}
+
         {machine.fiche_vo_creee && !machine.archived && (
           <div className="vo-banner">
             📄 {t("mcard.voCreated")} <strong>{t("nav.disponibles")}</strong>

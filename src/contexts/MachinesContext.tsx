@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useMemo } from "react";
-import { collection, onSnapshot, doc, updateDoc, setDoc, Timestamp } from "firebase/firestore";
+import { collection, onSnapshot, doc, updateDoc, setDoc, Timestamp, deleteField } from "firebase/firestore";
 import { db, dbNacelleExpert } from "../firebase";
 import {
   Machine,
@@ -114,6 +114,13 @@ interface MachinesContextType {
     dateFacturation: string
   ) => void;
   marquerPayee: (machineId: string, dateReglement: string) => void;
+  facturerRestitution: (
+    machineId: string,
+    numeroFacture: string,
+    dateFacturation: string,
+    facturePar: string
+  ) => void;
+  annulerFacturationRestitution: (machineId: string) => void;
   annulerCloture: (machineId: string) => void;  // ✅ Revenir en arrière (admin)
   updateFicheCommerciale: (machineId: string, fiche: FicheCommerciale) => void;
   updatePhotosSupplementaires: (machineId: string, photos: PhotoSupplementaire[]) => void;
@@ -377,6 +384,9 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             
             // ✅ Champs de facturation
             numero_facture: data.numero_facture || undefined,
+            facture_resti_numero: data.facture_resti_numero || undefined,
+            facture_resti_date: data.facture_resti_date || undefined,
+            facture_resti_par: data.facture_resti_par || undefined,
             date_facturation: data.date_facturation || undefined,
             date_reglement: data.date_reglement || undefined,
             
@@ -1236,6 +1246,67 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // 🧾 FACTURE DE REMISE EN ÉTAT (onglet Restitutions) — validée avec Jonathan :
+  // n° de facture OBLIGATOIRE (demandé par la fenêtre de confirmation), date et
+  // nom enregistrés et affichés sous l'étape, annulation réservée aux admins.
+  async function facturerRestitution(
+    machineId: string,
+    numeroFacture: string,
+    dateFacturation: string,
+    facturePar: string
+  ) {
+    const updates: any = {
+      facture_ok: true,
+      facture_resti_numero: numeroFacture,
+      facture_resti_date: dateFacturation,
+      facture_resti_par: facturePar,
+      updatedAt: new Date().toISOString(),
+    };
+    if (isFirebaseMachine(machineId)) {
+      try {
+        await updateDoc(doc(db, "machines_vo", machineId), updates);
+      } catch (err) {
+        console.error("❌ Erreur facturerRestitution:", err);
+      }
+    } else {
+      setMockMachines((prev) =>
+        prev.map((m) => (m.id === machineId ? { ...m, ...updates } : m))
+      );
+    }
+  }
+
+  // Annulation (admins uniquement — contrôle fait côté page) : on efface aussi
+  // le n°, la date et le nom pour ne pas laisser de fausses informations.
+  async function annulerFacturationRestitution(machineId: string) {
+    if (isFirebaseMachine(machineId)) {
+      try {
+        await updateDoc(doc(db, "machines_vo", machineId), {
+          facture_ok: false,
+          facture_resti_numero: deleteField(),
+          facture_resti_date: deleteField(),
+          facture_resti_par: deleteField(),
+          updatedAt: new Date().toISOString(),
+        });
+      } catch (err) {
+        console.error("❌ Erreur annulerFacturationRestitution:", err);
+      }
+    } else {
+      setMockMachines((prev) =>
+        prev.map((m) =>
+          m.id === machineId
+            ? {
+                ...m,
+                facture_ok: false,
+                facture_resti_numero: undefined,
+                facture_resti_date: undefined,
+                facture_resti_par: undefined,
+              }
+            : m
+        )
+      );
+    }
+  }
+
   async function marquerPayee(machineId: string, dateReglement: string) {
     const updates = {
       date_reglement: dateReglement,
@@ -1623,6 +1694,8 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       cancelEnCours,
       marquerFacturee,
       marquerPayee,
+      facturerRestitution,
+      annulerFacturationRestitution,
       annulerCloture,
       updateFicheCommerciale,
       updatePhotosSupplementaires,

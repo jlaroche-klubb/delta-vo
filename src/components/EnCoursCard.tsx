@@ -60,6 +60,18 @@ export default function EnCoursCard({
 
   const pretAFacturer = isConfigured && (isEnEtat || prepaOK);
 
+  // ⏳ Préparation finie (vente) mais pas encore facturée : jours d'attente.
+  // Date « prête » = la dernière étape validée (done_at le plus récent).
+  const joursPret = (() => {
+    if (!pretAFacturer || isLld) return null;
+    const dates = (machine.etapes_prepa || [])
+      .map((e) => e.done_at)
+      .filter(Boolean) as string[];
+    if (dates.length === 0) return null;
+    const derniere = dates.sort()[dates.length - 1];
+    return Math.max(0, Math.floor((Date.now() - new Date(derniere).getTime()) / 86400000));
+  })();
+
   const etapesDone = machine.etapes_prepa?.filter((e) => e.done).length || 0;
   const etapesTotal = machine.etapes_prepa?.length || 0;
   const progressPct = etapesTotal > 0 ? (etapesDone / etapesTotal) * 100 : 0;
@@ -328,6 +340,12 @@ export default function EnCoursCard({
           {isEnEtat && !isLld && (
             <div className="en-etat-banner">
               📦 {t("encard.asIsBanner")}
+            </div>
+          )}
+
+          {joursPret !== null && (
+            <div className="pret-attente-facture">
+              ⏳ {t("encard.preteDepuis", { j: joursPret })}
             </div>
           )}
 

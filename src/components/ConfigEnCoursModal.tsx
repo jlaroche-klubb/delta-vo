@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Machine, TypePrepa, creerEtapesPrepa } from "../types/machine";
 import { useTranslation } from "react-i18next";
+import CommercialSelect from "./CommercialSelect";
 
 interface ConfigEnCoursModalProps {
   machine: Machine;
@@ -143,11 +144,10 @@ export default function ConfigEnCoursModal({
             <label>
               {t("modals.cfgSalesperson")} <span className="required">*</span>
             </label>
-            <input
-              type="text"
-              placeholder="ex : Sophie Bernard"
+            <CommercialSelect
               value={commercial}
-              onChange={(e) => setCommercial(e.target.value)}
+              onChange={setCommercial}
+              placeholder="ex : Sophie Bernard"
             />
             <div className="config-hint">
               💡 {t("modals.cfgSalesHint")}

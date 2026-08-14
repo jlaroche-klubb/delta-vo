@@ -4,15 +4,19 @@ import { useTranslation } from "react-i18next";
 
 interface ConfirmFactureModalProps {
   machine: Machine;
+  /** "vente" (défaut, onglet Préparation) ou "restitution" (facture de remise en état) */
+  mode?: "vente" | "restitution";
   onClose: () => void;
   onConfirm: (machineId: string, numeroFacture: string, dateFacturation: string) => void;
 }
 
 export default function ConfirmFactureModal({
   machine,
+  mode = "vente",
   onClose,
   onConfirm,
 }: ConfirmFactureModalProps) {
+  const isResti = mode === "restitution";
   const { t } = useTranslation();
   const [numeroFacture, setNumeroFacture] = useState("");
   const [dateFacturation, setDateFacturation] = useState(
@@ -67,18 +71,33 @@ export default function ConfirmFactureModal({
                 {machine.type_nacelle} · {machine.modele_porteur}
               </span>
             </div>
-            <div className="recap-row">
-              <span className="recap-label">{t("modals.buyer")}</span>
-              <span className="recap-value">{machine.acheteur || "—"}</span>
-            </div>
-            <div className="recap-row">
-              <span className="recap-label">{t("modals.salesperson")}</span>
-              <span className="recap-value">{machine.commercial_vendeur || "—"}</span>
-            </div>
-            <div className="recap-row">
-              <span className="recap-label">{t("modals.saleDate")}</span>
-              <span className="recap-value">{formatDate(machine.date_vente)}</span>
-            </div>
+            {isResti ? (
+              <>
+                <div className="recap-row">
+                  <span className="recap-label">{t("modals.factClientPrec")}</span>
+                  <span className="recap-value">{machine.client_precedent || "—"}</span>
+                </div>
+                <div className="recap-row">
+                  <span className="recap-label">{t("modals.factContrat")}</span>
+                  <span className="recap-value">{machine.contrat || "—"}</span>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="recap-row">
+                  <span className="recap-label">{t("modals.buyer")}</span>
+                  <span className="recap-value">{machine.acheteur || "—"}</span>
+                </div>
+                <div className="recap-row">
+                  <span className="recap-label">{t("modals.salesperson")}</span>
+                  <span className="recap-value">{machine.commercial_vendeur || "—"}</span>
+                </div>
+                <div className="recap-row">
+                  <span className="recap-label">{t("modals.saleDate")}</span>
+                  <span className="recap-value">{formatDate(machine.date_vente)}</span>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Champs à remplir */}
@@ -111,7 +130,9 @@ export default function ConfirmFactureModal({
           </div>
 
           <div className="confirm-warning">
-            ⚠ {t("modals.factWarn1")} <strong>{t("modals.factWarnIrreversible")}</strong>{t("modals.factWarn2")} <strong>{t("modals.factWarnClosed")}</strong>{t("modals.factWarn3")}
+            {isResti
+              ? <>⚠ {t("modals.factWarnResti")}</>
+              : <>⚠ {t("modals.factWarn1")} <strong>{t("modals.factWarnIrreversible")}</strong>{t("modals.factWarn2")} <strong>{t("modals.factWarnClosed")}</strong>{t("modals.factWarn3")}</>}
           </div>
         </div>
 

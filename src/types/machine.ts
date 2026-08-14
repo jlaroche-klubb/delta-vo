@@ -220,6 +220,11 @@ export interface Machine {
 
   date_facturation?: string;
   numero_facture?: string;
+  // 🧾 Facture de REMISE EN ÉTAT (onglet Restitutions) — champs séparés de la
+  // facture de vente pour ne pas être écrasés si la machine est vendue ensuite
+  facture_resti_numero?: string;
+  facture_resti_date?: string;   // AAAA-MM-JJ
+  facture_resti_par?: string;    // qui a validé la mise en facture
   date_reglement?: string;
   marche?: "fr" | "dealer";
 

@@ -48,7 +48,7 @@ export default function FicheVoTemplate({
     <>
       {/* PAGE 1 */}
       <div id="fiche-vo-page-1" style={pageStyle}>
-        <SideBanner numero={numero} reference={refCommerciale} />
+        <SideBanner reference={refCommerciale} />
 
         <div style={mainContentStyle}>
           <div style={headerStyle}>
@@ -194,14 +194,16 @@ export default function FicheVoTemplate({
 
 // =============== Sous-composants ===============
 
-function SideBanner({ numero, reference }: { numero: string; reference: string }) {
+function SideBanner({ reference }: { reference: string }) {
   const { t } = useTranslation();
+  // 🏷️ Une seule référence sur la bande : la référence commerciale (DS...).
+  // Le n° de fiche interne (2026-XXX) n'apparaît plus (demande Jonathan) —
+  // il reste dans le nom du fichier PDF et en base.
   return (
     <div style={sideBannerStyle}>
       <div style={sideBannerTextStyle}>
         <div style={bannerWordStyle}>{t("fiche.bannerLine1")}</div>
         <div style={bannerWordBigStyle}>{t("fiche.bannerLine2")}</div>
-        <div style={bannerNumStyle}>N°{numero}</div>
         <div style={bannerRefStyle}>{reference}</div>
       </div>
     </div>
@@ -275,23 +277,13 @@ const bannerWordBigStyle: React.CSSProperties = {
   letterSpacing: "3px",
 };
 
-const bannerNumStyle: React.CSSProperties = {
+// 🏷️ Référence commerciale (DS1587...) — seule référence sur la bande
+const bannerRefStyle: React.CSSProperties = {
   fontSize: "20px",
   fontWeight: 700,
   letterSpacing: "2px",
-  background: "rgba(255,255,255,0.15)",
-  padding: "6px 12px",
-  borderRadius: "4px",
-};
-
-// 🏷️ Référence commerciale (DS1587...) sous le n° de fiche
-const bannerRefStyle: React.CSSProperties = {
-  fontSize: "17px",
-  fontWeight: 700,
-  letterSpacing: "2px",
-  marginTop: "8px",
   background: "rgba(255,255,255,0.28)",
-  padding: "5px 12px",
+  padding: "6px 12px",
   borderRadius: "4px",
 };
 

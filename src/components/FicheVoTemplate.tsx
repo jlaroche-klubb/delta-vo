@@ -1,4 +1,5 @@
 import { Machine } from "../types/machine";
+import { referenceCommerciale } from "../utils/reference";
 import { DELTA_LOGO_BASE64 } from "../assets/deltaLogo";
 import { useTranslation } from "react-i18next";
 
@@ -25,6 +26,9 @@ export default function FicheVoTemplate({
 
   const fc = machine.fiche_commerciale || {};
   const numero = fc.numero_fiche || "—";
+  // 🏷️ Référence commerciale (DS + n° d'occasion) — sur le côté de la fiche,
+  // JAMAIS d'immatriculation visible (validé avec Jonathan)
+  const refCommerciale = referenceCommerciale(machine);
   const prix = prixChoisi === "fr" ? machine.prix_fr : machine.prix_dealer;
   const prixLabel = prixChoisi === "fr" ? t("fiche.prixHT") : t("fiche.prixHTDealer");
 
@@ -44,7 +48,7 @@ export default function FicheVoTemplate({
     <>
       {/* PAGE 1 */}
       <div id="fiche-vo-page-1" style={pageStyle}>
-        <SideBanner numero={numero} />
+        <SideBanner numero={numero} reference={refCommerciale} />
 
         <div style={mainContentStyle}>
           <div style={headerStyle}>
@@ -190,7 +194,7 @@ export default function FicheVoTemplate({
 
 // =============== Sous-composants ===============
 
-function SideBanner({ numero }: { numero: string }) {
+function SideBanner({ numero, reference }: { numero: string; reference: string }) {
   const { t } = useTranslation();
   return (
     <div style={sideBannerStyle}>
@@ -198,6 +202,7 @@ function SideBanner({ numero }: { numero: string }) {
         <div style={bannerWordStyle}>{t("fiche.bannerLine1")}</div>
         <div style={bannerWordBigStyle}>{t("fiche.bannerLine2")}</div>
         <div style={bannerNumStyle}>N°{numero}</div>
+        <div style={bannerRefStyle}>{reference}</div>
       </div>
     </div>
   );
@@ -276,6 +281,17 @@ const bannerNumStyle: React.CSSProperties = {
   letterSpacing: "2px",
   background: "rgba(255,255,255,0.15)",
   padding: "6px 12px",
+  borderRadius: "4px",
+};
+
+// 🏷️ Référence commerciale (DS1587...) sous le n° de fiche
+const bannerRefStyle: React.CSSProperties = {
+  fontSize: "17px",
+  fontWeight: 700,
+  letterSpacing: "2px",
+  marginTop: "8px",
+  background: "rgba(255,255,255,0.28)",
+  padding: "5px 12px",
   borderRadius: "4px",
 };
 

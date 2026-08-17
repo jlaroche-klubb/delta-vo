@@ -6,7 +6,8 @@
 // ============================================================
 
 export interface NacelleOffre {
-  immat: string;
+  /** Référence commerciale (DS1587...) — jamais d'immat sur le devis */
+  reference: string;
   modele?: string;
   montant: number;
 }

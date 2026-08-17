@@ -15,7 +15,10 @@
 const HUBSPOT_API_BASE = "https://api.hubapi.com";
 
 interface NacelleOffre {
-  immat: string;
+  /** 🏷️ Référence commerciale (DS1587 / KF1642 / VO) — JAMAIS d'immat sur
+   *  le devis ni sur le deal : les commerciaux ne parlent qu'avec cette
+   *  référence (validé avec Jonathan). L'immat n'apparaît qu'à la facture. */
+  reference: string;
   modele?: string;
   montant: number;
 }
@@ -64,10 +67,10 @@ export default async function handler(req: any, res: any) {
     }
 
     const amount = body.nacelles.reduce((sum, n) => sum + (Number(n.montant) || 0), 0);
-    const immats = body.nacelles.map((n) => n.immat).join(", ");
+    const refs = body.nacelles.map((n) => n.reference).join(", ");
     const dealName = `VO - ${body.client}`;
     const description = body.nacelles
-      .map((n) => `• ${n.immat}${n.modele ? ` (${n.modele})` : ""} — ${(Number(n.montant) || 0).toLocaleString("fr-FR")} €`)
+      .map((n) => `• ${n.reference}${n.modele ? ` (${n.modele})` : ""} — ${(Number(n.montant) || 0).toLocaleString("fr-FR")} €`)
       .join("\n");
 
     // Propriétaire du deal = commercial connecté (retrouvé par email dans HubSpot).
@@ -98,7 +101,7 @@ export default async function handler(req: any, res: any) {
         dealname: dealName,
         amount: String(amount),
         ...(ownerId ? { hubspot_owner_id: ownerId } : {}),
-        description: `Offre VO Delta VO\n\nImmatriculations : ${immats}\n\nNacelles :\n${description}`,
+        description: `Offre VO Delta VO\n\nRéférences : ${refs}\n\nNacelles :\n${description}`,
       },
     });
     if (!dealRes.ok) {
@@ -134,7 +137,9 @@ export default async function handler(req: any, res: any) {
     // NB : cas mono-nacelle. Le multi-nacelles sera traité plus tard.
     try {
       const patch = await hs(`/crm/v3/objects/deals/${dealId}`, "PATCH", {
-        properties: { immatriculation_nacelle: immats },
+        // 🏷️ La propriété interne porte désormais les RÉFÉRENCES (plus d'immat
+        // sur le deal, même en interne — c'est la langue des commerciaux)
+        properties: { immatriculation_nacelle: refs },
       });
       if (!patch.ok) {
         console.warn(`⚠️ immatriculation_nacelle non renseignée (${patch.status}): ${patch.text}`);
@@ -150,7 +155,7 @@ export default async function handler(req: any, res: any) {
       // 2a) Lignes (line items)
       const lineItemIds: string[] = [];
       for (const n of body.nacelles) {
-        const liName = `${n.immat}${n.modele ? ` — ${n.modele}` : ""}`;
+        const liName = `${n.reference}${n.modele ? ` — ${n.modele}` : ""}`;
         const liRes = await hs("/crm/v3/objects/line_items", "POST", {
           properties: {
             name: liName,

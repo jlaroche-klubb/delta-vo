@@ -10,6 +10,8 @@ import { useMachinesFiltered } from "../contexts/MachinesContext";
 import DisponibleCard from "../components/DisponibleCard";
 import OffreModal from "../components/OffreModal";
 import { createHubspotDeal } from "../services/hubspotService";
+import { referenceCommerciale } from "../utils/reference";
+import { notifyImportAdmin } from "../services/importNotify";
 import EditPriceModal from "../components/EditPriceModal";
 import ImportResultModal from "../components/ImportResultModal";
 import LldModal from "../components/LldModal";
@@ -264,9 +266,10 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
   ) {
     const ids = panier.map((m) => m.id);
 
-    // Préparer les nacelles pour HubSpot
+    // Préparer les nacelles pour HubSpot — RÉFÉRENCE commerciale, jamais
+    // d'immat sur le devis (règle direction, validée avec Jonathan)
     const nacelles = panier.map((m) => ({
-      immat: m.immat,
+      reference: referenceCommerciale(m),
       modele: m.type_nacelle || m.modele_porteur || "",
       montant: montants[m.id] ?? 0,
     }));
@@ -460,6 +463,17 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
         });
       }
       setImportResult(result);
+      // 🔔 Alerte super admin (imports faits par les autres admins)
+      notifyImportAdmin({
+        type: "Pricing PDG",
+        par: userName,
+        email: user?.email || "",
+        resume: [
+          `${result.success.length} prix mis à jour`,
+          `${result.totalRows} lignes lues`,
+        ],
+        erreurs: result.errors.map((er) => `${er.immat} : ${er.raison}`),
+      });
     } catch (err: any) {
       alert("Erreur lors de l'import : " + err.message);
     } finally {
@@ -505,6 +519,19 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
           `• ${res.skipped} inchangée(s) / en erreur` +
           (res.archived ? `\n• 🗄️ ${res.archived} machine(s) archivée(s) (récupérables)` : "")
       );
+      // 🔔 Alerte super admin (imports faits par les autres admins)
+      notifyImportAdmin({
+        type: "Parc VOG",
+        par: userName,
+        email: user?.email || "",
+        resume: [
+          `${res.created} machine(s) créée(s)`,
+          `${res.merged} machine(s) mise(s) à jour`,
+          `${res.skipped} inchangée(s) / en erreur`,
+          ...(res.archived ? [`${res.archived} machine(s) archivée(s)`] : []),
+        ],
+        erreurs: [],
+      });
     } catch (err: any) {
       alert("Erreur lors de l'import du stock : " + err.message);
     } finally {
@@ -534,6 +561,17 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
       if (!ok) return;
       const updated = await updateVncValues(res.success);
       alert(`✅ ${updated} VNC mise(s) à jour.\n\nProchaine étape : vérifiez la cohérence puis générez le fichier « Export Pricing PDG » (prix à faire / à revoir).`);
+      // 🔔 Alerte super admin (imports faits par les autres admins)
+      notifyImportAdmin({
+        type: "VNC compta",
+        par: userName,
+        email: user?.email || "",
+        resume: [
+          `${updated} VNC mise(s) à jour`,
+          `${res.totalRows} lignes lues`,
+        ],
+        erreurs: res.errors.map((er) => `${er.ref} : ${er.raison}`),
+      });
     } catch (err: any) {
       alert("Erreur lors de l'import VNC : " + err.message);
     } finally {

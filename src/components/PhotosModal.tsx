@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { referenceCommerciale } from "../utils/reference";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { doc, setDoc, updateDoc } from "firebase/firestore";
 import { storage, db } from "../firebase";
@@ -205,7 +206,8 @@ export default function PhotosModal({
 
           const logo = new Image();
           const finish = () => {
-            const ref = machine.numero_occasion ? `OCCASION N° ${machine.numero_occasion}` : machine.immat;
+            // 🏷️ Référence commerciale — plus JAMAIS d'immat sur la bande
+            const ref = referenceCommerciale(machine);
             if (ref) {
               ctx.fillStyle = "#ffffff";
               ctx.font = "700 32px monospace";

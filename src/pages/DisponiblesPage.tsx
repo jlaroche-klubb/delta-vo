@@ -146,7 +146,11 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
   const canGenFiche = true;
   const canManagePhotos = true;
   // ✅ Créer une offre HubSpot : admin, vendeur_fr, dealer
-  const canOffre = ["superadmin", "admin", "vendeur_fr", "dealer"].includes(userRole);
+  // 🚫 Circuit « offre HubSpot depuis Delta VO » désactivé (demande Jonathan) :
+  // les offres se font désormais DIRECTEMENT dans HubSpot. On garde tout le
+  // code (panier, modale, endpoint) au cas où — il suffirait de repasser
+  // cette valeur au tableau de rôles pour le réactiver.
+  const canOffre = false;
 
   const baseDispo = useMemo(
     () => machines.filter((m) => m.statut === "disponible" || (m.statut === "restitution" && m.expertise_ok)),

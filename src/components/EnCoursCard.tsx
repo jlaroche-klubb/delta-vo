@@ -22,6 +22,7 @@ interface EnCoursCardProps {
   onSetNonNecessaire?: (machineId: string, etapeId: string) => void;
   onConfigure?: (machine: Machine) => void;
   onFacturer?: (machine: Machine) => void;
+  onLivree?: (machine: Machine) => void;
   onCancel?: (machineId: string) => void;
   onOpenDocuments?: (machine: Machine) => void;
   onAddEtape?: (machineId: string, label: string) => void;
@@ -39,6 +40,7 @@ export default function EnCoursCard({
   onSetNonNecessaire,
   onConfigure,
   onFacturer,
+  onLivree,
   onCancel,
   onOpenDocuments,
   onAddEtape,
@@ -54,11 +56,22 @@ export default function EnCoursCard({
   const isEnEtat = machine.type_prepa === "en_etat";
   const prepaOK = prepaTerminee(machine.etapes_prepa);
 
-  const enRetardLivraison = !isLld && isLivraisonEnRetard(machine.date_livraison_prevue);
-  const enRetardMiseDispo = isLld && isMiseDispoEnRetard(machine.date_mise_dispo_lld);
-  const enRetard = enRetardLivraison || enRetardMiseDispo;
-
   const pretAFacturer = isConfigured && (isEnEtat || prepaOK);
+
+  // 🚚 La machine est-elle PARTIE ? Vente : coche « ✓ Livrée » de l'ADV.
+  // Location : départ constaté par Nacelle Expert (expertise départ validée).
+  const departFait = !!machine.depart_constate_ne || !!machine.livraison_reelle;
+
+  // ⏱ RETARD (validé avec Jonathan) — deux natures bien distinctes :
+  //  • préparation pas finie et date dépassée   → « Retard de préparation »
+  //  • préparation finie, machine pas partie    → « Retard de livraison »
+  // Une fois partie/livrée, plus aucune alerte.
+  const dateDepassee = isLld
+    ? isMiseDispoEnRetard(machine.date_mise_dispo_lld)
+    : isLivraisonEnRetard(machine.date_livraison_prevue);
+  const retardPrepa = dateDepassee && isConfigured && !pretAFacturer && !departFait;
+  const retardLivraison = dateDepassee && pretAFacturer && !departFait;
+  const enRetard = retardPrepa || retardLivraison;
 
   // ⏳ Préparation finie (vente) mais pas encore facturée : jours d'attente.
   // Date « prête » = la dernière étape validée (done_at le plus récent).
@@ -111,9 +124,14 @@ export default function EnCoursCard({
           {isConfigured && !isEnEtat && !isLld && (
             <span className="badge-prepa">🔧 {t("encard.prepNormal")}</span>
           )}
-          {enRetard && (
-            <span className="badge-late">
-              ⚠ {isLld ? t("encard.lateAvail") : t("encard.lateDelivery")}
+          {retardPrepa && (
+            <span className="badge-late blink-red">
+              ⏱ {t("encard.latePrep")}
+            </span>
+          )}
+          {retardLivraison && (
+            <span className="badge-late blink-red">
+              🚚 {isLld ? t("encard.lateAvail") : t("encard.lateDelivery")}
             </span>
           )}
           {pretAFacturer && (
@@ -343,9 +361,39 @@ export default function EnCoursCard({
             </div>
           )}
 
+          {/* 🚚 Départ constaté par Nacelle Expert (locations) */}
+          {machine.depart_constate_ne && (
+            <div className="depart-ne-banner">
+              🚚 {t("encard.departNe", {
+                date: new Date(machine.depart_constate_ne).toLocaleDateString("fr-FR"),
+              })}
+              {machine.depart_constate_agent && <> · {machine.depart_constate_agent}</>}
+            </div>
+          )}
+
+          {/* 🚚 Livraison réelle d'une vente (cochée par l'ADV) */}
+          {machine.livraison_reelle && (
+            <div className="depart-ne-banner">
+              🚚 {t("encard.livreeLe", {
+                date: new Date(machine.livraison_reelle.date).toLocaleDateString("fr-FR"),
+              })}
+              {machine.livraison_reelle.par && <> · {machine.livraison_reelle.par}</>}
+            </div>
+          )}
+
           {joursPret !== null && (
             <div className="pret-attente-facture">
               ⏳ {t("encard.preteDepuis", { j: joursPret })}
+            </div>
+          )}
+
+          {/* ✓ Livrée : vente préparée et partie — éteint l'alerte de retard.
+              (En location, c'est le départ Nacelle Expert qui fait foi.) */}
+          {pretAFacturer && !isLld && !machine.livraison_reelle && canFacturer && onLivree && (
+            <div className="encours-actions">
+              <button className="btn-livree" onClick={() => onLivree(machine)}>
+                ✓ {t("encard.markDelivered")}
+              </button>
             </div>
           )}
 

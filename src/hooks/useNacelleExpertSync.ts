@@ -200,6 +200,15 @@ export function useNacelleExpertSync() {
           // PARTIR en location. Delta VO suit la réalité du terrain ;
           // on ne crée JAMAIS de restitution ici.
           if (dossier.depart && !dossier.retour) {
+            // 🛡️ « Retour sans départ » en cours de saisie : le marqueur
+            // sansDossier n'est PAS un vrai départ — surtout ne pas basculer
+            // la machine en location (le retour arrive juste après).
+            if ((dossier.depart as any)?.sansDossier) {
+              console.log(`⏭️ ${dossier.immat} : départ administratif (sans dossier), ignoré`);
+              await updateDoc(doc(dbNacelleExpert, 'dossiers', dossierDoc.id), { synced_to_delta_vo: true });
+              successCount++;
+              continue;
+            }
             const immatDepart = (dossier.info?.immat || dossier.immat || '').trim().toUpperCase();
             try {
               if (immatDepart) {
@@ -210,6 +219,7 @@ export function useNacelleExpertSync() {
                   const dateDepart = dossier.depart?.date || new Date().toISOString().slice(0, 10);
                   const trace = {
                     depart_constate_ne: dateDepart, // 🧾 trace « départ constaté par Nacelle Expert »
+                    depart_constate_agent: (dossier.depart as any)?.agent || '',
                     updatedAt: new Date().toISOString(),
                   };
                   if (m.statut === 'disponible' || m.archived) {

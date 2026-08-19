@@ -211,6 +211,11 @@ export interface Machine {
   prix_vente_final?: number;
   date_vente?: string;
   date_livraison_prevue?: string;
+  /** 🚚 Livraison réelle d'une VENTE, cochée à la main par l'ADV (« ✓ Livrée ») */
+  livraison_reelle?: { date: string; par: string };
+  /** 🚚 Départ constaté par Nacelle Expert (locations) — écrit par la synchro */
+  depart_constate_ne?: string;
+  depart_constate_agent?: string;
   date_mise_en_cours?: string;
   etapes_prepa?: EtapePrepa[];
 

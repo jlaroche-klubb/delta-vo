@@ -114,6 +114,7 @@ interface MachinesContextType {
     dateFacturation: string
   ) => void;
   marquerPayee: (machineId: string, dateReglement: string) => void;
+  marquerLivree: (machineId: string, par: string) => void;
   facturerRestitution: (
     machineId: string,
     numeroFacture: string,
@@ -384,6 +385,9 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             
             // ✅ Champs de facturation
             numero_facture: data.numero_facture || undefined,
+            livraison_reelle: data.livraison_reelle || undefined,
+            depart_constate_ne: data.depart_constate_ne || undefined,
+            depart_constate_agent: data.depart_constate_agent || undefined,
             facture_resti_numero: data.facture_resti_numero || undefined,
             facture_resti_date: data.facture_resti_date || undefined,
             facture_resti_par: data.facture_resti_par || undefined,
@@ -1246,6 +1250,26 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // 🚚 LIVRAISON RÉELLE d'une VENTE (validé avec Jonathan) : cochée par
+  // l'ADV quand le camion part — éteint l'alerte « retard de livraison ».
+  async function marquerLivree(machineId: string, par: string) {
+    const updates = {
+      livraison_reelle: { date: new Date().toISOString().slice(0, 10), par },
+      updatedAt: new Date().toISOString(),
+    };
+    if (isFirebaseMachine(machineId)) {
+      try {
+        await updateDoc(doc(db, "machines_vo", machineId), updates);
+      } catch (err) {
+        console.error("❌ Erreur marquerLivree:", err);
+      }
+    } else {
+      setMockMachines((prev) =>
+        prev.map((m) => (m.id === machineId ? { ...m, ...updates } : m))
+      );
+    }
+  }
+
   // 🧾 FACTURE DE REMISE EN ÉTAT (onglet Restitutions) — validée avec Jonathan :
   // n° de facture OBLIGATOIRE (demandé par la fenêtre de confirmation), date et
   // nom enregistrés et affichés sous l'étape, annulation réservée aux admins.
@@ -1694,6 +1718,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       cancelEnCours,
       marquerFacturee,
       marquerPayee,
+      marquerLivree,
       facturerRestitution,
       annulerFacturationRestitution,
       annulerCloture,

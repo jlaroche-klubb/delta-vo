@@ -26,7 +26,7 @@ interface EnCoursPageProps {
 }
 
 export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
-  const { machines, toggleEtapePrepa, setEtapeNonNecessaire, addEtapePrepa, removeEtapePrepa, configureEnCours, cancelEnCours, marquerFacturee, updateDocumentsVO } = useMachines();
+  const { machines, toggleEtapePrepa, setEtapeNonNecessaire, addEtapePrepa, removeEtapePrepa, configureEnCours, cancelEnCours, marquerFacturee, marquerLivree, updateDocumentsVO } = useMachines();
   const [search, setSearch] = useState("");
   const { t } = useTranslation();
   const [filters, setFilters] = useState<EnCoursFilterState>(EMPTY_ENCOURS_FILTERS);
@@ -156,6 +156,14 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
 
   function handleFacturer(machineId: string, numeroFacture: string, dateFacturation: string) {
     marquerFacturee(machineId, numeroFacture, dateFacturation);
+  }
+
+  // 🚚 « ✓ Livrée » (ventes) : la machine est physiquement partie chez le
+  // client — éteint l'alerte « retard de livraison ». En location, c'est
+  // l'expertise départ Nacelle Expert qui joue ce rôle automatiquement.
+  function handleLivree(machine: Machine) {
+    if (!window.confirm(t("encard.confirmDelivered", { immat: machine.immat }))) return;
+    marquerLivree(machine.id, userName);
   }
 
   function clickUrgence() {
@@ -288,6 +296,7 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
                 canManageDocuments={canManageDocuments}
                 onOpenDocuments={setDocsMachine}
                 onFacturer={setFactureMachine}
+                onLivree={handleLivree}
                 canCancel={canCancel}
                 onCancel={handleCancel}
               />
@@ -322,6 +331,7 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
                 canManageDocuments={canManageDocuments}
                 onOpenDocuments={setDocsMachine}
                 onFacturer={setFactureMachine}
+                onLivree={handleLivree}
                 canCancel={canCancel}
                 onCancel={handleCancel}
               />

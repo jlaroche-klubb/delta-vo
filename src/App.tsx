@@ -11,6 +11,7 @@ import EnCoursPage from "./pages/EnCoursPage";
 import ClotureesPage from "./pages/ClotureesPage";
 import StatsPage from "./pages/StatsPage";
 import Logo from "./components/Logo";
+import UpdateBanner from "./components/UpdateBanner";
 import LanguageSwitcher from "./components/LanguageSwitcher";
 import { useTranslation } from "react-i18next";
 import AdminPage from "./pages/AdminPage";
@@ -94,6 +95,8 @@ function AppContent() {
 
   return (
     <div className="app">
+      {/* 🔄 Bandeau « nouvelle version » — onglets restés ouverts longtemps */}
+      <UpdateBanner />
       <header className="app-header">
         <div className="brand">
           <Logo showSubtitle={true} />

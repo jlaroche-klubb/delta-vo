@@ -51,6 +51,11 @@ export default function PhotosModal({
   const [pickDetour, setPickDetour] = useState(true);
   const [ficheBusy, setFicheBusy] = useState(false);
   const [ficheMsg, setFicheMsg] = useState<string | null>(null);
+  const [fichePreview, setFichePreview] = useState<{
+    b64: string;
+    detoure: boolean;
+    sourceB64: string;
+  } | null>(null);
   const [slotOverrides, setSlotOverrides] = useState<Record<string, string>>({});
   const [rotBusy, setRotBusy] = useState<string | null>(null);
 
@@ -243,14 +248,25 @@ export default function PhotosModal({
   }
 
   // 📄 Applique la photo choisie (rotation + détourage éventuel) au slot de la fiche
-  async function applyFichePhoto() {
+  // 🔎 APERÇU AVANT ENREGISTREMENT (validé avec Jonathan) : le détourage
+  // peut rater (cabine amputée sur fond encombré, cas DS2294) — on montre le
+  // rendu AVANT d'écraser la photo de la fiche, avec possibilité de
+  // réessayer SANS détourage ou d'annuler.
+  async function preparerFichePhoto(sansDetourage = false) {
     if (!ficheSlot || !pick) return;
     setFicheBusy(true);
     setError(null);
     try {
-      let b64 = await urlToBase64(pick.url);
-      b64 = await rotateBase64(b64, pickRot);
-      if (pickDetour) {
+      // La photo source (téléchargée + pivotée) est gardée en mémoire pour
+      // que « Sans détourage » soit instantané
+      let source = fichePreview?.sourceB64;
+      if (!source) {
+        source = await urlToBase64(pick.url);
+        source = await rotateBase64(source, pickRot);
+      }
+      let b64 = source;
+      const detoure = pickDetour && !sansDetourage;
+      if (detoure) {
         const raw = b64.replace(/^data:image\/\w+;base64,/, "");
         const resp = await fetch("/api/removebg", {
           method: "POST",
@@ -265,9 +281,24 @@ export default function PhotosModal({
         const composed = await composeFichePhoto(b64);
         if (composed) b64 = composed;
       }
+      setFichePreview({ b64, detoure, sourceB64: source });
+    } catch (e: any) {
+      console.error("❌ Photo de fiche:", e);
+      setError(t("modals.ficheFail") + (e?.message ? ` (${e.message})` : ""));
+    } finally {
+      setFicheBusy(false);
+    }
+  }
+
+  async function applyFichePhoto() {
+    if (!ficheSlot || !fichePreview) return;
+    setFicheBusy(true);
+    setError(null);
+    try {
+      const { b64, detoure } = fichePreview;
       const url = await uploadBase64(
         b64,
-        `machines/${machine.immat}/fiche/${ficheSlot}_${Date.now()}.${pickDetour ? "png" : "jpg"}`
+        `machines/${machine.immat}/fiche/${ficheSlot}_${Date.now()}.${detoure ? "png" : "jpg"}`
       );
       // Source canonique lue par la fiche VO (machine.photos_ventes)
       await updateDoc(doc(db, "machines_vo", machine.id), {
@@ -280,6 +311,7 @@ export default function PhotosModal({
       setFicheSlot(null);
       setPick(null);
       setPickRot(0);
+      setFichePreview(null);
     } catch (e: any) {
       console.error("❌ Photo de fiche:", e);
       setError(t("modals.ficheFail") + (e?.message ? ` (${e.message})` : ""));
@@ -479,7 +511,7 @@ export default function PhotosModal({
               👉 {t("modals.fichePickHint")}
             </div>
           )}
-          {ficheSlot && pick && (
+          {ficheSlot && pick && !fichePreview && (
             <div style={{ background: "#eef1fb", border: "1px solid #b9c2d0", borderRadius: 8, padding: 14, margin: "10px 0", display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
               <img
                 src={pick.url}
@@ -495,11 +527,57 @@ export default function PhotosModal({
                   🪄 {t("modals.ficheDetour")}
                 </label>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button className="btn-primary" onClick={applyFichePhoto} disabled={ficheBusy}>
+                  <button className="btn-primary" onClick={() => preparerFichePhoto()} disabled={ficheBusy}>
                     {ficheBusy ? t("modals.ficheApplying") : `✓ ${t("modals.ficheApply")}`}
                   </button>
-                  <button className="btn-secondary" onClick={() => { setPick(null); setPickRot(0); }} disabled={ficheBusy}>
+                  <button className="btn-secondary" onClick={() => { setPick(null); setPickRot(0); setFichePreview(null); }} disabled={ficheBusy}>
                     {t("modals.ficheCancelBtn")}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ─── 🔎 Aperçu du résultat avant enregistrement ─── */}
+          {ficheSlot && fichePreview && (
+            <div
+              style={{
+                border: "2px solid #1a2a6e",
+                borderRadius: 10,
+                padding: 14,
+                marginBottom: 16,
+                background: "#f6f8fc",
+              }}
+            >
+              <div style={{ fontWeight: 700, color: "#1a2a6e", marginBottom: 10 }}>
+                🔎 {t("modals.fichePreviewT")}
+              </div>
+              <div style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
+                <img
+                  src={fichePreview.b64}
+                  alt=""
+                  style={{ maxWidth: 280, maxHeight: 280, borderRadius: 8, border: "1px solid #d8dbe6", background: "#fff" }}
+                />
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <button className="btn-primary" onClick={applyFichePhoto} disabled={ficheBusy}>
+                    {ficheBusy ? t("modals.ficheApplying") : `✓ ${t("modals.ficheKeep")}`}
+                  </button>
+                  {fichePreview.detoure && (
+                    <button
+                      className="btn-secondary"
+                      onClick={() => preparerFichePhoto(true)}
+                      disabled={ficheBusy}
+                      title={t("modals.ficheRetryRawHint")}
+                    >
+                      🖼 {t("modals.ficheRetryRaw")}
+                    </button>
+                  )}
+                  <button
+                    className="btn-secondary"
+                    onClick={() => setFichePreview(null)}
+                    disabled={ficheBusy}
+                  >
+                    ← {t("modals.ficheBackPick")}
                   </button>
                 </div>
               </div>

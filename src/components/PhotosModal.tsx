@@ -199,8 +199,13 @@ export default function PhotosModal({
                 if (y < minY) minY = y; if (y > maxY) maxY = y;
               }
           const cW = maxX - minX + 1, cH = maxY - minY + 1;
-          const avail = H - barH - 5, margin = 4;
-          const scale = Math.min((W - margin * 2) / cW, (avail - margin * 2) / cH);
+          const avail = H - barH - 5;
+          // 🖼️ Vraie marge autour du sujet (~7 % du cadre) : la machine ne
+          // touche plus les bords — rendu bien plus pro (demande Jonathan).
+          // On limite aussi l'agrandissement (1.15×) pour ne pas rendre
+          // floues les petites photos sources.
+          const margin = Math.round(W * 0.07);
+          const scale = Math.min((W - margin * 2) / cW, (avail - margin * 2) / cH, 1.15);
           const sw = cW * scale, sh = cH * scale;
           ctx.drawImage(subject, minX, minY, cW, cH, (W - sw) / 2, margin + (avail - margin * 2 - sh) / 2, sw, sh);
 

@@ -33,7 +33,9 @@ export default async function handler(req: any, res: any) {
       body: JSON.stringify({
         image_file_b64: imageBase64,
         size: "auto",
-        type: "car",
+        // "auto" (et non "car") : sur une nacelle sur porteur, le profil
+        // voiture amputait parfois la cabine ou le plateau (cas DS2294)
+        type: "auto",
         shadow_type: "drop",
         shadow_opacity: "55",
       }),

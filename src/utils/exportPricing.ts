@@ -63,6 +63,11 @@ export function exportPricingToExcel({ machines, seuilRepricer = 60 }: ExportPri
     "Localisation": m.localite || "",
     "Montant expertise VO (€)": m.rapport_expertise?.total_retenue_ht ?? "",
     "VNC (€)": m.vr_vnc ?? "",
+    // 📊 Étude de marché IA (fourchette indicative — décision au PDG)
+    "Marché bas (€)": m.etude_marche?.fourchette_basse ?? "",
+    "Marché médiane (€)": m.etude_marche?.mediane ?? "",
+    "Marché haut (€)": m.etude_marche?.fourchette_haute ?? "",
+    "Étude du": m.etude_marche?.date ?? "",
     "Prix actuel HT (€)": m.prix_fr ?? "",
     "Date du prix": datePrix(m),
     "Prix France HT (€)": "",
@@ -82,6 +87,10 @@ export function exportPricingToExcel({ machines, seuilRepricer = 60 }: ExportPri
     { wch: 12 }, // Localisation
     { wch: 20 }, // Montant expertise VO
     { wch: 12 }, // VNC
+    { wch: 13 }, // Marché bas
+    { wch: 15 }, // Marché médiane
+    { wch: 13 }, // Marché haut
+    { wch: 11 }, // Étude du
     { wch: 15 }, // Prix actuel
     { wch: 12 }, // Date du prix
     { wch: 16 }, // Prix France (à remplir)

@@ -5,6 +5,8 @@ import { normalizeLocalite } from "../utils/localites";
 
 export interface FilterState {
   etape: "tous" | "demande" | "recuperation" | "expertise" | "facture" | "reglee";
+  /** ⏳ Machines bloquées par un devis atelier (postes à chiffrer ou chiffrage à valider) */
+  devis: "tous" | "attente";
   client: string;
   typeNacelle: string;
   localite: string;
@@ -14,6 +16,7 @@ export interface FilterState {
 
 export const EMPTY_FILTERS: FilterState = {
   etape: "tous",
+  devis: "tous",
   client: "",
   typeNacelle: "",
   localite: "",
@@ -86,6 +89,25 @@ export default function FiltersBar({
                 <option value="expertise">{tr("filters.stepExpertise")}</option>
                 <option value="facture">{tr("filters.stepFactureEmettre")}</option>
                 <option value="reglee">{tr("filters.stepFactureRegler")}</option>
+              </select>
+            </div>
+
+            <div className="filter-field">
+              <label>⏳ {tr("filters.devis")}</label>
+              <select
+                value={filters.devis}
+                onChange={(e) =>
+                  onChange({ ...filters, devis: e.target.value as FilterState["devis"] })
+                }
+              >
+                <option value="tous">{tr("filters.devisAll")}</option>
+                <option value="attente">
+                  {tr("filters.devisPending")} (
+                  {machines.filter(
+                    (m) => m.devis_pending_labels?.length || (m.devis_complet && !m.devis_valide)
+                  ).length}
+                  )
+                </option>
               </select>
             </div>
 
@@ -169,6 +191,7 @@ export default function FiltersBar({
 function countActiveFilters(f: FilterState): number {
   let n = 0;
   if (f.etape !== "tous") n++;
+  if (f.devis !== "tous") n++;
   if (f.client) n++;
   if (f.typeNacelle) n++;
   if (f.localite) n++;
@@ -193,6 +216,16 @@ export function applyFilters(machines: Machine[], f: FilterState): Machine[] {
       if (f.etape === "expertise" && (!step2 || step3)) return false;
       if (f.etape === "facture" && (!step3 || step4)) return false;
       if (f.etape === "reglee" && (!step4 || step5)) return false;
+    }
+
+    // ⏳ Filtre « en attente de devis » : postes à chiffrer par l'atelier,
+    // ou devis chiffré pas encore validé — dans les deux cas la facturation
+    // de la remise en état est bloquée (même condition que le garde-fou).
+    if (f.devis === "attente") {
+      const enAttente =
+        (m.devis_pending_labels?.length || 0) > 0 ||
+        (!!m.devis_complet && !m.devis_valide);
+      if (!enAttente) return false;
     }
 
     // Filtre client

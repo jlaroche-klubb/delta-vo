@@ -31,6 +31,8 @@ export default async function handler(req: any, res: any) {
 
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+    // Contexte optionnel (immat/zone/origine) — uniquement pour les journaux
+    const ctx = String(body.ctx || "").slice(0, 120);
     let data: string | undefined = body.imageBase64;
     if (!data) return res.status(400).json({ error: "imageBase64 manquant" });
     // Accepte les data-URL comme le base64 brut
@@ -79,6 +81,9 @@ export default async function handler(req: any, res: any) {
     const text: string = out?.content?.[0]?.text || "";
     const found = text.match(/\b(0|90|180|270)\b/);
     const rotation = found ? Number(found[1]) : 0;
+    // 📋 Journalisé SYSTÉMATIQUEMENT : permet de vérifier après coup ce que
+    // l'IA a répondu photo par photo (diagnostic GQ-115-JH)
+    console.log(`🤖 rotation=${rotation}${ctx ? ` · ${ctx}` : ""}`);
     return res.status(200).json({ rotation });
   } catch (e: any) {
     console.error("❌ photo-orientation:", e);

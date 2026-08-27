@@ -50,6 +50,7 @@ import {
   canManagePhotosSupplementaires,
 } from "../utils/permissions";
 import { useAuth } from "../AuthContext";
+import RecalculChiffrageTous from "../components/RecalculChiffrageTous";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
 
@@ -695,6 +696,9 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
             {importing ? `⏳ ${t("dispo.importing")}` : `📤 ${t("dispo.importPricing")}`}
           </button>
         )}
+
+        {/* 💶 Rattrapage global des chiffrages à 0 (super admin) */}
+        <RecalculChiffrageTous />
 
         {isSuperAdminUser && (
           <button

@@ -819,6 +819,9 @@ const en: TranslationSchema = {
   },
   chiffrage: {
     zeroLabel: "Costing at €0",
+    btnTous: "Recalculate all €0 costings ({{count}})",
+    btnTousTitle: "Re-reads each Nacelle Expert file and applies the current price list to every machine costed at €0",
+    confirmTous: "Recalculate the costing of the {{count}} machine(s) at €0 (Available + Returns) from their Nacelle Expert survey?\n\nCurrent price list, first bracket for unpriced body items. Machines without a survey or compliant ones are left untouched.",
     btnRecalc: "Recalculate (survey)",
     btnSaisir: "Enter amount",
     aucuneExpertise: "No Nacelle Expert survey found for {{immat}} — use \"Enter amount\".",

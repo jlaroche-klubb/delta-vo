@@ -322,7 +322,7 @@ export default function RestitutionsPage() {
       {showForm && (
         <div
           className="modal-overlay"
-          onClick={(e) => {
+          onMouseDown={(e) => {
             if (e.target === e.currentTarget) setShowForm(false);
           }}
         >

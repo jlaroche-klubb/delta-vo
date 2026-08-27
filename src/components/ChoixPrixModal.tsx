@@ -23,7 +23,7 @@ export default function ChoixPrixModal({ machine, onClose, onConfirm }: ChoixPri
   return (
     <div
       className="modal-overlay"
-      onClick={(e) => {
+      onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >

@@ -48,7 +48,7 @@ export default function ImportSimulationModal({ sim, importing, onConfirm, onCan
   return (
     <div
       className="modal-overlay"
-      onClick={(e) => {
+      onMouseDown={(e) => {
         if (e.target === e.currentTarget && !importing) onCancel();
       }}
     >

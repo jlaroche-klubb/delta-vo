@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { Machine } from "../types/machine";
 import { useMachinesFiltered } from "../contexts/MachinesContext";
 import MachineCard from "../components/MachineCard";
+import RecalculChiffrageTous from "../components/RecalculChiffrageTous";
 import FiltersBar, { FilterState, EMPTY_FILTERS, applyFilters } from "../components/FiltersBar";
 import { exportMachinesToExcel } from "../utils/exportExcel";
 import { useAuth } from "../AuthContext";
@@ -255,6 +256,8 @@ export default function RestitutionsPage() {
       </div>
 
       <div className="actions-bar">
+        {/* 💶 Rattrapage global des chiffrages à 0 (super admin) */}
+        <RecalculChiffrageTous />
         <input
           className="search-input"
           type="text"

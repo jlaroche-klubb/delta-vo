@@ -412,6 +412,16 @@ export function useNacelleExpertSync() {
               // si présent, pour ne pas écraser un rapport legacy existant
               ...(machineVOData.rapport_expertise ? { rapport_expertise: machineVOData.rapport_expertise } : {}),
 
+              // 🛡 MACHINE EN PRÉPARATION (validé avec Jonathan) : la
+              // modification/re-validation d'une expertise ne la ramène JAMAIS
+              // en cycle restitution/disponible et ne remet pas à zéro son
+              // avancement (facture, fiche VO, étapes). Seul le retour manuel
+              // d'un admin/super admin (annulation de préparation) peut la
+              // repasser en disponible. Les données d'expertise, elles,
+              // remontent bien (bloc ci-dessus).
+              ...(existingData.statut === 'en_cours' ? {
+                expertise_recue: true, // l'expertise à jour est bien arrivée
+              } : {
               // ✅ Nouvelle date de récupération pour ce cycle de relocation
               date_demande_recuperation: dateRecup,
 
@@ -436,6 +446,7 @@ export function useNacelleExpertSync() {
               facture_reglee_ok: false, // ⏳ Nouveau règlement à recevoir
               fiche_vo_creee: false,    // ⏳ Refaire la fiche VO si besoin
               import_vog: false,        // ⏳ Vraie restitution : on lève le marqueur stock VOG
+              }),
 
               // Conserver les données Delta VO existantes
               fiche_commerciale: existingData.fiche_commerciale,

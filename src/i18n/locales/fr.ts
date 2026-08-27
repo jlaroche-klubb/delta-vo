@@ -817,10 +817,10 @@ const fr = {
     reset: "Réinitialiser",
   },
   chiffrage: {
-    zeroLabel: "Chiffrage à 0 €",
-    btnTous: "Recalculer tous les chiffrages à 0 ({{count}})",
+    zeroLabel: "Chiffrage incomplet (poste à 0 €)",
+    btnTous: "Recalculer les chiffrages incomplets ({{count}})",
     btnTousTitle: "Relit chaque dossier Nacelle Expert et applique le barème actuel à toutes les machines dont le chiffrage est à 0 €",
-    confirmTous: "Recalculer le chiffrage des {{count}} machine(s) à 0 € (Disponibles + Restitutions) d'après leur expertise Nacelle Expert ?\n\nBarème actuel, 1re tranche pour les postes carrosserie non chiffrés. Les machines sans expertise ou conformes ne seront pas modifiées.",
+    confirmTous: "Recalculer le chiffrage des {{count}} machine(s) au chiffrage incomplet — total à 0 € ou au moins un poste à 0 € (Disponibles + Restitutions) — d'après leur expertise Nacelle Expert ?\n\nBarème actuel, 1re tranche pour les postes carrosserie non chiffrés. Les machines sans expertise ou conformes ne seront pas modifiées.",
     btnRecalc: "Recalculer (expertise)",
     btnSaisir: "Saisir le montant",
     aucuneExpertise: "Aucune expertise Nacelle Expert trouvée pour {{immat}} — utilisez « Saisir le montant ».",

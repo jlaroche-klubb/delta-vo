@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "../AuthContext";
 import { useMachines } from "../contexts/MachinesContext";
 import { getDossierNE } from "../services/nacelleExpertService";
-import { calculerChiffrageDossier } from "../utils/tarifsNacelleExpert";
+import { calculerChiffrageDossier, chiffrageIncomplet } from "../utils/tarifsNacelleExpert";
 import type { Machine } from "../types/machine";
 
 /**
@@ -24,9 +24,12 @@ export default function ChiffrageZeroTools({ machine }: { machine: Machine }) {
   const [busy, setBusy] = useState(false);
 
   const isSuperAdmin = profile?.role === "superadmin";
-  const total = machine.rapport_expertise?.total_retenue_ht;
   if (!isSuperAdmin) return null;
-  if (total != null && total > 0) return null;
+  // Machine visée : total à 0 OU au moins un poste à 0 € (ex. « en attente de
+  // devis » carrosserie de l'ancien circuit). Une machine déjà corrigée par
+  // l'outil n'est plus proposée (les postes nacelle réellement en attente de
+  // devis atelier restent légitimement à 0).
+  if (!chiffrageIncomplet(machine) || machine.chiffrage_corrige) return null;
   if (machine.statut !== "restitution" && machine.statut !== "disponible") return null;
 
   const par = profile ? `${profile.prenom} ${profile.nom}`.trim() : "";

@@ -259,3 +259,18 @@ export function calculerChiffrageDossier(d: any): {
 
   return { total_retenue_ht: total, nb_attente: nbAttente, degats, taux_vetuste: taux };
 }
+
+/**
+ * Une machine a-t-elle un chiffrage incomplet ? Vrai si :
+ * - pas de rapport d'expertise, ou total absent/à 0 €, ou
+ * - au moins UN poste à 0 € (hors postes « inclus au devis atelier »,
+ *   dont le montant est porté par la 1re ligne du devis global).
+ * C'est le critère de l'outil de rattrapage super admin.
+ */
+export function chiffrageIncomplet(machine: any): boolean {
+  const r = machine?.rapport_expertise;
+  if (!r || !((r.total_retenue_ht ?? 0) > 0)) return true;
+  return (r.degats || []).some(
+    (d: any) => !d.montant && !/inclus au devis/i.test(d.description || "")
+  );
+}

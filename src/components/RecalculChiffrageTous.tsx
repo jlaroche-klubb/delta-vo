@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "../AuthContext";
 import { useMachines } from "../contexts/MachinesContext";
 import { getDossierNE } from "../services/nacelleExpertService";
-import { calculerChiffrageDossier } from "../utils/tarifsNacelleExpert";
+import { calculerChiffrageDossier, chiffrageIncomplet } from "../utils/tarifsNacelleExpert";
 
 /**
  * 💶 BOUTON SUPER ADMIN — « Recalculer tous les chiffrages à 0 ».
@@ -28,7 +28,8 @@ export default function RecalculChiffrageTous() {
       (m.statut === "disponible" || m.statut === "restitution") &&
       !m.archived &&
       m.immat &&
-      !((m.rapport_expertise?.total_retenue_ht ?? 0) > 0)
+      chiffrageIncomplet(m) &&
+      !m.chiffrage_corrige
   );
   if (!cibles.length && !progress) return null;
 

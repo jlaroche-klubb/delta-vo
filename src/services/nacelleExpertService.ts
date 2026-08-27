@@ -29,6 +29,22 @@ export interface NacelleExpertExpertise {
 }
 
 /**
+ * Lire UN dossier Nacelle Expert par immatriculation (lecture publique de la
+ * collection dossiers). Utilisé par l'outil super admin « chiffrage à zéro ».
+ */
+export async function getDossierNE(immat: string): Promise<any | null> {
+  try {
+    const im = (immat || "").trim().toUpperCase();
+    if (!im) return null;
+    const snap = await getDoc(doc(dbNacelleExpert, "dossiers", im));
+    return snap.exists() ? snap.data() : null;
+  } catch (e) {
+    console.error("getDossierNE:", e);
+    return null;
+  }
+}
+
+/**
  * Récupérer TOUTES les expertises depuis nacelle-expert (pour rattachement par immat)
  */
 export async function getAllExpertises(): Promise<NacelleExpertExpertise[]> {

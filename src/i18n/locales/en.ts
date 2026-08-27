@@ -817,6 +817,16 @@ const en: TranslationSchema = {
     deliveryTo: "Delivery to",
     reset: "Reset",
   },
+  chiffrage: {
+    zeroLabel: "Costing at €0",
+    btnRecalc: "Recalculate (survey)",
+    btnSaisir: "Enter amount",
+    aucuneExpertise: "No Nacelle Expert survey found for {{immat}} — use \"Enter amount\".",
+    aucunDegat: "The survey for {{immat}} lists no damage: nothing to price (use \"Enter amount\" if needed).",
+    confirmRecalc: "Recalculate the costing of {{immat}} from the Nacelle Expert survey (current price list, first bracket for unpriced body items):",
+    promptMontant: "Refurbishment amount excl. VAT for {{immat}} (in euros):",
+    montantInvalide: "Invalid amount — enter a positive whole number.",
+  },
 };
 
 export default en;

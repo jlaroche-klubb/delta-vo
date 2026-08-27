@@ -1,6 +1,7 @@
 import MachineThumb from "./MachineThumb";
 import { Machine, calculAgeStock, getAgeStockColor, isFicheComplete } from "../types/machine";
 import { useTranslation } from "react-i18next";
+import ChiffrageZeroTools from "./ChiffrageZeroTools";
 import { LOCALITES } from "../utils/localites";
 
 interface DisponibleCardProps {
@@ -400,6 +401,9 @@ export default function DisponibleCard({
           )}
         </div>
       )}
+
+      {/* 💶 Outil super admin : chiffrage à zéro (rattrapage) */}
+      <ChiffrageZeroTools machine={machine} />
 
       {/* 💶 VR/VNC (valeur résiduelle/comptable) — réservé aux admins */}
       {isAdmin && machine.vr_vnc != null && machine.vr_vnc > 0 && (

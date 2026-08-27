@@ -124,6 +124,8 @@ export interface Machine {
   heures_nacelle?: number;
   km_porteur?: number;
   agent_expertise?: string;
+  // 💶 Trace de l'outil super admin « chiffrage à zéro » (rattrapage ponctuel)
+  chiffrage_corrige?: { mode: "manuel" | "recalcul"; par: string; date: string };
   rapport_expertise?: RapportExpertise;
 
   // ─── Nouvelle base VOG (import « Liste complète ») ───

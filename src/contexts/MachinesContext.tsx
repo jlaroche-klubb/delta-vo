@@ -97,6 +97,12 @@ interface MachinesContextType {
   /** 💶 Circuit VNC : applique les VNC validées par la compta (import ADV) */
   updateVncValues: (items: { immat: string; nouvelle: number }[]) => Promise<number>;
   refreshExpertiseMontants: () => Promise<{ updated: number; matched: number; total: number }>;
+  enregistrerChiffrageCorrige: (
+    machineId: string,
+    rapport: any,
+    mode: "manuel" | "recalcul",
+    par: string
+  ) => Promise<void>;
   configureEnCours: (
     machineId: string,
     typePrepa: "normale" | "en_etat",
@@ -968,6 +974,32 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // 💶 Outil super admin « chiffrage à zéro » : enregistre un rapport
+  // d'expertise corrigé (recalcul barème ou saisie manuelle) avec traçabilité.
+  async function enregistrerChiffrageCorrige(
+    machineId: string,
+    rapport: any,
+    mode: "manuel" | "recalcul",
+    par: string
+  ) {
+    const now = new Date().toISOString();
+    if (isFirebaseMachine(machineId)) {
+      await updateDoc(doc(db, "machines_vo", machineId), {
+        rapport_expertise: rapport,
+        chiffrage_corrige: { mode, par, date: now },
+        updatedAt: now,
+      });
+    } else {
+      setMockMachines((prev) =>
+        prev.map((m) =>
+          m.id === machineId
+            ? { ...m, rapport_expertise: rapport, chiffrage_corrige: { mode, par, date: now }, updatedAt: now }
+            : m
+        )
+      );
+    }
+  }
+
   async function refreshExpertiseMontants(): Promise<{ updated: number; matched: number; total: number }> {
     const expertises = await getAllExpertises();
 
@@ -1714,6 +1746,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       importStockMachines,
       updateVncValues,
       refreshExpertiseMontants,
+      enregistrerChiffrageCorrige,
       configureEnCours,
       cancelEnCours,
       marquerFacturee,

@@ -816,6 +816,16 @@ const fr = {
     deliveryTo: "Livraison au",
     reset: "Réinitialiser",
   },
+  chiffrage: {
+    zeroLabel: "Chiffrage à 0 €",
+    btnRecalc: "Recalculer (expertise)",
+    btnSaisir: "Saisir le montant",
+    aucuneExpertise: "Aucune expertise Nacelle Expert trouvée pour {{immat}} — utilisez « Saisir le montant ».",
+    aucunDegat: "L'expertise de {{immat}} ne liste aucun dégât : rien à chiffrer (utilisez « Saisir le montant » si besoin).",
+    confirmRecalc: "Recalcul du chiffrage de {{immat}} d'après l'expertise Nacelle Expert (barème actuel, 1re tranche pour les postes carrosserie non chiffrés) :",
+    promptMontant: "Montant HT de la remise en état pour {{immat}} (en euros) :",
+    montantInvalide: "Montant invalide — saisissez un nombre entier positif.",
+  },
 };
 
 export default fr;

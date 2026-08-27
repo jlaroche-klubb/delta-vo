@@ -40,6 +40,8 @@ const REFRESH_FIELDS: [keyof ParsedStockMachine, string, string][] = [
   ["km_note", "km_note", "Mention KM"],
   ["heures_note", "heures_note", "Mention heures"],
   ["vr_vnc", "vr_vnc", "VR/VNC"],
+  ["disponibilite_vog", "disponibilite_vog", "Disponibilité (VOG)"],
+  ["montant_expertise_vog", "montant_expertise_vog", "Montant expertise (VOG)"],
 ];
 
 export interface VogUpdateResult {
@@ -82,11 +84,29 @@ export function computeVogUpdates(existing: Machine, p: ParsedStockMachine): Vog
       updates[fsKey] = val;
       if (fsKey === "numero_occasion") changes.push(`🏷️ N° occasion : ${val}`);
       else if (fsKey === "vr_vnc") changes.push(`VR/VNC : ${eur(Number(val))}`);
+      else if (fsKey === "montant_expertise_vog") changes.push(`💶 montant expertise (VOG) : ${eur(Number(val))}`);
+      else if (fsKey === "disponibilite_vog" && !/^ok$/i.test(String(val).trim())) changes.push(`⚠ disponibilité (VOG) : ${val}`);
       else if (["numero_dossier", "proprietaire", "numero_cube"].includes(fsKey)) changes.push(`${label} : ${val}`);
       // autres champs administratifs : mis à jour sans encombrer le rapport
     }
   }
   if (p.diffusion) updates.diffusion = p.diffusion;
+
+  // ── 💶 Montant expertise du VOG → chiffrage de la machine, UNIQUEMENT si le
+  // chiffrage actuel est vide ou à 0 € : le détail poste par poste venant de
+  // Nacelle Expert prime toujours sur un montant global saisi dans le VOG.
+  if (
+    p.montant_expertise_vog != null &&
+    p.montant_expertise_vog > 0 &&
+    !(((existing.rapport_expertise?.total_retenue_ht) ?? 0) > 0)
+  ) {
+    updates.rapport_expertise = {
+      ...(existing.rapport_expertise || { degats: [] }),
+      total_retenue_ht: p.montant_expertise_vog,
+    };
+    updates.chiffrage_corrige = { mode: "import_vog", par: "Import VOG", date: new Date().toISOString() };
+    changes.push(`💶 chiffrage expertise posé : ${eur(p.montant_expertise_vog)} (montant VOG)`);
+  }
 
   // ── 📍 Localité : le fichier reflète le stock ACTUEL -> rafraîchie,
   // mais uniquement pour les machines encore en stock (jamais en prépa/vendues)
@@ -156,9 +176,16 @@ export function buildNewVogDoc(p: ParsedStockMachine): Record<string, any> {
     [p.date_prix_vog, "date_prix_vog"],
     [p.vr_vnc, "vr_vnc"],
     [p.diffusion, "diffusion"],
+    [p.disponibilite_vog, "disponibilite_vog"],
+    [p.montant_expertise_vog, "montant_expertise_vog"],
   ];
   for (const [val, key] of optional) {
     if (val !== undefined && val !== null && val !== "") doc[key] = val;
+  }
+  // 💶 Machine créée avec un montant d'expertise VOG → chiffrage initialisé
+  if (p.montant_expertise_vog != null && p.montant_expertise_vog > 0) {
+    doc.rapport_expertise = { degats: [], total_retenue_ht: p.montant_expertise_vog };
+    doc.chiffrage_corrige = { mode: "import_vog", par: "Import VOG", date: now };
   }
   return doc;
 }

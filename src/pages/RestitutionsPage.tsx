@@ -95,6 +95,10 @@ export default function RestitutionsPage() {
     () => allMachines.filter((m) =>
       !m.import_vog &&
       (m.statut === "restitution" ||
+        // ✅ Une machine passée EN PRÉPARATION reste visible ici tant que la
+        // facturation de sa remise en état n'est pas réglée (validé avec
+        // Jonathan) — même si son expertise NE n'est pas encore arrivée.
+        (m.statut === "en_cours" && !m.facture_reglee_ok) ||
         (m.expertise_recue && !m.facture_reglee_ok))
     ),
     [allMachines]
@@ -104,7 +108,7 @@ export default function RestitutionsPage() {
   const totalArchived = useMemo(
     () =>
       allMachinesUnfiltered.filter(
-        (m) => m.archived && (m.statut === "restitution" || (m.expertise_recue && !m.facture_reglee_ok))
+        (m) => m.archived && (m.statut === "restitution" || (m.statut === "en_cours" && !m.facture_reglee_ok) || (m.expertise_recue && !m.facture_reglee_ok))
       ).length,
     [allMachinesUnfiltered]
   );

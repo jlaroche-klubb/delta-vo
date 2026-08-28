@@ -1,5 +1,6 @@
 import * as XLSX from "xlsx";
 import { Machine } from "../types/machine";
+import { horsVenteVog } from "./nacelles";
 
 interface ExportPricingOptions {
   machines: Machine[];
@@ -32,6 +33,9 @@ export function exportPricingToExcel({ machines, seuilRepricer = 60 }: ExportPri
   const actives = machines.filter(
     (m) =>
       !m.archived &&
+      // 🚚 Disponibilité VOG ≠ OK (location, prêt, vente en cours…) : hors
+      // vente, donc hors pricing PDG
+      !horsVenteVog(m) &&
       (m.statut === "disponible" || (m.statut === "restitution" && m.expertise_ok))
   );
 

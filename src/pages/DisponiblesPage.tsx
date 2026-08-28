@@ -38,6 +38,7 @@ import { runNacelleExpertRattrapage } from "../hooks/useNacelleExpertSync";
 import { useTranslation } from "react-i18next";
 import { generateFichePdf } from "../utils/generateFichePdf";
 import { exportListePrix } from "../utils/exportListePrix";
+import { horsVenteVog } from "../utils/nacelles";
 import {
   canExportExcelPricing,
   canImportExcelPricing,
@@ -150,7 +151,13 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
   const canOffre = ["superadmin", "admin", "vendeur_fr", "dealer"].includes(userRole);
 
   const baseDispo = useMemo(
-    () => machines.filter((m) => m.statut === "disponible" || (m.statut === "restitution" && m.expertise_ok)),
+    () =>
+      machines.filter(
+        (m) =>
+          // 🚚 Le fichier VOG fait autorité : disponibilité ≠ OK → jamais en vente
+          !horsVenteVog(m) &&
+          (m.statut === "disponible" || (m.statut === "restitution" && m.expertise_ok))
+      ),
     [machines]
   );
 

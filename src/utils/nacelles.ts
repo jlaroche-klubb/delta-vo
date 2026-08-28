@@ -71,3 +71,15 @@ export function normalizeTypeNacelle(raw?: string | null): string {
     .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w))
     .join(" ");
 }
+
+/**
+ * 🚚 Machine HORS VENTE d'après le fichier du parc VOG (validé avec Jonathan) :
+ * la colonne « Disponibilté » fait autorité — tout ce qui n'est pas « OK »
+ * (LOC …, PRET …, VENTE …, à vérifier, fin de loc…) ne doit apparaître sur
+ * AUCUNE page de vente, quel que soit le statut interne de la machine
+ * (y compris une fiche restitution encore ouverte pour sa facturation).
+ */
+export function horsVenteVog(m: { disponibilite_vog?: string }): boolean {
+  const d = (m.disponibilite_vog || "").trim();
+  return d !== "" && !/^ok$/i.test(d);
+}

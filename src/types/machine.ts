@@ -151,6 +151,11 @@ export interface Machine {
   heures_note?: string;
   /** 💶 VR ou VNC (valeur résiduelle/comptable) — affichage réservé aux admins */
   vr_vnc?: number;
+  // 🚚 Retrait manuel de la vente (bouton super admin — prioritaire, jamais
+  // modifié par les imports)
+  hors_vente_manuel?: boolean;
+  hors_vente_manuel_par?: string;
+  hors_vente_manuel_date?: string;
   // Colonnes VOG ajoutées en août 2026
   disponibilite_vog?: string;
   montant_expertise_vog?: number;

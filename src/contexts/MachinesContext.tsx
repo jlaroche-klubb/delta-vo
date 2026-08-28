@@ -97,6 +97,7 @@ interface MachinesContextType {
   /** 💶 Circuit VNC : applique les VNC validées par la compta (import ADV) */
   updateVncValues: (items: { immat: string; nouvelle: number }[]) => Promise<number>;
   refreshExpertiseMontants: () => Promise<{ updated: number; matched: number; total: number }>;
+  setHorsVenteManuel: (machineId: string, horsVente: boolean, par: string) => Promise<void>;
   enregistrerChiffrageCorrige: (
     machineId: string,
     rapport: any,
@@ -974,6 +975,22 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // 🚚 Retrait/remise en vente MANUEL (super admin) — voir HorsVenteToggle
+  async function setHorsVenteManuel(machineId: string, horsVente: boolean, par: string) {
+    const now = new Date().toISOString();
+    const updates = {
+      hors_vente_manuel: horsVente,
+      hors_vente_manuel_par: par,
+      hors_vente_manuel_date: now,
+      updatedAt: now,
+    };
+    if (isFirebaseMachine(machineId)) {
+      await updateDoc(doc(db, "machines_vo", machineId), updates);
+    } else {
+      setMockMachines((prev) => prev.map((m) => (m.id === machineId ? { ...m, ...updates } : m)));
+    }
+  }
+
   // 💶 Outil super admin « chiffrage à zéro » : enregistre un rapport
   // d'expertise corrigé (recalcul barème ou saisie manuelle) avec traçabilité.
   async function enregistrerChiffrageCorrige(
@@ -1747,6 +1764,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       updateVncValues,
       refreshExpertiseMontants,
       enregistrerChiffrageCorrige,
+      setHorsVenteManuel,
       configureEnCours,
       cancelEnCours,
       marquerFacturee,

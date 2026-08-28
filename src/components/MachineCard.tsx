@@ -7,6 +7,7 @@ import EditInfosAdminModal from "./EditInfosAdminModal";
 import { useMachines } from "../contexts/MachinesContext";
 import { useAuth } from "../AuthContext";
 import ChiffrageZeroTools from "./ChiffrageZeroTools";
+import HorsVenteToggle from "./HorsVenteToggle";
 import { useTranslation } from "react-i18next";
 import { canEditInfosAdmin } from "../utils/permissions";
 import { validerDevisEtEnvoyer } from "../services/devisService";
@@ -317,6 +318,9 @@ export default function MachineCard({
 
         {/* 💶 Outil super admin : chiffrage à zéro (rattrapage) */}
         <ChiffrageZeroTools machine={machine} />
+
+        {/* 🚚 Retrait manuel de la vente (super admin) */}
+        <HorsVenteToggle machine={machine} />
 
         {/* Stepper (caché si archivée) */}
         {!machine.archived && (

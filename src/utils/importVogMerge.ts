@@ -118,18 +118,41 @@ export function computeVogUpdates(existing: Machine, p: ParsedStockMachine): Vog
   // ✅ Marqueur : cette machine est dans le stock VOG.
   updates.import_vog = true;
 
+  // 🚚 DISPONIBILITÉ DU FICHIER (validé avec Jonathan) : seules les lignes
+  // « OK » sont à la vente. Tout le reste (LOC …, PRET …, VENTE …, à
+  // vérifier, fin de loc…) est HORS VENTE : la machine passe « louée » et
+  // reviendra en Disponibles quand le fichier la remettra à OK (ou par sa
+  // restitution). Colonne absente (anciens fichiers) → comportement inchangé.
+  const horsVente =
+    p.disponibilite_vog != null &&
+    p.disponibilite_vog.trim() !== "" &&
+    !/^ok$/i.test(p.disponibilite_vog.trim());
+  const dispoOK =
+    p.disponibilite_vog != null && /^ok$/i.test(p.disponibilite_vog.trim());
+
   // Machines du VOG « à vendre » encore en cycle -> repassent disponibles.
-  // On ne touche PAS aux machines en prépa / louées / vendues.
+  // On ne touche PAS aux machines en prépa / vendues.
   // ⚠ Ni aux RESTITUTIONS EN COURS : le fichier du parc (format VOG) circule
   // compta → ADV → PDG et les contient pour l'attribution des N° occasion —
   // son réimport ne doit JAMAIS clore leur facturation de frais.
   const restitutionEnCours =
     existing.statut === "restitution" && !(existing.facture_ok && existing.facture_reglee_ok);
   if (enStock && !restitutionEnCours) {
-    if (existing.statut !== "disponible") changes.push("statut : disponible (stock VOG)");
+    if (horsVente) {
+      updates.statut = "louee_lld";
+      changes.push(`🚚 hors vente (VOG : ${p.disponibilite_vog!.trim()}) → louée`);
+    } else {
+      if (existing.statut !== "disponible") changes.push("statut : disponible (stock VOG)");
+      updates.statut = "disponible";
+      updates.fiche_vo_creee = true;
+      updates.facture_reglee_ok = true;
+    }
+  } else if (existing.statut === "louee_lld" && dispoOK) {
+    // 🔁 Le fichier remet la machine à OK : elle revient en vente.
     updates.statut = "disponible";
     updates.fiche_vo_creee = true;
     updates.facture_reglee_ok = true;
+    changes.push("statut : disponible (le VOG la remet à OK)");
   }
 
   return { updates, changes };
@@ -138,12 +161,18 @@ export function computeVogUpdates(existing: Machine, p: ParsedStockMachine): Vog
 /** Document Firestore pour une machine ABSENTE de Delta VO (création) */
 export function buildNewVogDoc(p: ParsedStockMachine): Record<string, any> {
   const now = new Date().toISOString();
+  const horsVenteNew =
+    p.disponibilite_vog != null &&
+    p.disponibilite_vog.trim() !== "" &&
+    !/^ok$/i.test(p.disponibilite_vog.trim());
   const doc: Record<string, any> = {
     immat: p.immat || p.docId,
     modele: p.modele_porteur,
     type_nacelle: p.type_nacelle,
     annee_fab: p.annee_circulation,
-    statut: "disponible",
+    // 🚚 Ligne non « OK » (location, prêt, vente en cours, à vérifier) :
+    // créée HORS VENTE — elle passera disponible quand le fichier dira OK.
+    statut: horsVenteNew ? "louee_lld" : "disponible",
     import_vog: true,
     recuperation_ok: true,
     expertise_ok: true,

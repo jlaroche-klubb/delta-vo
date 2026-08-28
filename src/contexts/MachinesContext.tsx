@@ -323,6 +323,17 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             expertise_recue: data.expertise_recue ?? true,
             import_vog: data.import_vog ?? false,
 
+            // 🚚 Hors vente : disponibilité du fichier VOG + retrait manuel
+            // super admin (champs ÉCRITS par l'import et le bouton, mais qui
+            // n'étaient jamais RELUS ici — d'où des exclusions sans effet)
+            disponibilite_vog: data.disponibilite_vog || undefined,
+            montant_expertise_vog: data.montant_expertise_vog ?? undefined,
+            hors_vente_manuel: data.hors_vente_manuel ?? false,
+            hors_vente_manuel_par: data.hors_vente_manuel_par || undefined,
+            hors_vente_manuel_date: data.hors_vente_manuel_date || undefined,
+            // 💶 Trace de l'outil « chiffrage à zéro » (même oubli de lecture)
+            chiffrage_corrige: data.chiffrage_corrige || undefined,
+
             // 🗄️ Archivage (purge base VOG, machines hors périmètre) — récupérable
             archived: data.archived ?? false,
             archived_at: data.archived_at || undefined,

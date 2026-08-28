@@ -687,6 +687,7 @@ const en: TranslationSchema = {
     ficheTitle: "Complete the commercial sheet",
     ficheSpecs: "Platform specifications",
     ficheHeight: "Working height (m)",
+    fichePrefill: "Height and outreach prefilled from the latest {{type}} sheet ({{immat}}) — editable.",
     ficheOutreach: "Working outreach (m)",
     fichePersons: "Number of people in the basket",
     fiche1Person: "1 person",

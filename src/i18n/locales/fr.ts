@@ -686,6 +686,7 @@ const fr = {
     ficheTitle: "Compléter la fiche commerciale",
     ficheSpecs: "Caractéristiques nacelle",
     ficheHeight: "Hauteur de travail (m)",
+    fichePrefill: "Hauteur et déport préremplis d'après la dernière fiche {{type}} ({{immat}}) — modifiables.",
     ficheOutreach: "Déport de travail (m)",
     fichePersons: "Nb de personnes dans le panier",
     fiche1Person: "1 personne",

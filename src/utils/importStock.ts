@@ -50,6 +50,9 @@ const H = {
   klubbCom: "Klubb.com",
   klubbFrance: "Klubb France",
   lot: "LOT",
+  // Colonnes ajoutées au VOG en août 2026
+  dispo: "Disponibilté", // (orthographe du fichier — « Disponibilité » accepté aussi)
+  montantExpertise: "Montant expertise VO (€)",
   // ⚠ « Machinery Zone » volontairement ABSENTE : colonne exclue de l'import.
 };
 
@@ -81,6 +84,8 @@ export interface ParsedStockMachine {
   prix_fr?: number;
   date_prix_vog?: string;
   vr_vnc?: number; // 💶 sensible : affichage réservé aux admins
+  disponibilite_vog?: string; // Disponibilité déclarée dans le VOG (OK / en location / à vérifier…)
+  montant_expertise_vog?: number; // 💶 Montant d'expertise saisi dans le VOG
   diffusion?: {
     mascus?: string;
     viamobilis?: string;
@@ -276,6 +281,8 @@ export async function parseStockExcel(file: File): Promise<StockParseResult> {
       prix_fr: toNum(col(row, H.prix)),
       date_prix_vog: dateStr(col(row, H.datePrix)) || undefined,
       vr_vnc: toNum(col(row, H.vrVnc)),
+      disponibilite_vog: (str(col(row, H.dispo)) || str(col(row, "Disponibilité"))) || undefined,
+      montant_expertise_vog: toNum(col(row, H.montantExpertise)),
       diffusion: Object.keys(diffusion).length ? diffusion : undefined,
       source: occasion ? `occasion ${occasion} (${immat || dossier})` : (immat ? `immat ${immat}` : `dossier ${dossier}`),
       avertissements: avert,

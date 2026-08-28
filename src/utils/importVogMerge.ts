@@ -40,6 +40,8 @@ const REFRESH_FIELDS: [keyof ParsedStockMachine, string, string][] = [
   ["km_note", "km_note", "Mention KM"],
   ["heures_note", "heures_note", "Mention heures"],
   ["vr_vnc", "vr_vnc", "VR/VNC"],
+  ["disponibilite_vog", "disponibilite_vog", "Disponibilité (VOG)"],
+  ["montant_expertise_vog", "montant_expertise_vog", "Montant expertise (VOG)"],
 ];
 
 export interface VogUpdateResult {
@@ -82,11 +84,29 @@ export function computeVogUpdates(existing: Machine, p: ParsedStockMachine): Vog
       updates[fsKey] = val;
       if (fsKey === "numero_occasion") changes.push(`🏷️ N° occasion : ${val}`);
       else if (fsKey === "vr_vnc") changes.push(`VR/VNC : ${eur(Number(val))}`);
+      else if (fsKey === "montant_expertise_vog") changes.push(`💶 montant expertise (VOG) : ${eur(Number(val))}`);
+      else if (fsKey === "disponibilite_vog" && !/^ok$/i.test(String(val).trim())) changes.push(`⚠ disponibilité (VOG) : ${val}`);
       else if (["numero_dossier", "proprietaire", "numero_cube"].includes(fsKey)) changes.push(`${label} : ${val}`);
       // autres champs administratifs : mis à jour sans encombrer le rapport
     }
   }
   if (p.diffusion) updates.diffusion = p.diffusion;
+
+  // ── 💶 Montant expertise du VOG → chiffrage de la machine, UNIQUEMENT si le
+  // chiffrage actuel est vide ou à 0 € : le détail poste par poste venant de
+  // Nacelle Expert prime toujours sur un montant global saisi dans le VOG.
+  if (
+    p.montant_expertise_vog != null &&
+    p.montant_expertise_vog > 0 &&
+    !(((existing.rapport_expertise?.total_retenue_ht) ?? 0) > 0)
+  ) {
+    updates.rapport_expertise = {
+      ...(existing.rapport_expertise || { degats: [] }),
+      total_retenue_ht: p.montant_expertise_vog,
+    };
+    updates.chiffrage_corrige = { mode: "import_vog", par: "Import VOG", date: new Date().toISOString() };
+    changes.push(`💶 chiffrage expertise posé : ${eur(p.montant_expertise_vog)} (montant VOG)`);
+  }
 
   // ── 📍 Localité : le fichier reflète le stock ACTUEL -> rafraîchie,
   // mais uniquement pour les machines encore en stock (jamais en prépa/vendues)
@@ -98,18 +118,41 @@ export function computeVogUpdates(existing: Machine, p: ParsedStockMachine): Vog
   // ✅ Marqueur : cette machine est dans le stock VOG.
   updates.import_vog = true;
 
+  // 🚚 DISPONIBILITÉ DU FICHIER (validé avec Jonathan) : seules les lignes
+  // « OK » sont à la vente. Tout le reste (LOC …, PRET …, VENTE …, à
+  // vérifier, fin de loc…) est HORS VENTE : la machine passe « louée » et
+  // reviendra en Disponibles quand le fichier la remettra à OK (ou par sa
+  // restitution). Colonne absente (anciens fichiers) → comportement inchangé.
+  const horsVente =
+    p.disponibilite_vog != null &&
+    p.disponibilite_vog.trim() !== "" &&
+    !/^ok$/i.test(p.disponibilite_vog.trim());
+  const dispoOK =
+    p.disponibilite_vog != null && /^ok$/i.test(p.disponibilite_vog.trim());
+
   // Machines du VOG « à vendre » encore en cycle -> repassent disponibles.
-  // On ne touche PAS aux machines en prépa / louées / vendues.
+  // On ne touche PAS aux machines en prépa / vendues.
   // ⚠ Ni aux RESTITUTIONS EN COURS : le fichier du parc (format VOG) circule
   // compta → ADV → PDG et les contient pour l'attribution des N° occasion —
   // son réimport ne doit JAMAIS clore leur facturation de frais.
   const restitutionEnCours =
     existing.statut === "restitution" && !(existing.facture_ok && existing.facture_reglee_ok);
   if (enStock && !restitutionEnCours) {
-    if (existing.statut !== "disponible") changes.push("statut : disponible (stock VOG)");
+    if (horsVente) {
+      updates.statut = "louee_lld";
+      changes.push(`🚚 hors vente (VOG : ${p.disponibilite_vog!.trim()}) → louée`);
+    } else {
+      if (existing.statut !== "disponible") changes.push("statut : disponible (stock VOG)");
+      updates.statut = "disponible";
+      updates.fiche_vo_creee = true;
+      updates.facture_reglee_ok = true;
+    }
+  } else if (existing.statut === "louee_lld" && dispoOK) {
+    // 🔁 Le fichier remet la machine à OK : elle revient en vente.
     updates.statut = "disponible";
     updates.fiche_vo_creee = true;
     updates.facture_reglee_ok = true;
+    changes.push("statut : disponible (le VOG la remet à OK)");
   }
 
   return { updates, changes };
@@ -118,12 +161,18 @@ export function computeVogUpdates(existing: Machine, p: ParsedStockMachine): Vog
 /** Document Firestore pour une machine ABSENTE de Delta VO (création) */
 export function buildNewVogDoc(p: ParsedStockMachine): Record<string, any> {
   const now = new Date().toISOString();
+  const horsVenteNew =
+    p.disponibilite_vog != null &&
+    p.disponibilite_vog.trim() !== "" &&
+    !/^ok$/i.test(p.disponibilite_vog.trim());
   const doc: Record<string, any> = {
     immat: p.immat || p.docId,
     modele: p.modele_porteur,
     type_nacelle: p.type_nacelle,
     annee_fab: p.annee_circulation,
-    statut: "disponible",
+    // 🚚 Ligne non « OK » (location, prêt, vente en cours, à vérifier) :
+    // créée HORS VENTE — elle passera disponible quand le fichier dira OK.
+    statut: horsVenteNew ? "louee_lld" : "disponible",
     import_vog: true,
     recuperation_ok: true,
     expertise_ok: true,
@@ -156,9 +205,16 @@ export function buildNewVogDoc(p: ParsedStockMachine): Record<string, any> {
     [p.date_prix_vog, "date_prix_vog"],
     [p.vr_vnc, "vr_vnc"],
     [p.diffusion, "diffusion"],
+    [p.disponibilite_vog, "disponibilite_vog"],
+    [p.montant_expertise_vog, "montant_expertise_vog"],
   ];
   for (const [val, key] of optional) {
     if (val !== undefined && val !== null && val !== "") doc[key] = val;
+  }
+  // 💶 Machine créée avec un montant d'expertise VOG → chiffrage initialisé
+  if (p.montant_expertise_vog != null && p.montant_expertise_vog > 0) {
+    doc.rapport_expertise = { degats: [], total_retenue_ht: p.montant_expertise_vog };
+    doc.chiffrage_corrige = { mode: "import_vog", par: "Import VOG", date: now };
   }
   return doc;
 }

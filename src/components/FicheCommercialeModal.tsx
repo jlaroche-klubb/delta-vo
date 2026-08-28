@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Machine, FicheCommerciale } from "../types/machine";
 import { useTranslation } from "react-i18next";
+import { useMachines } from "../contexts/MachinesContext";
+import { normalizeTypeNacelle } from "../utils/nacelles";
 
 interface FicheCommercialeModalProps {
   machine: Machine;
@@ -14,13 +16,41 @@ export default function FicheCommercialeModal({
   onSave,
 }: FicheCommercialeModalProps) {
   const { t } = useTranslation();
+  const { machines } = useMachines();
   const existing = machine.fiche_commerciale || {};
 
+  // 🔗 PRÉREMPLISSAGE hauteur/déport (validé avec Jonathan) : ces valeurs
+  // dépendent du TYPE de nacelle. Si la fiche n'en a pas encore, on reprend
+  // celles de la fiche VO la plus récente du même type déjà dans la base
+  // (aucune table à maintenir : la référence s'enrichit toute seule).
+  // Les champs restent modifiables — une variante machine peut différer.
+  let modeleRef: Machine | null = null;
+  if (!existing.hauteur_travail_m || !existing.deport_travail_m) {
+    const typeCible = normalizeTypeNacelle(machine.type_nacelle || "");
+    if (typeCible && typeCible !== "Sans nacelle") {
+      modeleRef =
+        machines
+          .filter(
+            (m) =>
+              m.id !== machine.id &&
+              normalizeTypeNacelle(m.type_nacelle || "") === typeCible &&
+              (m.fiche_commerciale?.hauteur_travail_m ?? 0) > 0 &&
+              (m.fiche_commerciale?.deport_travail_m ?? 0) > 0
+          )
+          .sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")))[0] || null;
+    }
+  }
+  const refFiche = modeleRef?.fiche_commerciale;
+
   const [hauteur, setHauteur] = useState<string>(
-    existing.hauteur_travail_m?.toString() || ""
+    existing.hauteur_travail_m?.toString() ||
+      refFiche?.hauteur_travail_m?.toString() ||
+      ""
   );
   const [deport, setDeport] = useState<string>(
-    existing.deport_travail_m?.toString() || ""
+    existing.deport_travail_m?.toString() ||
+      refFiche?.deport_travail_m?.toString() ||
+      ""
   );
   const [nbPersonnes, setNbPersonnes] = useState<number>(
     existing.nb_personnes_panier || 1
@@ -137,6 +167,14 @@ export default function FicheCommercialeModal({
                 />
               </div>
             </div>
+            {modeleRef && (
+              <div style={{ fontSize: 11, color: "#7a7f92", marginTop: 2 }}>
+                ↳ {t("modals.fichePrefill", {
+                  type: normalizeTypeNacelle(machine.type_nacelle || ""),
+                  immat: modeleRef.immat,
+                })}
+              </div>
+            )}
             <div className="fiche-field">
               <label>
                 {t("modals.fichePersons")} <span className="required">*</span>

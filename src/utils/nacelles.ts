@@ -79,7 +79,8 @@ export function normalizeTypeNacelle(raw?: string | null): string {
  * AUCUNE page de vente, quel que soit le statut interne de la machine
  * (y compris une fiche restitution encore ouverte pour sa facturation).
  */
-export function horsVenteVog(m: { disponibilite_vog?: string }): boolean {
+export function horsVenteVog(m: { disponibilite_vog?: string; hors_vente_manuel?: boolean }): boolean {
+  if (m.hors_vente_manuel === true) return true; // 🚚 retrait manuel super admin : prioritaire
   const d = (m.disponibilite_vog || "").trim();
   return d !== "" && !/^ok$/i.test(d);
 }

@@ -91,15 +91,22 @@ export default function RestitutionsPage() {
   // === Filtrage par statut restitution puis search + filtres avancés ===
   // ⚠️ Les machines issues de l'import du stock VOG (import_vog) sont du STOCK :
   // elles ne doivent JAMAIS apparaître ici, quels que soient leurs autres indicateurs.
+  // ⚠ Le marqueur import_vog n'exclut PLUS d'office : le fichier du parc
+  // contient AUSSI les restitutions en cours (attribution des n° occasion),
+  // et son import marquait donc toutes les fiches → page vidée. Ce sont le
+  // statut et l'état de facturation qui décident, rien d'autre.
   const restitutionMachines = useMemo(
     () => allMachines.filter((m) =>
-      !m.import_vog &&
       (m.statut === "restitution" ||
         // ✅ Une machine passée EN PRÉPARATION reste visible ici tant que la
         // facturation de sa remise en état n'est pas réglée (validé avec
         // Jonathan) — même si son expertise NE n'est pas encore arrivée.
         (m.statut === "en_cours" && !m.facture_reglee_ok) ||
-        (m.expertise_recue && !m.facture_reglee_ok))
+        // Machines parties plus loin (clôturée, louée…) avec une facturation
+        // de remise en état non soldée. Les « disponible » sont exclues : le
+        // stock VOG est réglé par construction, et une restitution non soldée
+        // ne peut pas repasser disponible (protection de l'import).
+        (m.statut !== "disponible" && m.expertise_recue && !m.facture_reglee_ok))
     ),
     [allMachines]
   );
@@ -108,7 +115,7 @@ export default function RestitutionsPage() {
   const totalArchived = useMemo(
     () =>
       allMachinesUnfiltered.filter(
-        (m) => m.archived && (m.statut === "restitution" || (m.statut === "en_cours" && !m.facture_reglee_ok) || (m.expertise_recue && !m.facture_reglee_ok))
+        (m) => m.archived && (m.statut === "restitution" || (m.statut === "en_cours" && !m.facture_reglee_ok) || (m.statut !== "disponible" && m.expertise_recue && !m.facture_reglee_ok))
       ).length,
     [allMachinesUnfiltered]
   );

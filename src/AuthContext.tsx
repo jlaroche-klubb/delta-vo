@@ -12,6 +12,12 @@ interface AuthContextType {
   loading: boolean;
   login: () => Promise<void>;
   logout: () => Promise<void>;
+  // 👁 MODE VENDEUR (démonstrations) : le super admin voit le site exactement
+  // comme un vendeur France. Bascule locale à l'onglet, aucun impact en base.
+  demoVendeur: boolean;
+  setDemoVendeur: (on: boolean) => void;
+  /** Profil réel, non déguisé (pour afficher le bouton de sortie du mode) */
+  realProfile: UserProfile | null;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -20,6 +26,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  // 👁 Mode vendeur (démo) — mémorisé par onglet : survit au F5 pendant la
+  // démonstration, disparaît à la fermeture de l'onglet.
+  const [demoVendeur, setDemoVendeurState] = useState<boolean>(() => {
+    try { return sessionStorage.getItem("demo_vendeur") === "1"; } catch { return false; }
+  });
+  function setDemoVendeur(on: boolean) {
+    setDemoVendeurState(on);
+    try {
+      if (on) sessionStorage.setItem("demo_vendeur", "1");
+      else sessionStorage.removeItem("demo_vendeur");
+    } catch { /* stockage indisponible : le mode reste actif pour la session React */ }
+  }
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -135,8 +153,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await signOut(auth);
   }
 
+  // 👁 Le déguisement ne s'applique QU'AU super admin : pour tout autre rôle
+  // le mode est ignoré (et donc sans effet même si le flag traînait).
+  const effectiveProfile =
+    demoVendeur && profile?.role === "superadmin"
+      ? ({ ...profile, role: "vendeur_fr" } as UserProfile)
+      : profile;
+
   return (
-    <AuthContext.Provider value={{ user, profile, loading, login, logout }}>
+    <AuthContext.Provider
+      value={{ user, profile: effectiveProfile, loading, login, logout, demoVendeur, setDemoVendeur, realProfile: profile }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -31,7 +31,7 @@ const FAKE_PROFILE = {
 type Page = "restitutions" | "disponibles" | "export" | "encours" | "cloturees" | "stats" | "admin";
 
 function AppContent() {
-  const { user, profile, loading, logout } = useAuth();
+  const { user, profile, loading, logout, demoVendeur, setDemoVendeur, realProfile } = useAuth();
   const { t } = useTranslation();
   const [page, setPage] = useState<Page>("restitutions");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -97,6 +97,27 @@ function AppContent() {
     <div className="app">
       {/* 🔄 Bandeau « nouvelle version » — onglets restés ouverts longtemps */}
       <UpdateBanner />
+      {/* 👁 Rappel : mode vendeur (démo) actif */}
+      {demoVendeur && realProfile?.role === "superadmin" && (
+        <div
+          style={{
+            background: "#e8a13a",
+            color: "#1a2a6e",
+            textAlign: "center",
+            fontSize: 12,
+            fontWeight: 700,
+            padding: "4px 8px",
+          }}
+        >
+          👁 Mode vendeur (démonstration) — vous voyez le site comme un vendeur France.{" "}
+          <button
+            onClick={() => setDemoVendeur(false)}
+            style={{ border: "none", background: "transparent", color: "#1a2a6e", textDecoration: "underline", cursor: "pointer", fontSize: 12, fontWeight: 700 }}
+          >
+            Revenir en super admin
+          </button>
+        </div>
+      )}
       <header className="app-header">
         <div className="brand">
           <Logo showSubtitle={true} />
@@ -118,6 +139,26 @@ function AppContent() {
 
         {/* USER INFO DESKTOP */}
         <div className="user-info">
+          {/* 👁 Mode vendeur (démonstrations) — réservé au super admin RÉEL */}
+          {realProfile?.role === "superadmin" && (
+            <button
+              onClick={() => setDemoVendeur(!demoVendeur)}
+              title={demoVendeur ? "Revenir en super admin" : "Voir le site comme un vendeur (démonstration)"}
+              style={{
+                border: "1px solid " + (demoVendeur ? "#e8a13a" : "rgba(255,255,255,.4)"),
+                background: demoVendeur ? "#e8a13a" : "transparent",
+                color: demoVendeur ? "#1a2a6e" : "#fff",
+                padding: "4px 10px",
+                borderRadius: 5,
+                cursor: "pointer",
+                fontSize: 12,
+                fontWeight: 700,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {demoVendeur ? "👁 Quitter le mode vendeur" : "👁 Mode vendeur"}
+            </button>
+          )}
           <span>👤 {userName}</span>
           <span className="role-badge">{userRole}</span>
           <LanguageSwitcher />
@@ -172,6 +213,14 @@ function AppContent() {
             <div className="drawer-user">
               <div className="drawer-user-name">👤 {userName}</div>
               <span className="role-badge">{userRole}</span>
+              {realProfile?.role === "superadmin" && (
+                <button
+                  onClick={() => setDemoVendeur(!demoVendeur)}
+                  style={{ marginTop: 10, border: "1px solid #e8a13a", background: demoVendeur ? "#e8a13a" : "transparent", color: demoVendeur ? "#1a2a6e" : "#e8a13a", padding: "6px 10px", borderRadius: 5, cursor: "pointer", fontSize: 12, fontWeight: 700 }}
+                >
+                  {demoVendeur ? "👁 Quitter le mode vendeur" : "👁 Mode vendeur"}
+                </button>
+              )}
               <div style={{ marginTop: 12 }}><LanguageSwitcher /></div>
               {DEV_MODE && <span className="dev-badge" style={{ marginTop: 8 }}>DEV MODE</span>}
               {!DEV_MODE && (

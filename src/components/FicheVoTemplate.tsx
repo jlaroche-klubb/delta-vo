@@ -20,7 +20,9 @@ export default function FicheVoTemplate({
 }: FicheVoTemplateProps) {
   const { t, i18n } = useTranslation();
   const isEn = i18n.language?.startsWith("en");
-  const numLocale = isEn ? "en-GB" : "fr-FR";
+  const isEs = i18n.language?.startsWith("es");
+  // Format des nombres selon la langue de la fiche (es-ES : 1.234,56)
+  const numLocale = isEn ? "en-GB" : isEs ? "es-ES" : "fr-FR";
   const dec = (v: number | string) =>
     isEn ? v.toString() : v.toString().replace(".", ",");
 

@@ -9,6 +9,7 @@ const en: TranslationSchema = {
   lang: {
     fr: "FR",
     en: "EN",
+    es: "ES",
   },
   nav: {
     restitutions: "Returns",

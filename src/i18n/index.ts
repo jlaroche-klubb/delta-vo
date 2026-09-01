@@ -1,20 +1,21 @@
 // Configuration i18n (react-i18next).
-// Langue par défaut : français. Langues supportées : fr, en.
+// Langue par défaut : français. Langues supportées : fr, en, es.
 // La langue choisie est mémorisée dans localStorage (instantané) et, pour les
 // utilisateurs connectés, dans leur profil Firestore (cf. LanguageSwitcher).
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import fr from "./locales/fr";
 import en from "./locales/en";
+import es from "./locales/es";
 
-export const SUPPORTED_LANGS = ["fr", "en"] as const;
+export const SUPPORTED_LANGS = ["fr", "en", "es"] as const;
 export type AppLang = (typeof SUPPORTED_LANGS)[number];
 export const LANG_STORAGE_KEY = "delta_lang";
 
 function initialLang(): AppLang {
   try {
     const stored = localStorage.getItem(LANG_STORAGE_KEY);
-    if (stored === "fr" || stored === "en") return stored;
+    if (stored === "fr" || stored === "en" || stored === "es") return stored;
   } catch {
     /* localStorage indisponible : on retombe sur le défaut */
   }
@@ -25,6 +26,7 @@ i18n.use(initReactI18next).init({
   resources: {
     fr: { translation: fr },
     en: { translation: en },
+    es: { translation: es },
   },
   lng: initialLang(),
   fallbackLng: "fr",

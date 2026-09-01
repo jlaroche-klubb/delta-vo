@@ -8,6 +8,7 @@ const fr = {
   lang: {
     fr: "FR",
     en: "EN",
+    es: "ES",
   },
   nav: {
     restitutions: "Restitutions",

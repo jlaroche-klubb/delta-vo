@@ -5,7 +5,7 @@ export interface UserProfile {
   nom: string;
   prenom: string;
   role: UserRole;
-  lang?: "fr" | "en";          // langue d'interface préférée
+  lang?: "fr" | "en" | "es";  // langue d'interface préférée
   phone?: string;                  // NOUVEAU v5 : pour fiches VO
   activatedAt?: string;
   createdAt: string;

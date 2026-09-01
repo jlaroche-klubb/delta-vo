@@ -3,7 +3,7 @@
 const es = {
   common: {
     loading: "Cargando…",
-    logout: "Cerrar sesión",
+    logout: "Salir",
   },
   lang: {
     fr: "FR",
@@ -11,12 +11,15 @@ const es = {
     es: "ES",
   },
   nav: {
+    // ⚠ Libellés volontairement COURTS : le bandeau doit tenir sur une seule
+    // ligne comme en FR/EN (« Exportación » / « Estadísticas » faisaient
+    // passer la barre sur deux lignes).
     restitutions: "Devoluciones",
     disponibles: "Disponibles",
-    export: "Exportación",
-    encours: "En preparación",
+    export: "Export",
+    encours: "Preparación",
     cloturees: "Cerradas",
-    stats: "Estadísticas",
+    stats: "Stats",
     admin: "Admin",
   },
   fiche: {

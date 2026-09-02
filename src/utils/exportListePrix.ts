@@ -32,6 +32,9 @@ export function exportListePrix(machines: Machine[], userRole: UserRole) {
       // 🏷️ Document exportable : N° occasion à la place de l'immatriculation
       // (règle PDG : pas d'immat sur ce qui peut partir à l'extérieur)
       "N° occasion": m.numero_occasion || "",
+      // 🗂 N° de dossier Delta / KLUBB France (D02101…) — identifiant interne
+      // demandé par les vendeurs pour retrouver la machine dans les autres outils
+      "N° dossier": m.numero_dossier || "",
       "Type nacelle": m.type_nacelle || "",
       "Modèle porteur": m.modele_porteur || "",
       "Mise en circulation": m.annee_circulation || "",
@@ -61,7 +64,8 @@ export function exportListePrix(machines: Machine[], userRole: UserRole) {
 
   // Largeurs colonnes
   const colWidths = [
-    { wch: 15 }, // Immat
+    { wch: 12 }, // N° occasion
+    { wch: 12 }, // N° dossier
     { wch: 12 }, // Type nacelle
     { wch: 20 }, // Modèle porteur
     { wch: 15 }, // Mise en circulation

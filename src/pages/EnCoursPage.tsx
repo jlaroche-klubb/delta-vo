@@ -19,6 +19,7 @@ import EnCoursFilters, {
   applyEnCoursFilters,
 } from "../components/EnCoursFilters";
 import { canEditEtapesPreparation } from "../utils/permissions";
+import { notifierPreparateurs } from "../services/preparationNotify";
 
 interface EnCoursPageProps {
   userRole: string;
@@ -162,6 +163,21 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
       config.contrat,
       config.email_client
     );
+    // 📧 Notification automatique aux préparateurs du site (validé Jonathan) —
+    // best-effort : n'interrompt jamais la mise en préparation.
+    if (m) {
+      notifierPreparateurs(m, config, userName).then((r) => {
+        if (r.status === "envoye") {
+          alert(t("notifPrepa.envoye", { count: r.to.length, site: r.site, immat: m.immat }));
+        } else if (r.status === "sans_destinataire") {
+          alert(t("notifPrepa.sansDestinataire", { site: r.site, immat: m.immat }));
+        } else if (r.status === "sans_site") {
+          alert(t("notifPrepa.sansSite", { immat: m.immat }));
+        } else {
+          alert(t("notifPrepa.erreur", { immat: m.immat, message: r.message }));
+        }
+      });
+    }
   }
 
   function handleCancel(machineId: string) {

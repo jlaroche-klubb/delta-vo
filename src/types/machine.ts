@@ -146,6 +146,8 @@ export interface Machine {
   agent_expertise?: string;
   // 💶 Trace de l'outil super admin « chiffrage à zéro » (rattrapage ponctuel)
   chiffrage_corrige?: { mode: "manuel" | "recalcul" | "import_vog"; par: string; date: string };
+  /** 📧 Trace de la notification envoyée aux préparateurs du site à la mise en préparation */
+  notif_prepa?: { date: string; to: string[]; site: string; par: string };
   rapport_expertise?: RapportExpertise;
 
   // ─── Nouvelle base VOG (import « Liste complète ») ───

@@ -5,6 +5,26 @@ export type MachineStatut =
   | "cloturee"
   | "louee_lld";
 
+// 📊 Étude de marché IA (validée avec Jonathan) : annonces comparables et
+// fourchette indicative — reprise dans l'Export Pricing PDG. Super admin only.
+export interface EtudeMarche {
+  date: string;
+  par?: string;
+  fourchette_basse?: number;
+  fourchette_haute?: number;
+  mediane?: number;
+  nb_annonces?: number;
+  commentaire?: string;
+  annonces?: {
+    titre?: string;
+    prix_eur?: number | null;
+    annee?: string;
+    heures?: string;
+    site?: string;
+    url?: string;
+  }[];
+}
+
 export type TypePrepa = "normale" | "en_etat";
 export type TypeSortie = "vente" | "lld";
 export type StatutPaiement = "en_attente" | "payee" | "retard";
@@ -235,6 +255,8 @@ export interface Machine {
 
   date_facturation?: string;
   numero_facture?: string;
+  /** 📊 Étude de marché IA (super admin) — fourchette indicative pour le PDG */
+  etude_marche?: EtudeMarche;
   // 🧾 Facture de REMISE EN ÉTAT (onglet Restitutions) — champs séparés de la
   // facture de vente pour ne pas être écrasés si la machine est vendue ensuite
   facture_resti_numero?: string;

@@ -22,6 +22,7 @@ import ExpertiseModal from "../components/ExpertiseModal";
 import NacelleExpertModal from "../components/NacelleExpertModal";
 import PhotosModal from "../components/PhotosModal";
 import InternalPhotosModal from "../components/InternalPhotosModal";
+import EtudeMarcheModal from "../components/EtudeMarcheModal";
 import FicheVoTemplate from "../components/FicheVoTemplate";
 import DisponiblesFilters, {
   DispoFilterState,
@@ -52,6 +53,7 @@ import {
 } from "../utils/permissions";
 import { useAuth } from "../AuthContext";
 import RecalculChiffrageTous from "../components/RecalculChiffrageTous";
+import EtudeMarcheTous from "../components/EtudeMarcheTous";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
 
@@ -90,6 +92,7 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
     updateFicheCommerciale,
     updatePhotosSupplementaires,
     updatePhotosInternes,
+    enregistrerEtudeMarche,
     updateShareToken,
     updateLocalite,
     attribuerNumeroFiche,
@@ -115,7 +118,8 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
   const [expertiseMachine, setExpertiseMachine] = useState<Machine | null>(null);
   const [neMachine, setNeMachine] = useState<Machine | null>(null);
   const [photosMachine, setPhotosMachine] = useState<Machine | null>(null);
-  const [internalPhotosMachine, setInternalPhotosMachine] = useState<Machine | null>(null); // 🔒 super admin
+  const [internalPhotosMachine, setInternalPhotosMachine] = useState<Machine | null>(null);
+  const [etudeMachine, setEtudeMachine] = useState<Machine | null>(null); // 🔒 super admin
   const [phoneSetupOpen, setPhoneSetupOpen] = useState(false);
   const [pendingGenerate, setPendingGenerate] = useState<Machine | null>(null);
   const [choixPrixMachine, setChoixPrixMachine] = useState<Machine | null>(null);
@@ -707,6 +711,9 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
         {/* 💶 Rattrapage global des chiffrages à 0 (super admin) */}
         <RecalculChiffrageTous />
 
+        {/* 📊 Étude de marché IA sur toutes les machines en vente (super admin) */}
+        <EtudeMarcheTous machines={baseDispo} />
+
         {isSuperAdminUser && (
           <button
             className="btn-import"
@@ -818,6 +825,8 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
                 canManagePhotos={canManagePhotos}
                 onManagePhotos={setPhotosMachine}
                 canInternalPhotos={isSuperAdminUser}
+                canEtudeMarche={isSuperAdminUser}
+                onEtudeMarche={setEtudeMachine}
                 onInternalPhotos={setInternalPhotosMachine}
                 canDelete={canDeleteMachine(userRole as any)}
                 onDelete={handleDeleteMachine}
@@ -861,6 +870,8 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
                 canManagePhotos={canManagePhotos}
                 onManagePhotos={setPhotosMachine}
                 canInternalPhotos={isSuperAdminUser}
+                canEtudeMarche={isSuperAdminUser}
+                onEtudeMarche={setEtudeMachine}
                 onInternalPhotos={setInternalPhotosMachine}
                 canDelete={canDeleteMachine(userRole as any)}
                 onDelete={handleDeleteMachine}
@@ -898,6 +909,8 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
                 canManagePhotos={canManagePhotos}
                 onManagePhotos={setPhotosMachine}
                 canInternalPhotos={isSuperAdminUser}
+                canEtudeMarche={isSuperAdminUser}
+                onEtudeMarche={setEtudeMachine}
                 onInternalPhotos={setInternalPhotosMachine}
                 canDelete={canDeleteMachine(userRole as any)}
                 onDelete={handleDeleteMachine}
@@ -1014,6 +1027,15 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
           onClose={() => setPhotosMachine(null)}
           onSave={handleSavePhotos}
           onShareTokenChange={updateShareToken}
+        />
+      )}
+
+      {etudeMachine && (
+        <EtudeMarcheModal
+          machine={etudeMachine}
+          userName={userName}
+          onClose={() => setEtudeMachine(null)}
+          onSave={enregistrerEtudeMarche}
         />
       )}
 

@@ -24,6 +24,8 @@ interface DisponibleCardProps {
   onManagePhotos?: (machine: Machine) => void;
   canInternalPhotos?: boolean; // 🔒 super admin uniquement
   onInternalPhotos?: (machine: Machine) => void;
+  canEtudeMarche?: boolean; // 📊 super admin uniquement (rien pour les vendeurs)
+  onEtudeMarche?: (machine: Machine) => void;
   canDelete?: boolean;
   onDelete?: (id: string) => void;
   // ✅ Offre HubSpot
@@ -53,6 +55,8 @@ export default function DisponibleCard({
   onManagePhotos,
   canInternalPhotos = false,
   onInternalPhotos,
+  canEtudeMarche = false,
+  onEtudeMarche,
   canDelete = false,
   onDelete,
   canOffre = false,
@@ -231,6 +235,18 @@ export default function DisponibleCard({
                 📸 {t("card.photos")}
                 {machine.photos_supplementaires && machine.photos_supplementaires.length > 0
                   ? ` (${machine.photos_supplementaires.length})`
+                  : ""}
+              </button>
+            )}
+            {canEtudeMarche && onEtudeMarche && (
+              <button
+                className="btn-fiche-edit"
+                onClick={() => onEtudeMarche(machine)}
+                title={t("card.etudeTitle")}
+              >
+                📊 {t("card.etude")}
+                {machine.etude_marche?.mediane
+                  ? ` (${Math.round(machine.etude_marche.mediane / 1000)} k€)`
                   : ""}
               </button>
             )}

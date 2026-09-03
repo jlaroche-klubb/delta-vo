@@ -121,6 +121,7 @@ interface MachinesContextType {
   ) => void;
   marquerPayee: (machineId: string, dateReglement: string) => void;
   marquerLivree: (machineId: string, par: string) => void;
+  enregistrerEtudeMarche: (machineId: string, etude: any) => void;
   facturerRestitution: (
     machineId: string,
     numeroFacture: string,
@@ -403,6 +404,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             // ✅ Champs de facturation
             numero_facture: data.numero_facture || undefined,
             livraison_reelle: data.livraison_reelle || undefined,
+            etude_marche: data.etude_marche || undefined,
             depart_constate_ne: data.depart_constate_ne || undefined,
             depart_constate_agent: data.depart_constate_agent || undefined,
             facture_resti_numero: data.facture_resti_numero || undefined,
@@ -1293,6 +1295,23 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // 📊 ÉTUDE DE MARCHÉ IA (super admin) : enregistrée sur la machine,
+  // reprise dans l'Export Pricing PDG.
+  async function enregistrerEtudeMarche(machineId: string, etude: any) {
+    const updates = { etude_marche: etude, updatedAt: new Date().toISOString() };
+    if (isFirebaseMachine(machineId)) {
+      try {
+        await updateDoc(doc(db, "machines_vo", machineId), updates);
+      } catch (err) {
+        console.error("❌ Erreur enregistrerEtudeMarche:", err);
+      }
+    } else {
+      setMockMachines((prev) =>
+        prev.map((m) => (m.id === machineId ? { ...m, ...updates } : m))
+      );
+    }
+  }
+
   // 🚚 LIVRAISON RÉELLE d'une VENTE (validé avec Jonathan) : cochée par
   // l'ADV quand le camion part — éteint l'alerte « retard de livraison ».
   async function marquerLivree(machineId: string, par: string) {
@@ -1763,6 +1782,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       marquerFacturee,
       marquerPayee,
       marquerLivree,
+      enregistrerEtudeMarche,
       facturerRestitution,
       annulerFacturationRestitution,
       annulerCloture,

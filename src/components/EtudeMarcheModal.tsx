@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Machine, EtudeMarche } from "../types/machine";
 import { useTranslation } from "react-i18next";
+import { lancerEtudeMarche } from "../services/etudeMarcheService";
 
 // 📊 ÉTUDE DE MARCHÉ IA — SUPER ADMIN UNIQUEMENT (validé avec Jonathan).
 // Recherche web des annonces comparables (MachineryZone, Truckscorner,
@@ -33,32 +34,7 @@ export default function EtudeMarcheModal({
     setBusy(true);
     setError(null);
     try {
-      const fc = machine.fiche_commerciale || {};
-      const resp = await fetch("/api/etude-marche", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type_nacelle: machine.type_nacelle || "",
-          modele_porteur: machine.modele_porteur || "",
-          annee: machine.annee_circulation || "",
-          heures: machine.heures_nacelle ?? "",
-          km: machine.km_porteur ?? "",
-          hauteur: fc.hauteur_travail_m ?? "",
-          deport: fc.deport_travail_m ?? "",
-        }),
-      });
-      const data = await resp.json().catch(() => ({}));
-      if (!resp.ok) throw new Error(data?.error || `Erreur ${resp.status}`);
-      const nouvelle: EtudeMarche = {
-        date: new Date().toISOString().slice(0, 10),
-        par: userName,
-        fourchette_basse: data.fourchette_basse ?? undefined,
-        fourchette_haute: data.fourchette_haute ?? undefined,
-        mediane: data.mediane ?? undefined,
-        nb_annonces: data.nb_annonces ?? 0,
-        commentaire: data.commentaire || "",
-        annonces: data.annonces || [],
-      };
+      const nouvelle = await lancerEtudeMarche(machine, userName);
       setEtude(nouvelle);
       onSave(machine.id, nouvelle); // enregistrement immédiat
     } catch (e: any) {
@@ -72,7 +48,7 @@ export default function EtudeMarcheModal({
   return (
     <div
       className="modal-overlay"
-      onClick={(e) => {
+      onMouseDown={(e) => {
         if (e.target === e.currentTarget && !busy) onClose();
       }}
     >

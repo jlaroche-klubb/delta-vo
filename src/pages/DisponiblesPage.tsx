@@ -53,6 +53,7 @@ import {
 } from "../utils/permissions";
 import { useAuth } from "../AuthContext";
 import RecalculChiffrageTous from "../components/RecalculChiffrageTous";
+import EtudeMarcheTous from "../components/EtudeMarcheTous";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
 
@@ -709,6 +710,9 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
 
         {/* 💶 Rattrapage global des chiffrages à 0 (super admin) */}
         <RecalculChiffrageTous />
+
+        {/* 📊 Étude de marché IA sur toutes les machines en vente (super admin) */}
+        <EtudeMarcheTous machines={baseDispo} />
 
         {isSuperAdminUser && (
           <button

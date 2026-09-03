@@ -560,6 +560,7 @@ const fr = {
   },
   modals: {
     cfgEditTitle: "Corriger les informations de vente",
+    cfgSaveEdit: "Enregistrer la correction",
     cancel: "Annuler",
     archive: "Archiver",
     save: "Enregistrer",

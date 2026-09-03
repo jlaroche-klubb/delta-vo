@@ -26,7 +26,7 @@ interface EnCoursPageProps {
 }
 
 export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
-  const { machines, toggleEtapePrepa, setEtapeNonNecessaire, addEtapePrepa, removeEtapePrepa, configureEnCours, cancelEnCours, marquerFacturee, marquerLivree, updateDocumentsVO } = useMachines();
+  const { machines, toggleEtapePrepa, setEtapeNonNecessaire, addEtapePrepa, removeEtapePrepa, configureEnCours, modifierInfosVente, cancelEnCours, marquerFacturee, marquerLivree, updateDocumentsVO } = useMachines();
   const [search, setSearch] = useState("");
   const { t } = useTranslation();
   const [filters, setFilters] = useState<EnCoursFilterState>(EMPTY_ENCOURS_FILTERS);
@@ -138,6 +138,20 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
   }
 
   function handleConfigure(machineId: string, config: ConfigEnCoursPayload) {
+    // ✏️ Machine déjà configurée → simple correction des infos (acheteur,
+    // commercial, dates, contrat/email) sans toucher au type ni aux étapes.
+    const m = machines.find((x) => x.id === machineId);
+    if (m?.type_prepa) {
+      modifierInfosVente(machineId, {
+        acheteur: config.acheteur,
+        commercial_vendeur: config.commercial_vendeur,
+        date_vente: config.date_vente,
+        date_livraison_prevue: config.date_livraison_prevue,
+        contrat: config.contrat,
+        email_client: config.email_client,
+      });
+      return;
+    }
     configureEnCours(
       machineId,
       config.type_prepa,

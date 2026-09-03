@@ -400,6 +400,7 @@ const fr = {
     emptyNone: "Aucune machine en cours",
   },
   encard: {
+    editSaleTitle: "Corriger l'acheteur, le commercial ou les dates (faute de frappe…)",
     buyer: "Acheteur",
     site: "Site",
     lldClient: "Client LLD",
@@ -558,6 +559,7 @@ const fr = {
     tapHint: "Touchez une photo pour l'agrandir et l'enregistrer.",
   },
   modals: {
+    cfgEditTitle: "Corriger les informations de vente",
     cancel: "Annuler",
     archive: "Archiver",
     save: "Enregistrer",

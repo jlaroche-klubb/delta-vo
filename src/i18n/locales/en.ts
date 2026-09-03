@@ -401,6 +401,7 @@ const en: TranslationSchema = {
     emptyNone: "No machine in progress",
   },
   encard: {
+    editSaleTitle: "Fix buyer, salesperson or dates (typo…)",
     buyer: "Buyer",
     site: "Site",
     lldClient: "LLD client",
@@ -559,6 +560,7 @@ const en: TranslationSchema = {
     tapHint: "Tap a photo to enlarge and save it.",
   },
   modals: {
+    cfgEditTitle: "Edit sale details",
     cancel: "Cancel",
     archive: "Archive",
     save: "Save",

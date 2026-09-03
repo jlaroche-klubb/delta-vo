@@ -1236,8 +1236,11 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     infos: { acheteur: string; commercial_vendeur: string; date_vente: string; date_livraison_prevue: string; contrat?: string; email_client?: string }
   ) {
     const now = new Date().toISOString();
+    const m = machines.find((x) => x.id === machineId);
     const updates: Record<string, any> = {
       acheteur: infos.acheteur,
+      // 🚚 Location : la carte affiche client_lld → on le corrige aussi
+      ...(m?.type_sortie === "lld" ? { client_lld: infos.acheteur } : {}),
       commercial_vendeur: infos.commercial_vendeur,
       date_vente: infos.date_vente,
       date_livraison_prevue: infos.date_livraison_prevue,

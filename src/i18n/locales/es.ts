@@ -561,6 +561,7 @@ const es = {
   },
   modals: {
     cfgEditTitle: "Corregir los datos de la venta",
+    cfgSaveEdit: "Guardar la corrección",
     cancel: "Cancelar",
     archive: "Archivar",
     save: "Guardar",

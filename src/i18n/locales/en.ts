@@ -561,6 +561,7 @@ const en: TranslationSchema = {
   },
   modals: {
     cfgEditTitle: "Edit sale details",
+    cfgSaveEdit: "Save changes",
     cancel: "Cancel",
     archive: "Archive",
     save: "Save",

@@ -32,7 +32,10 @@ export default function ConfigEnCoursModal({
   const [typePrepa, setTypePrepa] = useState<TypePrepa>(
     machine.type_prepa || "normale"
   );
-  const [acheteur, setAcheteur] = useState(machine.acheteur || "");
+  // 🚚 Location : le « client » affiché sur la carte est client_lld (pas acheteur)
+  const [acheteur, setAcheteur] = useState(
+    (machine.type_sortie === "lld" ? machine.client_lld || machine.acheteur : machine.acheteur) || ""
+  );
   const [commercial, setCommercial] = useState(machine.commercial_vendeur || "");
   const [dateVente, setDateVente] = useState(
     machine.date_vente || new Date().toISOString().slice(0, 10)
@@ -227,8 +230,8 @@ export default function ConfigEnCoursModal({
             </div>
           </div>
 
-          {/* Récap étapes prépa */}
-          {typePrepa === "normale" && (
+          {/* Récap étapes prépa — pas en mode correction (étapes déjà créées) */}
+          {!modeEdition && typePrepa === "normale" && (
             <div className="config-info-box config-info-box-success">
               <div className="info-icon-large">📋</div>
               <div>
@@ -248,7 +251,7 @@ export default function ConfigEnCoursModal({
             {t("modals.cancel")}
           </button>
           <button className="btn-primary" onClick={handleSave}>
-            {t("modals.cfgConfirm")}
+            {modeEdition ? t("modals.cfgSaveEdit") : t("modals.cfgConfirm")}
           </button>
         </div>
       </div>

@@ -114,6 +114,7 @@ interface MachinesContextType {
     emailClient?: string
   ) => void;
   cancelEnCours: (machineId: string) => void;  // ✅ Annuler mise en préparation
+  modifierInfosVente: (machineId: string, infos: { acheteur: string; commercial_vendeur: string; date_vente: string; date_livraison_prevue: string; contrat?: string; email_client?: string }) => Promise<void>;
   marquerFacturee: (
     machineId: string,
     numeroFacture: string,
@@ -1227,6 +1228,34 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // ✏️ Correction des informations de vente d'une machine DÉJÀ en préparation
+  // (faute de frappe sur l'acheteur, commercial, dates, contrat/email LLD) —
+  // sans toucher au type de préparation ni aux étapes déjà avancées.
+  async function modifierInfosVente(
+    machineId: string,
+    infos: { acheteur: string; commercial_vendeur: string; date_vente: string; date_livraison_prevue: string; contrat?: string; email_client?: string }
+  ) {
+    const now = new Date().toISOString();
+    const updates: Record<string, any> = {
+      acheteur: infos.acheteur,
+      commercial_vendeur: infos.commercial_vendeur,
+      date_vente: infos.date_vente,
+      date_livraison_prevue: infos.date_livraison_prevue,
+      ...(infos.contrat !== undefined ? { contrat: infos.contrat } : {}),
+      ...(infos.email_client !== undefined ? { email_client: infos.email_client } : {}),
+      updatedAt: now,
+    };
+    if (isFirebaseMachine(machineId)) {
+      try {
+        await updateDoc(doc(db, "machines_vo", machineId), updates);
+      } catch (err) {
+        console.error("❌ Erreur modifierInfosVente Firebase:", err);
+      }
+    } else {
+      setMockMachines((prev) => prev.map((m) => (m.id === machineId ? { ...m, ...updates } : m)));
+    }
+  }
+
   async function cancelEnCours(machineId: string) {
     // ✅ Annule la mise en préparation : retour en "disponible"
     const updates = {
@@ -1779,6 +1808,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       enregistrerChiffrageCorrige,
       configureEnCours,
       cancelEnCours,
+      modifierInfosVente,
       marquerFacturee,
       marquerPayee,
       marquerLivree,

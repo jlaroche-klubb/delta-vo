@@ -401,6 +401,7 @@ const es = {
     emptyNone: "Ninguna máquina en curso",
   },
   encard: {
+    editSaleTitle: "Corregir el comprador, el comercial o las fechas (errata…)",
     buyer: "Comprador",
     site: "Centro",
     lldClient: "Cliente LLD",
@@ -559,6 +560,7 @@ const es = {
     tapHint: "Toque una foto para ampliarla y guardarla.",
   },
   modals: {
+    cfgEditTitle: "Corregir los datos de la venta",
     cancel: "Cancelar",
     archive: "Archivar",
     save: "Guardar",

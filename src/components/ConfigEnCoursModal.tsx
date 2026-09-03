@@ -26,6 +26,9 @@ export default function ConfigEnCoursModal({
   onSave,
 }: ConfigEnCoursModalProps) {
   const { t } = useTranslation();
+  // ✏️ Machine déjà configurée → mode CORRECTION (faute de frappe…) : le type
+  // de préparation n'est plus modifiable (les étapes sont en cours).
+  const modeEdition = !!machine.type_prepa;
   const [typePrepa, setTypePrepa] = useState<TypePrepa>(
     machine.type_prepa || "normale"
   );
@@ -87,7 +90,7 @@ export default function ConfigEnCoursModal({
       <div className="modal modal-config">
         <div className="modal-header">
           <div>
-            <h2>{t("modals.cfgTitle")}</h2>
+            <h2>{modeEdition ? `✏️ ${t("modals.cfgEditTitle")}` : t("modals.cfgTitle")}</h2>
             <div className="modal-subtitle">
               {machine.immat} · {machine.type_nacelle} {machine.modele_porteur}
             </div>
@@ -96,7 +99,8 @@ export default function ConfigEnCoursModal({
         </div>
 
         <div className="config-body">
-          {/* Type de prépa */}
+          {/* Type de prépa — figé en mode correction (étapes déjà en cours) */}
+          {!modeEdition && (
           <div className="config-field">
             <label className="config-label-strong">{t("modals.cfgType")}</label>
             <div className="prepa-choice">
@@ -124,6 +128,7 @@ export default function ConfigEnCoursModal({
               </button>
             </div>
           </div>
+          )}
 
           {/* Acheteur */}
           <div className="config-field">

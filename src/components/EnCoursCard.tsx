@@ -224,7 +224,20 @@ export default function EnCoursCard({
           <div className="encours-sale-bar">
             <div className="sale-info">
               <span className="sale-label">{labelAcheteur}</span>
-              <span className="sale-value">{valAcheteur || "—"}</span>
+              <span className="sale-value">
+                {valAcheteur || "—"}
+                {/* ✏️ Correction acheteur / commercial / dates (secrétaire, admin) */}
+                {canConfigure && onConfigure && (
+                  <button
+                    type="button"
+                    onClick={() => onConfigure(machine)}
+                    title={t("encard.editSaleTitle")}
+                    style={{ marginLeft: 8, border: "1px solid #c8cbe0", background: "#fff", color: "#1a2a6e", borderRadius: 4, padding: "1px 7px", fontSize: 12, cursor: "pointer" }}
+                  >
+                    ✏️
+                  </button>
+                )}
+              </span>
             </div>
             {machine.localite && (
               <div className="sale-info">

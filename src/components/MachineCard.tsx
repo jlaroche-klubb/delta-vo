@@ -6,6 +6,7 @@ import ConfirmDeleteModal from "./ConfirmDeleteModal";
 import EditInfosAdminModal from "./EditInfosAdminModal";
 import { useMachines } from "../contexts/MachinesContext";
 import { useAuth } from "../AuthContext";
+import ChiffrageZeroTools from "./ChiffrageZeroTools";
 import { useTranslation } from "react-i18next";
 import { canEditInfosAdmin } from "../utils/permissions";
 import { validerDevisEtEnvoyer } from "../services/devisService";
@@ -313,6 +314,9 @@ export default function MachineCard({
             )}
           </div>
         )}
+
+        {/* 💶 Outil super admin : chiffrage à zéro (rattrapage) */}
+        <ChiffrageZeroTools machine={machine} />
 
         {/* Stepper (caché si archivée) */}
         {!machine.archived && (

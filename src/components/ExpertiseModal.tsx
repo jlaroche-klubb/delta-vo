@@ -14,7 +14,7 @@ export default function ExpertiseModal({ machine, onClose }: ExpertiseModalProps
   return (
     <div
       className="modal-overlay"
-      onClick={(e) => {
+      onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >

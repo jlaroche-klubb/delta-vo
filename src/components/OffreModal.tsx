@@ -39,7 +39,9 @@ export default function OffreModal({ machines, onClose, onConfirm }: OffreModalP
   return (
     <div
       className="modal-overlay"
-      onClick={onClose}
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
       style={{
         position: "fixed",
         top: 0,

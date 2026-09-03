@@ -9,6 +9,7 @@ const en: TranslationSchema = {
   lang: {
     fr: "FR",
     en: "EN",
+    es: "ES",
   },
   nav: {
     restitutions: "Returns",
@@ -262,6 +263,9 @@ const en: TranslationSchema = {
     site: "Location",
     allSites: "All sites",
     blockedAtStep: "Blocked at step",
+    devis: "Workshop quote",
+    devisAll: "All",
+    devisPending: "Awaiting quote",
     allSteps: "All steps",
     stepDemande: "⏳ Pickup request",
     stepRecup: "🚚 Pickup",
@@ -686,6 +690,7 @@ const en: TranslationSchema = {
     ficheTitle: "Complete the commercial sheet",
     ficheSpecs: "Platform specifications",
     ficheHeight: "Working height (m)",
+    fichePrefill: "Height and outreach prefilled from the latest {{type}} sheet ({{immat}}) — editable.",
     ficheOutreach: "Working outreach (m)",
     fichePersons: "Number of people in the basket",
     fiche1Person: "1 person",
@@ -829,6 +834,19 @@ const en: TranslationSchema = {
     deliveryFrom: "Delivery from",
     deliveryTo: "Delivery to",
     reset: "Reset",
+  },
+  chiffrage: {
+    zeroLabel: "Incomplete costing (item at €0)",
+    btnTous: "Recalculate incomplete costings ({{count}})",
+    btnTousTitle: "Re-reads each Nacelle Expert file and applies the current price list to every machine costed at €0",
+    confirmTous: "Recalculate the costing of the {{count}} machine(s) with an incomplete costing — €0 total or at least one item at €0 (Available + Returns) — from their Nacelle Expert survey?\n\nCurrent price list, first bracket for unpriced body items. Machines without a survey or compliant ones are left untouched.",
+    btnRecalc: "Recalculate (survey)",
+    btnSaisir: "Enter amount",
+    aucuneExpertise: "No Nacelle Expert survey found for {{immat}} — use \"Enter amount\".",
+    aucunDegat: "The survey for {{immat}} lists no damage: nothing to price (use \"Enter amount\" if needed).",
+    confirmRecalc: "Recalculate the costing of {{immat}} from the Nacelle Expert survey (current price list, first bracket for unpriced body items):",
+    promptMontant: "Refurbishment amount excl. VAT for {{immat}} (in euros):",
+    montantInvalide: "Invalid amount — enter a positive whole number.",
   },
 };
 

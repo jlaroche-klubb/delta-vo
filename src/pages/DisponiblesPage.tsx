@@ -39,6 +39,7 @@ import { runNacelleExpertRattrapage } from "../hooks/useNacelleExpertSync";
 import { useTranslation } from "react-i18next";
 import { generateFichePdf } from "../utils/generateFichePdf";
 import { exportListePrix } from "../utils/exportListePrix";
+import { horsVenteVog } from "../utils/nacelles";
 import {
   canExportExcelPricing,
   canImportExcelPricing,
@@ -51,6 +52,7 @@ import {
   canManagePhotosSupplementaires,
 } from "../utils/permissions";
 import { useAuth } from "../AuthContext";
+import RecalculChiffrageTous from "../components/RecalculChiffrageTous";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
 
@@ -152,7 +154,13 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
   const canOffre = ["superadmin", "admin", "vendeur_fr", "dealer"].includes(userRole);
 
   const baseDispo = useMemo(
-    () => machines.filter((m) => m.statut === "disponible" || (m.statut === "restitution" && m.expertise_ok)),
+    () =>
+      machines.filter(
+        (m) =>
+          // 🚚 Le fichier VOG fait autorité : disponibilité ≠ OK → jamais en vente
+          !horsVenteVog(m) &&
+          (m.statut === "disponible" || (m.statut === "restitution" && m.expertise_ok))
+      ),
     [machines]
   );
 
@@ -698,6 +706,9 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
             {importing ? `⏳ ${t("dispo.importing")}` : `📤 ${t("dispo.importPricing")}`}
           </button>
         )}
+
+        {/* 💶 Rattrapage global des chiffrages à 0 (super admin) */}
+        <RecalculChiffrageTous />
 
         {isSuperAdminUser && (
           <button

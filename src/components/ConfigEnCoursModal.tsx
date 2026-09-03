@@ -80,7 +80,7 @@ export default function ConfigEnCoursModal({
   return (
     <div
       className="modal-overlay"
-      onClick={(e) => {
+      onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >

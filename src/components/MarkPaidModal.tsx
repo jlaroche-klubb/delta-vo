@@ -30,7 +30,7 @@ export default function MarkPaidModal({
   return (
     <div
       className="modal-overlay"
-      onClick={(e) => {
+      onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >

@@ -1,6 +1,7 @@
 import MachineThumb from "./MachineThumb";
 import { Machine, calculAgeStock, getAgeStockColor, isFicheComplete } from "../types/machine";
 import { useTranslation } from "react-i18next";
+import ChiffrageZeroTools from "./ChiffrageZeroTools";
 import { LOCALITES } from "../utils/localites";
 
 interface DisponibleCardProps {
@@ -358,6 +359,15 @@ export default function DisponibleCard({
         )}
       </div>
 
+      {/* ⚠ Disponibilité déclarée dans le VOG (location en cours, à vérifier…) */}
+      {machine.disponibilite_vog && !/^ok$/i.test(machine.disponibilite_vog.trim()) && (
+        <div style={{ padding: "6px 4px 0" }}>
+          <span style={{ display: "inline-block", background: "#fdf3ec", border: "1px solid #e8c9a8", color: "#b3541e", borderRadius: 4, padding: "2px 8px", fontSize: 12, fontWeight: 700 }}>
+            ⚠ VOG : {machine.disponibilite_vog}
+          </span>
+        </div>
+      )}
+
       {/* Lien vers l'expertise réalisée dans Nacelle-Expert (sous heures/km/stock) */}
       {machine.dossier_nacelle_expert && onViewNacelleExpert && (
         <div style={{ padding: "8px 4px 0" }}>
@@ -416,6 +426,9 @@ export default function DisponibleCard({
           )}
         </div>
       )}
+
+      {/* 💶 Outil super admin : chiffrage à zéro (rattrapage) */}
+      <ChiffrageZeroTools machine={machine} />
 
       {/* 💶 VR/VNC (valeur résiduelle/comptable) — réservé aux admins */}
       {isAdmin && machine.vr_vnc != null && machine.vr_vnc > 0 && (

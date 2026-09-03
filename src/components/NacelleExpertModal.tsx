@@ -47,7 +47,7 @@ export default function NacelleExpertModal({ machine, onClose }: NacelleExpertMo
   return (
     <div
       className="modal-overlay"
-      onClick={(e) => {
+      onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >

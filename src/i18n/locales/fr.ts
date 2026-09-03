@@ -8,6 +8,7 @@ const fr = {
   lang: {
     fr: "FR",
     en: "EN",
+    es: "ES",
   },
   nav: {
     restitutions: "Restitutions",
@@ -261,6 +262,9 @@ const fr = {
     site: "Localisation",
     allSites: "Tous les sites",
     blockedAtStep: "Bloquée à l'étape",
+    devis: "Devis atelier",
+    devisAll: "Tous",
+    devisPending: "En attente de devis",
     allSteps: "Toutes les étapes",
     stepDemande: "⏳ Demande de récupération",
     stepRecup: "🚚 Récupération",
@@ -685,6 +689,7 @@ const fr = {
     ficheTitle: "Compléter la fiche commerciale",
     ficheSpecs: "Caractéristiques nacelle",
     ficheHeight: "Hauteur de travail (m)",
+    fichePrefill: "Hauteur et déport préremplis d'après la dernière fiche {{type}} ({{immat}}) — modifiables.",
     ficheOutreach: "Déport de travail (m)",
     fichePersons: "Nb de personnes dans le panier",
     fiche1Person: "1 personne",
@@ -828,6 +833,19 @@ const fr = {
     deliveryFrom: "Livraison du",
     deliveryTo: "Livraison au",
     reset: "Réinitialiser",
+  },
+  chiffrage: {
+    zeroLabel: "Chiffrage incomplet (poste à 0 €)",
+    btnTous: "Recalculer les chiffrages incomplets ({{count}})",
+    btnTousTitle: "Relit chaque dossier Nacelle Expert et applique le barème actuel à toutes les machines dont le chiffrage est à 0 €",
+    confirmTous: "Recalculer le chiffrage des {{count}} machine(s) au chiffrage incomplet — total à 0 € ou au moins un poste à 0 € (Disponibles + Restitutions) — d'après leur expertise Nacelle Expert ?\n\nBarème actuel, 1re tranche pour les postes carrosserie non chiffrés. Les machines sans expertise ou conformes ne seront pas modifiées.",
+    btnRecalc: "Recalculer (expertise)",
+    btnSaisir: "Saisir le montant",
+    aucuneExpertise: "Aucune expertise Nacelle Expert trouvée pour {{immat}} — utilisez « Saisir le montant ».",
+    aucunDegat: "L'expertise de {{immat}} ne liste aucun dégât : rien à chiffrer (utilisez « Saisir le montant » si besoin).",
+    confirmRecalc: "Recalcul du chiffrage de {{immat}} d'après l'expertise Nacelle Expert (barème actuel, 1re tranche pour les postes carrosserie non chiffrés) :",
+    promptMontant: "Montant HT de la remise en état pour {{immat}} (en euros) :",
+    montantInvalide: "Montant invalide — saisissez un nombre entier positif.",
   },
 };
 

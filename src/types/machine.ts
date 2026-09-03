@@ -144,6 +144,8 @@ export interface Machine {
   heures_nacelle?: number;
   km_porteur?: number;
   agent_expertise?: string;
+  // 💶 Trace de l'outil super admin « chiffrage à zéro » (rattrapage ponctuel)
+  chiffrage_corrige?: { mode: "manuel" | "recalcul" | "import_vog"; par: string; date: string };
   rapport_expertise?: RapportExpertise;
 
   // ─── Nouvelle base VOG (import « Liste complète ») ───
@@ -169,6 +171,14 @@ export interface Machine {
   heures_note?: string;
   /** 💶 VR ou VNC (valeur résiduelle/comptable) — affichage réservé aux admins */
   vr_vnc?: number;
+  // 🚚 Retrait manuel de la vente (bouton super admin — prioritaire, jamais
+  // modifié par les imports)
+  hors_vente_manuel?: boolean;
+  hors_vente_manuel_par?: string;
+  hors_vente_manuel_date?: string;
+  // Colonnes VOG ajoutées en août 2026
+  disponibilite_vog?: string;
+  montant_expertise_vog?: number;
   /** Date de la dernière mise à jour VNC (import compta) */
   vnc_maj_le?: string;
   /** Diffusion des annonces (stockée pour le futur système de mise en ligne, pas d'UI) */

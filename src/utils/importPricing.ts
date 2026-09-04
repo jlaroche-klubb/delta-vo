@@ -43,6 +43,8 @@ export async function importPricingFromExcel({
   // « Pricing PDG » reste accepté).
   const rows: any[] = [];
   for (const sheetName of wb.SheetNames) {
+    // 📊 La feuille « Marché internet » est une synthèse (pas de machines)
+    if (/^march/i.test(sheetName.trim())) continue;
     rows.push(...XLSX.utils.sheet_to_json<any>(wb.Sheets[sheetName]));
   }
 

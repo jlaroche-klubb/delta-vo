@@ -54,6 +54,7 @@ import {
 import { useAuth } from "../AuthContext";
 import RecalculChiffrageTous from "../components/RecalculChiffrageTous";
 import EtudeMarcheTous from "../components/EtudeMarcheTous";
+import SyntheseMarche from "../components/SyntheseMarche";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
 
@@ -781,6 +782,9 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
           onChange={handleStockFileChange}
         />
       </div>
+
+      {/* 📊 Synthèse marché internet (admin / super admin) */}
+      <SyntheseMarche machines={baseDispo} isAdmin={isAdmin} />
 
       <DisponiblesFilters
         filters={filters}

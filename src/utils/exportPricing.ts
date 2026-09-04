@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 import { Machine } from "../types/machine";
 import { horsVenteVog } from "./nacelles";
+import { calculerSyntheseMarche, lignesSyntheseMarche } from "./syntheseMarche";
 
 interface ExportPricingOptions {
   machines: Machine[];
@@ -8,10 +9,12 @@ interface ExportPricingOptions {
 }
 
 /**
- * Export Pricing PDG — DEUX feuilles (circuit VNC/prix validé avec Jonathan) :
+ * Export Pricing PDG — TROIS feuilles (circuit VNC/prix validé avec Jonathan) :
  *   1. « Prix à faire »  : machines actives SANS prix de vente
  *   2. « Prix à revoir » : prix présent mais trop vieux (> seuil jours) —
  *      date du prix (prix_modifie_le / date_prix_vog) absente ou dépassée
+ *   3. « Marché internet » : synthèse des prix internet (études de marché IA)
+ *      par type de nacelle et tranche d'âge — information, non réimportée
  *
  * Chaque feuille montre la VNC ACTUELLE (mise à jour par la compta via
  * l'import VNC) pour éclairer la décision de prix, et une colonne
@@ -109,6 +112,32 @@ export function exportPricingToExcel({ machines, seuilRepricer = 60 }: ExportPri
   const wsRevoir = XLSX.utils.json_to_sheet(aRevoir.map(toRow));
   wsRevoir["!cols"] = cols;
   XLSX.utils.book_append_sheet(wb, wsRevoir, "Prix à revoir");
+
+  // 📊 Feuille « Marché internet » : synthèse des études de marché IA par type
+  // de nacelle (ligne de tête, toutes années) puis par tranche d'âge, et
+  // « Toutes nacelles » en pied. Ignorée par l'import Pricing.
+  const synthese = calculerSyntheseMarche(machines);
+  const lignes = lignesSyntheseMarche(synthese);
+  const aoa: (string | number)[][] = [
+    ["Type nacelle / tranche d'âge", "Machines étudiées", "Annonces", "Marché min (€)", "Marché moyen (€)", "Marché max (€)", "Prix Delta VO moyen HT (€)", "Écart nos prix vs marché (%)", "Dernière étude"],
+    ...lignes.map((l) => [
+      l.niveau === 2 ? `    ↳ ${l.libelle}` : l.libelle,
+      l.nbMachines,
+      l.nbAnnonces,
+      l.min ?? "",
+      l.moyen ?? "",
+      l.max ?? "",
+      l.prixDeltaMoyen ?? "",
+      l.ecartPct ?? "",
+      l.derniereEtude,
+    ]),
+    [],
+    [`Études de moins de ${synthese.joursMax} jours · min = plus basse des fourchettes basses · moyen = moyenne des médianes · max = plus haute des fourchettes hautes` +
+      (synthese.nbSansEtude ? ` · ${synthese.nbSansEtude} machine(s) en vente sans étude récente` : "")],
+  ];
+  const wsMarche = XLSX.utils.aoa_to_sheet(aoa);
+  wsMarche["!cols"] = [{ wch: 30 }, { wch: 17 }, { wch: 10 }, { wch: 15 }, { wch: 17 }, { wch: 15 }, { wch: 26 }, { wch: 27 }, { wch: 14 }];
+  XLSX.utils.book_append_sheet(wb, wsMarche, "Marché internet");
 
   XLSX.writeFile(wb, `delta-vo_pricing-pdg_${dateStr}.xlsx`);
 }

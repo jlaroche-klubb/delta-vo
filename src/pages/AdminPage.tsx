@@ -2,6 +2,13 @@ import { useState, useEffect } from "react";
 import { collection, getDocs, doc, setDoc, deleteDoc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { useAuth } from "../AuthContext";
+import { LOCALITES } from "../utils/localites";
+import {
+  chargerConfigNotifPrepa,
+  enregistrerConfigNotifPrepa,
+  parseEmails,
+  type NotifPrepaConfig,
+} from "../services/preparationNotify";
 import { useTranslation } from "react-i18next";
 
 interface PendingUser {
@@ -25,7 +32,7 @@ interface User {
 type UserRole = "superadmin" | "admin" | "secretaire" | "vendeur_fr" | "dealer" | "chef" | "atelier";
 
 export default function AdminPage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const { t } = useTranslation();
   // 🔒 Seul le propriétaire du compte peut approuver/rejeter les nouveaux entrants.
   // (Les autres admins gèrent les rôles des utilisateurs existants, mais pas les arrivées.)
@@ -46,6 +53,53 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [selectedRole, setSelectedRole] = useState<Record<string, UserRole>>({});
   const [editingUser, setEditingUser] = useState<User | null>(null);
+
+  // 📧 Préparateurs par site (notification automatique à la mise en préparation)
+  const [notifCfg, setNotifCfg] = useState<NotifPrepaConfig | null>(null);
+  const [notifText, setNotifText] = useState<Record<string, string>>({});
+  const [notifSaving, setNotifSaving] = useState(false);
+  const [notifDirty, setNotifDirty] = useState(false);
+
+  useEffect(() => {
+    chargerConfigNotifPrepa()
+      .then((cfg) => {
+        setNotifCfg(cfg);
+        const txt: Record<string, string> = {};
+        for (const site of LOCALITES) txt[site] = (cfg.sites[site] || []).join("\n");
+        setNotifText(txt);
+      })
+      .catch((e) => console.warn("Config notif préparateurs illisible :", e));
+  }, []);
+
+  async function saveNotifCfg() {
+    const sites: Record<string, string[]> = {};
+    const invalides: string[] = [];
+    for (const site of LOCALITES) {
+      const r = parseEmails(notifText[site] || "");
+      sites[site] = r.ok;
+      invalides.push(...r.invalides);
+    }
+    if (invalides.length) {
+      alert(t("notifPrepa.emailsInvalides", { list: invalides.join(", ") }));
+      return;
+    }
+    setNotifSaving(true);
+    try {
+      const par = profile ? `${profile.prenom} ${profile.nom}`.trim() : user?.email || "";
+      await enregistrerConfigNotifPrepa({ sites }, par);
+      setNotifCfg({ sites });
+      const txt: Record<string, string> = {};
+      for (const site of LOCALITES) txt[site] = sites[site].join("\n");
+      setNotifText(txt);
+      setNotifDirty(false);
+      alert("✅ " + t("notifPrepa.saved"));
+    } catch (err: any) {
+      console.error("Erreur config notif préparateurs:", err);
+      alert("❌ Erreur: " + err.message);
+    } finally {
+      setNotifSaving(false);
+    }
+  }
 
   useEffect(() => {
     loadData();
@@ -257,6 +311,46 @@ export default function AdminPage() {
               </div>
             ))}
           </div>
+        )}
+      </section>
+
+      {/* 📧 PRÉPARATEURS PAR SITE */}
+      <section className="admin-section">
+        <div className="section-header">
+          <h2>📧 {t("notifPrepa.adminTitle")}</h2>
+          <p className="section-desc">{t("notifPrepa.adminDesc")}</p>
+        </div>
+        {!notifCfg ? (
+          <div className="loading">{t("common.loading")}</div>
+        ) : (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))", gap: 14 }}>
+              {LOCALITES.map((site) => {
+                const n = parseEmails(notifText[site] || "").ok.length;
+                return (
+                  <div key={site} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <label style={{ fontWeight: 700, color: "#1a2a6e" }}>
+                      📍 {site}{" "}
+                      <span className="section-count" style={{ background: n ? undefined : "#c0392b" }}>{n}</span>
+                    </label>
+                    <textarea
+                      value={notifText[site] || ""}
+                      onChange={(e) => { setNotifText({ ...notifText, [site]: e.target.value }); setNotifDirty(true); }}
+                      rows={4}
+                      placeholder={t("notifPrepa.placeholder")}
+                      style={{ width: "100%", boxSizing: "border-box", padding: 8, border: "1px solid #ccd", borderRadius: 6, fontFamily: "inherit", fontSize: 13, resize: "vertical" }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            <div className="admin-card-actions" style={{ marginTop: 14 }}>
+              <button className="btn-approve" onClick={saveNotifCfg} disabled={notifSaving || !notifDirty}>
+                {notifSaving ? "…" : `💾 ${t("notifPrepa.save")}`}
+              </button>
+              {notifDirty && <span className="section-desc" style={{ fontStyle: "italic" }}>{t("notifPrepa.unsaved")}</span>}
+            </div>
+          </>
         )}
       </section>
 

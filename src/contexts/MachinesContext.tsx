@@ -399,6 +399,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             date_livraison_prevue: data.date_livraison_prevue || undefined,
             date_mise_en_cours: data.date_mise_en_cours || undefined,
             etapes_prepa: data.etapes_prepa || undefined,
+            notif_prepa: data.notif_prepa || undefined,
             client_lld: data.client_lld || undefined,
             date_mise_dispo_lld: data.date_mise_dispo_lld || undefined,
             

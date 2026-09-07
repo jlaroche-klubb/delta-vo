@@ -530,6 +530,8 @@ const fr = {
     erreur: "⚠️ La mise en préparation de {{immat}} est faite, mais l'email aux préparateurs n'a pas pu partir ({{message}}).",
   },
   marche: {
+    tileLabel: "Marché moyen",
+    tileVide: "aucune étude récente",
     titre: "Marché internet",
     aucune: "aucune étude de marché de moins de {{jours}} jours sur les machines en vente (lancer 📊 Étude marché).",
     machines: "{{count}} machine(s) étudiée(s)",
@@ -551,6 +553,11 @@ const fr = {
     colEcart: "Écart nos prix",
     colEtude: "Dernière étude",
     legende: "Études de moins de {{jours}} jours · min = plus basse des fourchettes basses · moyen = moyenne des médianes · max = plus haute des fourchettes hautes · écart = notre prix France moyen par rapport au marché moyen.",
+  },
+  toolbar: {
+    exports: "Exports",
+    imports: "Imports",
+    tools: "Outils",
   },
   stats: {
     title: "Statistiques de vente",

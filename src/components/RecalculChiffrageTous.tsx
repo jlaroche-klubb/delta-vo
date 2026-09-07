@@ -15,7 +15,7 @@ import { calculerChiffrageDossier, chiffrageIncomplet } from "../utils/tarifsNac
  * Les machines sans expertise NE ou rendues conformes (0 € justifié) sont
  * laissées telles quelles et listées dans le bilan.
  */
-export default function RecalculChiffrageTous() {
+export default function RecalculChiffrageTous({ variant }: { variant?: "menu" } = {}) {
   const { profile } = useAuth();
   const { machines, enregistrerChiffrageCorrige } = useMachines();
   const { t } = useTranslation();
@@ -94,12 +94,13 @@ export default function RecalculChiffrageTous() {
 
   return (
     <button
-      className="btn-import"
+      type="button"
+      className={variant === "menu" ? "action-menu-item" : "btn-import"}
       onClick={recalculerTout}
       disabled={!!progress}
       title={t("chiffrage.btnTousTitle")}
     >
-      {progress ? `⏳ ${progress}` : `🔄 ${t("chiffrage.btnTous", { count: cibles.length })}`}
+      {progress ? `⏳ ${progress}` : <>🔄 {t("chiffrage.btnTous", { count: cibles.length })}</>}
     </button>
   );
 }

@@ -13,7 +13,8 @@ import type { Machine } from "../types/machine";
  * ~3 centimes et ~30 s par étude) — relancer une machine précise reste
  * possible depuis sa carte. Arrêt propre possible à tout moment.
  */
-export default function EtudeMarcheTous({ machines }: { machines: Machine[] }) {
+export default function EtudeMarcheTous({ machines, variant }: { machines: Machine[]; variant?: "menu" }) {
+  const cls = variant === "menu" ? "action-menu-item" : "btn-import";
   const { profile } = useAuth();
   const { enregistrerEtudeMarche } = useMachines();
   const [progress, setProgress] = useState<{ fait: number; total: number } | null>(null);
@@ -80,14 +81,15 @@ export default function EtudeMarcheTous({ machines }: { machines: Machine[] }) {
 
   if (progress) {
     return (
-      <button className="btn-import" onClick={() => { stopRef.current = true; }} title="Arrêter après les études en cours">
+      <button type="button" className={cls} onClick={() => { stopRef.current = true; }} title="Arrêter après les études en cours">
         ⏳ Étude marché {progress.fait}/{progress.total} — cliquer pour arrêter
       </button>
     );
   }
   return (
     <button
-      className="btn-import"
+      type="button"
+      className={cls}
       onClick={lancerTout}
       title="Lance l'étude de marché IA sur toutes les machines en vente sans étude récente (super admin)"
     >

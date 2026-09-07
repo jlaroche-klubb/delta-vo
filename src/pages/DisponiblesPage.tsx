@@ -28,6 +28,7 @@ import DisponiblesFilters, {
   DispoFilterState,
   EMPTY_DISPO_FILTERS,
   applyDispoFilters,
+  countActiveDispoFilters,
 } from "../components/DisponiblesFilters";
 import { exportPricingToExcel } from "../utils/exportPricing";
 import { importPricingFromExcel, ImportResult } from "../utils/importPricing";
@@ -54,7 +55,9 @@ import {
 import { useAuth } from "../AuthContext";
 import RecalculChiffrageTous from "../components/RecalculChiffrageTous";
 import EtudeMarcheTous from "../components/EtudeMarcheTous";
-import SyntheseMarche from "../components/SyntheseMarche";
+import { MarcheTile, MarchePanel } from "../components/SyntheseMarche";
+import ActionMenu from "../components/ActionMenu";
+import { calculerSyntheseMarche } from "../utils/syntheseMarche";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
 
@@ -121,6 +124,7 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
   const [photosMachine, setPhotosMachine] = useState<Machine | null>(null);
   const [internalPhotosMachine, setInternalPhotosMachine] = useState<Machine | null>(null);
   const [etudeMachine, setEtudeMachine] = useState<Machine | null>(null); // 🔒 super admin
+  const [marcheOpen, setMarcheOpen] = useState(false); // 📊 synthèse marché (admin)
   const [phoneSetupOpen, setPhoneSetupOpen] = useState(false);
   const [pendingGenerate, setPendingGenerate] = useState<Machine | null>(null);
   const [choixPrixMachine, setChoixPrixMachine] = useState<Machine | null>(null);
@@ -174,6 +178,12 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
       ).length,
     [allMachinesUnfiltered]
   );
+
+  // 🔍 Nombre de filtres actifs (pastille sur le bouton Filtres de la barre)
+  const nbFiltresActifs = countActiveDispoFilters(filters, userRole === "vendeur_fr" || userRole === "dealer");
+
+  // 📊 Synthèse marché internet (admin / super admin) — études déjà enregistrées
+  const syntheseMarche = useMemo(() => calculerSyntheseMarche(baseDispo), [baseDispo]);
 
   const filtered = useMemo(() => {
     let result = baseDispo;
@@ -646,6 +656,9 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
             <span className="stat-value">{aRepricer.length}</span>
             <span className="stat-label">{t("dispo.statToReprice")}</span>
           </div>
+          {isAdmin && (
+            <MarcheTile synthese={syntheseMarche} active={marcheOpen} onClick={() => setMarcheOpen(!marcheOpen)} />
+          )}
         </div>
       </div>
 
@@ -657,108 +670,83 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        
-        {/* Export pricing pour PDG (admin + secrétaire) */}
-        {canExportExcelPricing(userRole as any) && (
-          <button
-            className="btn-pricing"
-            onClick={handleExportPricing}
-            disabled={totalPricing === 0}
-            title={t("dispo.exportPricingTitle")}
-          >
-            📊 {t("dispo.exportPricingPdg")}
-            {totalPricing > 0 && <span className="pricing-count">{totalPricing}</span>}
-          </button>
-        )}
 
-        {/* Export liste prix commerciale (tous sauf chef/atelier) */}
-        {canExportListePrix(userRole as any) && (
-          <button
-            className="btn-export-liste"
-            onClick={handleExportListePrix}
-            title={t("dispo.exportListTitle")}
-          >
-            📄 {t("dispo.exportList")}
-          </button>
-        )}
+        {/* 🔍 Filtres : le bouton vit dans la barre, le panneau s'ouvre dessous */}
+        <button
+          type="button"
+          className={`tb-btn ${filtersOpen ? "active" : ""}`}
+          onClick={() => setFiltersOpen(!filtersOpen)}
+        >
+          <span className={`tb-caret ${filtersOpen ? "up" : ""}`}>▾</span> {t("filters.title")}
+          {nbFiltresActifs > 0 && <span className="tb-badge warn">{nbFiltresActifs}</span>}
+        </button>
 
-        {/* 💶 Circuit VNC : export manuel + import du fichier compta (ADV) */}
-        {canManageVnc(userRole as any) && (
-          <button
-            className="btn-export-liste"
-            onClick={() => exportVncToExcel(machines)}
-            title={t("dispo.exportVncTitle")}
-          >
-            🧾 {t("dispo.exportVnc")}
-          </button>
-        )}
-        {canManageVnc(userRole as any) && (
-          <button
-            className="btn-import"
-            onClick={() => vncInputRef.current?.click()}
-            disabled={importingVnc}
-            title={t("dispo.importVncTitle")}
-          >
-            {importingVnc ? `⏳ ${t("dispo.importingVnc")}` : `🧾 ${t("dispo.importVnc")}`}
-          </button>
-        )}
+        {/* ⬇ EXPORTS — un seul choix → bouton direct (ex. vendeur : Liste Prix) */}
+        <ActionMenu label={t("toolbar.exports")} icon="⬇">
+          {canExportExcelPricing(userRole as any) && (
+            <button
+              type="button"
+              className="action-menu-item tone-pricing"
+              onClick={handleExportPricing}
+              disabled={totalPricing === 0}
+              title={t("dispo.exportPricingTitle")}
+            >
+              📊 {t("dispo.exportPricingPdg")}
+              {totalPricing > 0 && <span className="tb-badge pricing">{totalPricing}</span>}
+            </button>
+          )}
+          {canExportListePrix(userRole as any) && (
+            <button type="button" className="action-menu-item" onClick={handleExportListePrix} title={t("dispo.exportListTitle")}>
+              📄 {t("dispo.exportList")}
+            </button>
+          )}
+          {canManageVnc(userRole as any) && (
+            <button type="button" className="action-menu-item" onClick={() => exportVncToExcel(machines)} title={t("dispo.exportVncTitle")}>
+              🧾 {t("dispo.exportVnc")}
+            </button>
+          )}
+        </ActionMenu>
 
-        {canImportExcelPricing(userRole as any) && (
-          <button className="btn-import" onClick={handleImportClick} disabled={importing}>
-            {importing ? `⏳ ${t("dispo.importing")}` : `📤 ${t("dispo.importPricing")}`}
-          </button>
-        )}
+        {/* ⬆ IMPORTS */}
+        <ActionMenu label={t("toolbar.imports")} icon="⬆" busy={importingVnc || importing || importingStock}>
+          {canManageVnc(userRole as any) && (
+            <button type="button" className="action-menu-item" onClick={() => vncInputRef.current?.click()} disabled={importingVnc} title={t("dispo.importVncTitle")}>
+              {importingVnc ? `⏳ ${t("dispo.importingVnc")}` : `🧾 ${t("dispo.importVnc")}`}
+            </button>
+          )}
+          {canImportExcelPricing(userRole as any) && (
+            <button type="button" className="action-menu-item" onClick={handleImportClick} disabled={importing}>
+              {importing ? `⏳ ${t("dispo.importing")}` : `📤 ${t("dispo.importPricing")}`}
+            </button>
+          )}
+          {isSuperAdminUser && (
+            <button type="button" className="action-menu-item" onClick={() => stockInputRef.current?.click()} disabled={importingStock} title={t("dispo.importStockTitle")}>
+              {importingStock ? `⏳ ${t("dispo.importingStock")}` : `📦 ${t("dispo.importStock")}`}
+            </button>
+          )}
+        </ActionMenu>
 
-        {/* 💶 Rattrapage global des chiffrages à 0 (super admin) */}
-        <RecalculChiffrageTous />
-
-        {/* 📊 Étude de marché IA sur toutes les machines en vente (super admin) */}
-        <EtudeMarcheTous machines={baseDispo} />
-
-        {isSuperAdminUser && (
-          <button
-            className="btn-import"
-            onClick={() => stockInputRef.current?.click()}
-            disabled={importingStock}
-            title={t("dispo.importStockTitle")}
-          >
-            {importingStock ? `⏳ ${t("dispo.importingStock")}` : `📦 ${t("dispo.importStock")}`}
-          </button>
-        )}
-
+        {/* 🛠 OUTILS (admin / super admin) */}
         {isAdmin && (
-          <button
-            className="btn-import"
-            onClick={handleRefreshExpertise}
-            disabled={refreshingExpertise}
-            title={t("dispo.expertiseTitle")}
-          >
-            {refreshingExpertise ? `⏳ ${t("dispo.refreshingExpertise")}` : `🧰 ${t("dispo.expertiseAmounts")}`}
-          </button>
-        )}
-
-        {isAdmin && (
-          <button
-            className="btn-import"
-            onClick={handleRattrapage}
-            disabled={rattrapage}
-            title={t("dispo.rattrapageTitle")}
-          >
-            {rattrapage ? `⏳ ${t("dispo.rattrapaging")}` : `🖼️ ${t("dispo.rattrapage")}`}
-          </button>
-        )}
-
-        {isAdmin && (
-          <button
-            className={`toggle-archived ${showArchived ? "active" : ""}`}
-            onClick={() => setShowArchived(!showArchived)}
-            title={t("dispo.archivedTitle")}
-          >
-            🗑️ {showArchived ? t("dispo.hideArchived") : t("dispo.showArchived")}
-            {totalArchived > 0 && !showArchived && (
-              <span style={{ marginLeft: 4, opacity: 0.7 }}>({totalArchived})</span>
-            )}
-          </button>
+          <ActionMenu label={t("toolbar.tools")} icon="🛠" busy={refreshingExpertise || rattrapage}>
+            <RecalculChiffrageTous variant="menu" />
+            <EtudeMarcheTous machines={baseDispo} variant="menu" />
+            <button type="button" className="action-menu-item" onClick={handleRefreshExpertise} disabled={refreshingExpertise} title={t("dispo.expertiseTitle")}>
+              {refreshingExpertise ? `⏳ ${t("dispo.refreshingExpertise")}` : `🧰 ${t("dispo.expertiseAmounts")}`}
+            </button>
+            <button type="button" className="action-menu-item" onClick={handleRattrapage} disabled={rattrapage} title={t("dispo.rattrapageTitle")}>
+              {rattrapage ? `⏳ ${t("dispo.rattrapaging")}` : `🖼️ ${t("dispo.rattrapage")}`}
+            </button>
+            <button
+              type="button"
+              className={`action-menu-item ${showArchived ? "checked" : ""}`}
+              onClick={() => setShowArchived(!showArchived)}
+              title={t("dispo.archivedTitle")}
+            >
+              🗑️ {showArchived ? t("dispo.hideArchived") : t("dispo.showArchived")}
+              {totalArchived > 0 && !showArchived && <span className="tb-badge">{totalArchived}</span>}
+            </button>
+          </ActionMenu>
         )}
         <input
           ref={fileInputRef}
@@ -783,8 +771,8 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
         />
       </div>
 
-      {/* 📊 Synthèse marché internet (admin / super admin) */}
-      <SyntheseMarche machines={baseDispo} isAdmin={isAdmin} />
+      {/* 📊 Synthèse marché internet (admin / super admin) — ouverte depuis la tuile */}
+      {isAdmin && marcheOpen && <MarchePanel synthese={syntheseMarche} onClose={() => setMarcheOpen(false)} />}
 
       <DisponiblesFilters
         filters={filters}
@@ -794,6 +782,7 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
         isOpen={filtersOpen}
         onToggle={() => setFiltersOpen(!filtersOpen)}
         seuilRepricer={SEUIL_REPRICER}
+        hideToggle
       />
 
       {enVente.length > 0 && (

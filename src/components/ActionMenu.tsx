@@ -16,12 +16,18 @@ export default function ActionMenu({
   icon,
   children,
   busy = false,
+  compact = false,
+  align = "right",
 }: {
   label: string;
   icon?: string;
   children: ReactNode;
   /** Affiche ⏳ sur le bouton du menu (un traitement long est en cours) */
   busy?: boolean;
+  /** Bouton « ⋯ » compact (menu d'une carte) — le libellé devient l'infobulle */
+  compact?: boolean;
+  /** Côté d'ancrage du panneau */
+  align?: "left" | "right";
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -44,22 +50,24 @@ export default function ActionMenu({
   }, [open]);
 
   if (items.length === 0) return null;
-  if (items.length === 1) return <div className="action-menu single">{items[0]}</div>;
+  if (items.length === 1 && !compact) return <div className="action-menu single">{items[0]}</div>;
 
   return (
-    <div className={`action-menu ${open ? "open" : ""}`} ref={ref}>
+    <div className={`action-menu ${open ? "open" : ""} ${compact ? "compact" : ""}`} ref={ref}>
       <button
         type="button"
-        className={`tb-btn ${open ? "active" : ""}`}
+        className={compact ? `card-menu-btn ${open ? "active" : ""}` : `tb-btn ${open ? "active" : ""}`}
         onClick={() => setOpen(!open)}
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label={compact ? label : undefined}
+        title={compact ? label : undefined}
       >
-        {busy ? "⏳" : icon} {label} <span className="tb-caret">▾</span>
+        {compact ? (busy ? "⏳" : "⋯") : <>{busy ? "⏳" : icon} {label} <span className="tb-caret">▾</span></>}
       </button>
       {open && (
         <div
-          className="action-menu-panel"
+          className={`action-menu-panel align-${align}`}
           role="menu"
           onClick={(e) => {
             const btn = (e.target as HTMLElement).closest("button");

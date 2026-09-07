@@ -5516,3 +5516,48 @@ button {
   }
   .stat-market { min-width: 110px; }
 }
+
+/* ═══════════════════════════════════════════════════
+   MENU « ⋯ » D'UNE CARTE (actions secondaires admin)
+   ═══════════════════════════════════════════════════ */
+.action-menu.compact {
+  align-self: center;
+}
+.card-menu-btn {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  color: #1a2a6e;
+  border: 1px solid #d0d4da;
+  border-radius: 8px;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s;
+}
+.card-menu-btn:hover,
+.card-menu-btn.active {
+  border-color: #1a2a6e;
+  background: #f3f6fd;
+}
+.action-menu-panel.align-left {
+  right: auto;
+  left: 0;
+}
+.action-menu.compact .action-menu-panel {
+  min-width: 240px;
+}
+.action-menu-item.danger {
+  color: #c8102e;
+  border-top: 1px solid #eef0f4;
+  border-radius: 0 0 7px 7px;
+  margin-top: 4px;
+}
+.action-menu-item.danger:hover:not(:disabled) {
+  background: #fdecea;
+}

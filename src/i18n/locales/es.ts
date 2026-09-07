@@ -140,6 +140,7 @@ const es = {
     inOffer: "En la oferta",
     addOffer: "Añadir a la oferta",
     deleteTitle: "Eliminar definitivamente esta máquina",
+    moreActions: "Más acciones",
     delete: "Eliminar",
     inStockSince: "En stock desde el",
     site: "Centro —",

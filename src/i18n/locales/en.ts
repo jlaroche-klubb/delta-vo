@@ -253,6 +253,8 @@ const en: TranslationSchema = {
     step1: "Pickup request",
     step2: "Pickup",
     step3: "Inspection",
+    step3Attente: "Inspection (awaiting NE)",
+    step3LockedTitle: "This step is validated automatically when the Nacelle Expert inspection arrives — it cannot be ticked manually.",
     step4: "Invoice",
     step5: "Settled",
     factLine: "Invoice no. {{num}} — on {{date}}",

@@ -252,6 +252,8 @@ const fr = {
     step1: "Demande récup.",
     step2: "Récupération",
     step3: "Expertise",
+    step3Attente: "Expertise (en attente NE)",
+    step3LockedTitle: "Cette étape se valide automatiquement à la réception de l'expertise Nacelle Expert — elle ne peut pas être cochée à la main.",
     step4: "Facture",
     step5: "Réglée",
     factLine: "Facture n° {{num}} — le {{date}}",

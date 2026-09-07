@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { collection, query, where, getDocs, doc, updateDoc, setDoc, onSnapshot, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, setDoc, onSnapshot, getDoc, deleteField } from 'firebase/firestore';
 import { notifyExpertiseArrivee } from '../services/emailService';
 import { db, dbNacelleExpert } from '../firebase';
 import { syncHubspotProduct } from '../services/hubspotService';
@@ -44,6 +44,10 @@ interface NacelleExpertDossier {
   };
   rapport_url?: string;
   synced_to_delta_vo?: boolean;
+  /** Identifiant du cycle NE (généré à la création du dossier : départ ou « retour sans départ ») */
+  id?: string;
+  /** Copie d'archive d'un cycle précédent (créée par NE au nouveau départ) */
+  archived?: boolean;
   createdAt?: any;
   createdBy?: string;
   // ⏳ Devis en attente (postes sur devis non chiffrés par l'atelier)
@@ -122,7 +126,7 @@ function fusionPhotosCommerciales(actuelles: any, venantDeNE: any): any {
   return base;
 }
 
-export function useNacelleExpertSync() {
+export function useNacelleExpertSync(enabled: boolean = true) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [syncedCount, setSyncedCount] = useState(0);
@@ -185,6 +189,15 @@ export function useNacelleExpertSync() {
         
         try {
           console.log(`\n📦 Traitement du dossier: ${dossier.immat}`);
+
+          // 🗄️ COPIE D'ARCHIVE d'un cycle précédent (créée par NE au nouveau
+          // départ) : jamais traitée comme un retour — sinon la machine qui
+          // vient de partir repasserait en vente. On la marque et on passe.
+          if (dossier.archived || dossierDoc.id.includes('__ARCH__')) {
+            console.log(`⏭️ ${dossierDoc.id} : archive d'un cycle précédent, ignorée`);
+            await updateDoc(doc(dbNacelleExpert, 'dossiers', dossierDoc.id), { synced_to_delta_vo: true });
+            continue;
+          }
           
           // 🛡️ GARDE-FOU ANTI-BOUCLE : les dossiers pré-créés par Delta VO
           // (synchro inverse des infos ADV) n'ont NI départ NI retour.
@@ -259,6 +272,21 @@ export function useNacelleExpertSync() {
                       ...(etapes ? { etapes_prepa: etapes } : {}),
                     });
                     console.log(`🚚 ${immatDepart} : départ NE → prête à facturer (étapes validées)`);
+                  } else if (m.statut === 'restitution' || (m.statut === 'cloturee' && m.type_sortie === 'lld')) {
+                    // 🔁 Machine revenue (expertisée, éventuellement frais NE encore
+                    // impayés) ou LLD marquée « mise à dispo » à l'ancienne, qui
+                    // REPART en location : plus en vente. La facturation de la
+                    // restitution en cours est conservée telle quelle → elle reste
+                    // en Restitutions jusqu'au règlement (règle Jonathan).
+                    await updateDoc(refDepart, {
+                      ...trace,
+                      statut: 'louee_lld',
+                      type_sortie: 'lld',
+                      client_lld: dossier.info?.client || m.client_lld || '',
+                      date_mise_dispo_lld: dateDepart,
+                    });
+                    syncHubspotProduct('archive', immatDepart);
+                    console.log(`🚚 ${immatDepart} : départ NE → louée LLD (était ${m.statut}, facturation conservée)`);
                   } else {
                     console.log(`⏭️ ${immatDepart} : départ NE, statut « ${m.statut} » — rien à changer`);
                   }
@@ -268,7 +296,12 @@ export function useNacelleExpertSync() {
                 }
               }
             } catch (e) {
+              // ❌ Écriture Delta VO échouée : on NE marque PAS le dossier comme
+              // synchronisé, il sera rejoué au prochain passage (sinon le départ
+              // serait perdu définitivement).
               console.error(`❌ Sécurité départ ${immatDepart}:`, e);
+              errorCount++;
+              continue;
             }
             // Dossier traité : on le marque pour ne pas le reprendre en boucle
             await updateDoc(doc(dbNacelleExpert, 'dossiers', dossierDoc.id), { synced_to_delta_vo: true });
@@ -276,15 +309,24 @@ export function useNacelleExpertSync() {
             continue;
           }
 
-          if (!dossier.info?.immat) {
-            console.warn(`⚠️ Dossier sans immatriculation, ignoré`);
+          // ⚠️ Dossier inexploitable (sans immat ou sans modèle) : on pose une
+          // erreur lisible sur le dossier NE et on le sort de la file (sinon il
+          // est relu à chaque passage sans que personne ne soit prévenu).
+          const motifErreur = !dossier.info?.immat
+            ? 'Dossier sans immatriculation'
+            : !dossier.info?.modele
+            ? 'Dossier sans modèle'
+            : '';
+          if (motifErreur) {
+            console.warn(`⚠️ ${dossierDoc.id} : ${motifErreur} — non importé dans Delta VO`);
+            await updateDoc(doc(dbNacelleExpert, 'dossiers', dossierDoc.id), {
+              synced_to_delta_vo: true,
+              sync_error: `${motifErreur} (Delta VO, ${new Date().toISOString().slice(0, 10)})`,
+            });
+            errorCount++;
             continue;
           }
-
-          if (!dossier.info?.modele) {
-            console.warn(`⚠️ Dossier ${dossier.immat} sans modèle, ignoré`);
-            continue;
-          }
+          if (!dossier.info) continue; // (narrowing TypeScript — déjà exclu ci-dessus)
 
           // Créer la fiche VO dans Delta VO
           // L'ID du document machines_vo DOIT être l'immatriculation en MAJUSCULES :
@@ -338,6 +380,9 @@ export function useNacelleExpertSync() {
             
             // Données du dossier nacelle-expert
             dossier_nacelle_expert: {
+              // 🔑 Cycle NE : permet de distinguer une NOUVELLE expertise (nouveau
+              // cycle départ/retour) d'une simple mise à jour du même dossier
+              cycle_id: dossier.id || dossier.createdAt || dossier.retour?.date || '',
               client: dossier.info.client || '',
               contrat: dossier.info.contrat || '',
               email: dossier.info.email || '',
@@ -363,6 +408,9 @@ export function useNacelleExpertSync() {
             facture_ok: false,        // ⏳ Reste à faire
             facture_reglee_ok: false, // ⏳ Reste à faire
             fiche_vo_creee: false,    // ⏳ À créer manuellement
+            // 📦 Mise en vente = expertise retour reçue (règle Jonathan) : l'âge
+            // de stock démarre ici
+            date_mise_stock: String(dateRecup).slice(0, 10),
             
             date_ajout: new Date(),
             date_modification: new Date(),
@@ -376,6 +424,30 @@ export function useNacelleExpertSync() {
             // 🔄 RELOCATION : La nacelle revient pour une nouvelle expertise
             console.log(`🔄 Machine ${dossier.immat} existe déjà - mise à jour intelligente`);
             const existingData = existingDoc.data();
+
+            // 🔑 MÊME CYCLE ou NOUVELLE EXPERTISE ? NE remet synced:false pour
+            // bien d'autres raisons qu'une nouvelle expertise (chiffrage atelier,
+            // validation du devis, re-validation du retour…). Dans ces cas, on
+            // met à jour les DONNÉES (devis, montants, photos) mais on ne touche
+            // ni au statut ni à la facturation (règle Jonathan : la page
+            // Restitutions ne change que par action manuelle).
+            const cycleConnu = String(existingData?.dossier_nacelle_expert?.cycle_id || '');
+            const cycleNE = String(machineVOData.dossier_nacelle_expert.cycle_id || '');
+            const memeRetour =
+              String(existingData?.dossier_nacelle_expert?.date_retour || '') === String(dossier.retour?.date || '');
+            const nouvelleExpertise = existingData?.expertise_recue === false || !existingData?.dossier_nacelle_expert
+              ? true // fiche pré-créée ADV / jamais expertisée : première expertise
+              : cycleConnu && cycleNE
+              ? cycleConnu !== cycleNE
+              : !memeRetour; // fiches anciennes sans cycle_id : on compare la date de retour
+            // 🛡 Statuts protégés : en préparation et clôturée (vendue/facturée) ne
+            // reviennent JAMAIS en restitution automatiquement.
+            const statutProtege = existingData.statut === 'en_cours' || existingData.statut === 'cloturee';
+            const basculeRestitution = nouvelleExpertise && !statutProtege;
+            console.log(
+              `🔎 ${immatId} : ${nouvelleExpertise ? 'NOUVELLE expertise' : 'mise à jour du même cycle'}` +
+                (statutProtege ? ` (statut ${existingData.statut} protégé)` : '')
+            );
             
             // ✅ Préserver les données importantes Delta VO :
             // - Fiche commerciale (hauteur, déport, etc.)
@@ -419,7 +491,7 @@ export function useNacelleExpertSync() {
               // d'un admin/super admin (annulation de préparation) peut la
               // repasser en disponible. Les données d'expertise, elles,
               // remontent bien (bloc ci-dessus).
-              ...(existingData.statut === 'en_cours' ? {
+              ...(!basculeRestitution ? {
                 expertise_recue: true, // l'expertise à jour est bien arrivée
               } : {
               // ✅ Nouvelle date de récupération pour ce cycle de relocation
@@ -446,6 +518,11 @@ export function useNacelleExpertSync() {
               facture_reglee_ok: false, // ⏳ Nouveau règlement à recevoir
               fiche_vo_creee: false,    // ⏳ Refaire la fiche VO si besoin
               import_vog: false,        // ⏳ Vraie restitution : on lève le marqueur stock VOG
+              // 🚚 La mention VOG « LOC / PRÊT… » du cycle précédent ne doit plus
+              // bloquer la vente : la machine est physiquement revenue et expertisée
+              disponibilite_vog: deleteField(),
+              // 📦 Nouvelle mise en vente → l'âge de stock repart de la date de retour
+              date_mise_stock: String(dateRecup).slice(0, 10),
               }),
 
               // Conserver les données Delta VO existantes
@@ -472,18 +549,20 @@ export function useNacelleExpertSync() {
             // entre dans les Disponibles — si elle a un prix conservé, elle
             // RERENTRE automatiquement dans le catalogue produits.
             const prixRetour = Number(existingData.prix_fr) || 0;
-            if (prixRetour > 0) {
+            if (basculeRestitution && prixRetour > 0) {
               const labelRetour = [dossier.info?.type_nacelle, dossier.info?.modele]
                 .filter(Boolean).join(' ');
               syncHubspotProduct('upsert', immatId, labelRetour || undefined, prixRetour);
             }
-            notifyExpertiseArrivee({
-              immat: immatId,
-              modele: dossier.info?.modele,
-              type_nacelle: dossier.info?.type_nacelle,
-              date: dateRecup,
-              type: 'retour',
-            });
+            if (nouvelleExpertise) {
+              notifyExpertiseArrivee({
+                immat: immatId,
+                modele: dossier.info?.modele,
+                type_nacelle: dossier.info?.type_nacelle,
+                date: dateRecup,
+                type: 'retour',
+              });
+            }
           } else {
             // 🆕 Nouvelle nacelle : création normale
             console.log(`💾 Création nouvelle fiche pour ${dossier.immat}`);
@@ -544,6 +623,10 @@ export function useNacelleExpertSync() {
 
   // ✅ ÉCOUTE TEMPS RÉEL des nouveaux dossiers Nacelle-Expert
   useEffect(() => {
+    // 🔐 Pas de synchro tant que l'utilisateur n'est pas connecté : ses écritures
+    // Delta VO échoueraient (et, avant ce correctif, le dossier NE était quand
+    // même marqué synchronisé → départ perdu).
+    if (!enabled) return;
     console.log('🔄 Démarrage de l\'écoute temps réel Nacelle-Expert');
     
     const dossiersQuery = query(
@@ -571,7 +654,7 @@ export function useNacelleExpertSync() {
       console.log('🛑 Arrêt de l\'écoute Nacelle-Expert');
       unsubscribe();
     };
-  }, []);
+  }, [enabled]);
 
   // ⚠️ Le rattrapage photos/PDF n'est plus automatique : il relisait tous les
   // dossiers + un getDoc par machine à CHAQUE chargement (coûteux). Il est

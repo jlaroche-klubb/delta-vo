@@ -142,7 +142,8 @@ export function computeVogUpdates(existing: Machine, p: ParsedStockMachine): Vog
   // La fiche Restitution n'est PAS touchée : facture/règlement restent
   // manuels, et la machine reste visible en Restitutions tant que sa
   // facturation n'est pas soldée.
-  if (estVendue && enStock) {
+  if (estVendue && (enStock || existing.statut === "louee_lld")) {
+    // (une machine louée vendue au locataire passe aussi en préparation)
     updates.statut = "en_cours";
     updates.type_sortie = "vente";
     if (!existing.acheteur) {
@@ -163,13 +164,10 @@ export function computeVogUpdates(existing: Machine, p: ParsedStockMachine): Vog
       updates.fiche_vo_creee = true;
       updates.facture_reglee_ok = true;
     }
-  } else if (existing.statut === "louee_lld" && dispoOK) {
-    // 🔁 Le fichier remet la machine à OK : elle revient en vente.
-    updates.statut = "disponible";
-    updates.fiche_vo_creee = true;
-    updates.facture_reglee_ok = true;
-    changes.push("statut : disponible (le VOG la remet à OK)");
   }
+  // ⛔ (règle Jonathan) Une machine LOUÉE que le fichier remet à « OK » ne
+  // revient PAS en vente par l'import : elle ne redevient vendable qu'à la
+  // réception de l'expertise retour Nacelle Expert (synchro).
 
   return { updates, changes };
 }

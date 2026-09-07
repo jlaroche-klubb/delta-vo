@@ -342,10 +342,13 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             
             // ✅ date_mise_stock pour les machines visibles en Disponibles
             // (disponible OU restitution avec expertise reçue) — sinon "Stock depuis le —"
+            // 📦 Priorité au champ écrit à la mise en vente (synchro / étapes) ;
+            // repli sur la date de création du document pour les fiches anciennes.
             date_mise_stock:
               (statutFirebase === 'disponible' ||
-                (statutFirebase === 'restitution' && (data.expertise_ok ?? true)))
-                ? (data.date_ajout?.toDate?.()?.toISOString?.()?.slice(0, 10) ||
+                (statutFirebase === 'restitution' && (data.expertise_recue ?? true)))
+                ? (String(data.date_mise_stock || '').slice(0, 10) ||
+                   data.date_ajout?.toDate?.()?.toISOString?.()?.slice(0, 10) ||
                    new Date().toISOString().slice(0, 10))
                 : undefined,
               
@@ -509,6 +512,12 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     if (!machine) return;
     
     const newVal = !machine[field];
+    // 🔒 Règle Jonathan : une machine n'est vendable qu'une fois l'expertise
+    // Nacelle Expert reçue — l'étape « Expertise » ne se force pas à la main.
+    if (field === "expertise_ok" && newVal && !machine.expertise_recue) {
+      alert(`⏳ ${machine.immat} : l'expertise Nacelle Expert n'est pas encore arrivée.\nL'étape se validera automatiquement à la réception de l'expertise.`);
+      return;
+    }
     const updates: any = {
       [field]: newVal,
       updatedAt: new Date().toISOString(),
@@ -523,9 +532,19 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     
     if (wouldBeAllOk && !machine.fiche_vo_creee && machine.statut === "restitution") {
       updates.fiche_vo_creee = true;
-      updates.date_mise_stock = new Date().toISOString().slice(0, 10);
+      // 📦 L'âge de stock démarre à la réception de l'expertise (mise en vente) ;
+      // on ne l'écrase pas s'il est déjà posé par la synchro
+      if (!machine.date_mise_stock) updates.date_mise_stock = new Date().toISOString().slice(0, 10);
       updates.statut = "disponible";
       console.log(`✅ Machine ${machine.immat} basculée en disponible`);
+    }
+    // ↩️ Une étape décochée sur une machine déjà passée « disponible » (frais
+    // réglés) rouvre le cycle restitution — sinon elle disparaît des
+    // Restitutions avec une facture/un règlement remis en question.
+    if (!newVal && machine.statut === "disponible" && (field === "facture_ok" || field === "facture_reglee_ok")) {
+      updates.statut = "restitution";
+      updates.fiche_vo_creee = false;
+      console.log(`↩️ Machine ${machine.immat} rouverte en restitution (${field} décoché)`);
     }
 
     // 🔄 HubSpot : l'étape Expertise validée fait entrer la machine dans les
@@ -1261,9 +1280,13 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
   }
 
   async function cancelEnCours(machineId: string) {
-    // ✅ Annule la mise en préparation : retour en "disponible"
+    // ✅ Annule la mise en préparation : retour en "disponible" — ou en
+    // "restitution" si les frais Nacelle Expert de son retour ne sont pas
+    // encore réglés (elle doit rester visible en Restitutions — règle Jonathan).
+    const mAvant = machines.find((x) => x.id === machineId);
+    const fraisImpayes = !!mAvant?.expertise_recue && !mAvant?.facture_reglee_ok;
     const updates = {
-      statut: "disponible" as const,
+      statut: (fraisImpayes ? "restitution" : "disponible") as "restitution" | "disponible",
       type_sortie: null,
       type_prepa: null,
       acheteur: null,
@@ -1305,17 +1328,29 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     numeroFacture: string,
     dateFacturation: string
   ) {
-    const updates = {
-      numero_facture: numeroFacture,
-      date_facturation: dateFacturation,
-      statut: "cloturee" as const,
-      updatedAt: new Date().toISOString(),
-    };
+    // 🔁 LOCATION : « Marquer mise à disposition » ne clôture PAS la machine
+    // comme une vente — elle passe « louée » (pas de facture de vente, pas de
+    // relance impayés, et son prochain retour NE la remettra en restitution).
+    const mFact = machines.find((x) => x.id === machineId);
+    const estLocation = mFact?.type_sortie === "lld";
+    const updates = estLocation
+      ? {
+          statut: "louee_lld" as const,
+          date_mise_dispo_lld: dateFacturation || new Date().toISOString().slice(0, 10),
+          ...(numeroFacture ? { numero_facture: numeroFacture } : {}),
+          updatedAt: new Date().toISOString(),
+        }
+      : {
+          numero_facture: numeroFacture,
+          date_facturation: dateFacturation,
+          statut: "cloturee" as const,
+          updatedAt: new Date().toISOString(),
+        };
 
     if (isFirebaseMachine(machineId)) {
       try {
         await updateDoc(doc(db, "machines_vo", machineId), updates);
-        console.log(`✅ Machine ${machineId} facturée → clôturée dans Firebase`);
+        console.log(`✅ Machine ${machineId} ${estLocation ? "mise à disposition → louée" : "facturée → clôturée"} dans Firebase`);
       } catch (err) {
         console.error("❌ Erreur marquerFacturee Firebase:", err);
       }

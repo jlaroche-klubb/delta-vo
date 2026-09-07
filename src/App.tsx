@@ -37,7 +37,8 @@ function AppContent() {
   const [menuOpen, setMenuOpen] = useState(false);
 
   // ✅ SYNCHRONISATION AUTOMATIQUE NACELLE-EXPERT → DELTA VO
-  useNacelleExpertSync();
+  // (uniquement une fois connecté — voir le hook)
+  useNacelleExpertSync(!!user && !!profile);
 
   // Fermer le menu mobile quand on change de page
   useEffect(() => {

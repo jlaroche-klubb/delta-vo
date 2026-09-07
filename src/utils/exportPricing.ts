@@ -39,7 +39,7 @@ export function exportPricingToExcel({ machines, seuilRepricer = 60 }: ExportPri
       // 🚚 Disponibilité VOG ≠ OK (location, prêt, vente en cours…) : hors
       // vente, donc hors pricing PDG
       !horsVenteVog(m) &&
-      (m.statut === "disponible" || (m.statut === "restitution" && m.expertise_ok))
+      (m.statut === "disponible" || (m.statut === "restitution" && m.expertise_recue && m.expertise_ok))
   );
 
   if (actives.length === 0) {

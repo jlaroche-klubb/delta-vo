@@ -253,6 +253,8 @@ const es = {
     step1: "Solicitud recog.",
     step2: "Recogida",
     step3: "Peritaje",
+    step3Attente: "Peritaje (esperando NE)",
+    step3LockedTitle: "Este paso se valida automáticamente al recibir el peritaje de Nacelle Expert — no puede marcarse a mano.",
     step4: "Factura",
     step5: "Pagada",
     factLine: "Factura n.º {{num}} — el {{date}}",

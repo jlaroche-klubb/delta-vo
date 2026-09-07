@@ -35,6 +35,12 @@ export default function ImportResultModal({ result, onClose }: ImportResultModal
               <div className="import-stat-value">{errorCount}</div>
               <div className="import-stat-label">{t("modals.importIgnored")}</div>
             </div>
+            {!!result.inchangees && (
+              <div className="import-stat">
+                <div className="import-stat-value">{result.inchangees}</div>
+                <div className="import-stat-label">{t("modals.importUnchanged")}</div>
+              </div>
+            )}
             <div className="import-stat">
               <div className="import-stat-value">{result.totalRows}</div>
               <div className="import-stat-label">{t("modals.importTotalRows")}</div>

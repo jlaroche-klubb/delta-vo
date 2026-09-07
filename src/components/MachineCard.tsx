@@ -359,16 +359,19 @@ export default function MachineCard({
             />
             <Connector active={step2Done} />
 
+            {/* 🔒 Règle Jonathan : l'étape « Expertise » ne se coche pas à la main —
+                elle est validée par l'arrivée de l'expertise Nacelle Expert. */}
             <Step
               number={3}
-              label={t("mcard.step3")}
+              label={machine.expertise_recue || step3Done ? t("mcard.step3") : t("mcard.step3Attente")}
               state={step3Done ? "done" : activeStep === 3 ? "active" : "todo"}
               onClick={
-                canValidate && (activeStep === 3 || step3Done)
+                canValidate && (activeStep === 3 || step3Done) && (machine.expertise_recue || step3Done)
                   ? () => onToggleField(machine.id, "expertise_ok")
                   : undefined
               }
-              disabled={!canValidate}
+              disabled={!canValidate || (!machine.expertise_recue && !step3Done)}
+              title={!machine.expertise_recue && !step3Done ? t("mcard.step3LockedTitle") : undefined}
             />
             <Connector active={step3Done} />
 
@@ -478,6 +481,7 @@ function Step({
   onClick,
   customContent,
   disabled = false,
+  title,
 }: {
   number: number;
   label: string;
@@ -485,14 +489,16 @@ function Step({
   onClick?: () => void;
   customContent?: React.ReactNode;
   disabled?: boolean;
+  title?: string;
 }) {
   return (
-    <div className={`step step-${state}`}>
+    <div className={`step step-${state}`} title={title}>
       <button
         className="step-circle"
         onClick={onClick}
         disabled={disabled || state === "todo"}
         type="button"
+        title={title}
       >
         {state === "done" ? "✓" : number}
       </button>

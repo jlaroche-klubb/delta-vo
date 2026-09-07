@@ -165,7 +165,9 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
         (m) =>
           // 🚚 Le fichier VOG fait autorité : disponibilité ≠ OK → jamais en vente
           !horsVenteVog(m) &&
-          (m.statut === "disponible" || (m.statut === "restitution" && m.expertise_ok))
+          // 🔒 Règle Jonathan : en vente uniquement une fois l'expertise Nacelle
+          // Expert REÇUE (pas une étape cochée à la main)
+          (m.statut === "disponible" || (m.statut === "restitution" && m.expertise_recue && m.expertise_ok))
       ),
     [machines]
   );

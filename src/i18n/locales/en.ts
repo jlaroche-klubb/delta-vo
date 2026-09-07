@@ -140,6 +140,7 @@ const en: TranslationSchema = {
     inOffer: "In offer",
     addOffer: "Add to offer",
     deleteTitle: "Permanently delete this machine",
+    moreActions: "More actions",
     delete: "Delete",
     inStockSince: "In stock since",
     site: "Site —",

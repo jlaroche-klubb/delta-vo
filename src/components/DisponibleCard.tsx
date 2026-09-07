@@ -3,6 +3,7 @@ import { Machine, calculAgeStock, getAgeStockColor, isFicheComplete } from "../t
 import { useTranslation } from "react-i18next";
 import ChiffrageZeroTools from "./ChiffrageZeroTools";
 import { LOCALITES } from "../utils/localites";
+import ActionMenu from "./ActionMenu";
 
 interface DisponibleCardProps {
   machine: Machine;
@@ -238,31 +239,9 @@ export default function DisponibleCard({
                   : ""}
               </button>
             )}
-            {canEtudeMarche && onEtudeMarche && (
-              <button
-                className="btn-fiche-edit"
-                onClick={() => onEtudeMarche(machine)}
-                title={t("card.etudeTitle")}
-              >
-                📊 {t("card.etude")}
-                {machine.etude_marche?.mediane
-                  ? ` (${Math.round(machine.etude_marche.mediane / 1000)} k€)`
-                  : ""}
-              </button>
-            )}
-            {canInternalPhotos && onInternalPhotos && (
-              <button
-                className="btn-fiche-edit"
-                onClick={() => onInternalPhotos(machine)}
-                title={t("card.internalPhotosTitle")}
-              >
-                🔒 {t("card.internalPhotos")}
-                {machine.photos_internes && machine.photos_internes.length > 0
-                  ? ` (${machine.photos_internes.length})`
-                  : ""}
-              </button>
-            )}
-            {canLld && onLld && (
+            {/* 👤 Vendeurs / dealers : actions secondaires visibles (vue validée telle quelle).
+                👑 Admin / super admin : rangées dans le menu « ⋯ » ci-contre. */}
+            {!isAdmin && canLld && onLld && (
               <button
                 className="btn-lld"
                 onClick={() => onLld(machine)}
@@ -271,7 +250,7 @@ export default function DisponibleCard({
                 🔁 {t("card.lld")}
               </button>
             )}
-            {canOffre && hasPrice && onTogglePanier && (
+            {!isAdmin && canOffre && hasPrice && onTogglePanier && (
               <button
                 onClick={() => onTogglePanier(machine)}
                 title={isInPanier ? t("card.removeOfferTitle") : t("card.addOfferTitle")}
@@ -289,17 +268,49 @@ export default function DisponibleCard({
                 {isInPanier ? `✓ ${t("card.inOffer")}` : `➕ ${t("card.addOffer")}`}
               </button>
             )}
-            {canDelete && onDelete && (
-              <button
-                className="btn-delete-machine"
-                onClick={() => onDelete(machine.id)}
-                title={t("card.deleteTitle")}
-                style={{ background: "#dc3545", color: "white", border: "none", padding: "6px 12px", borderRadius: "4px", cursor: "pointer" }}
-              >
-                🗑️ {t("card.delete")}
-              </button>
-            )}
           </div>
+
+          {/* ⋯ Menu des actions secondaires — admin / super admin uniquement */}
+          {isAdmin && (
+            <ActionMenu label={t("card.moreActions")} compact>
+              {canEtudeMarche && onEtudeMarche && (
+                <button type="button" className="action-menu-item" onClick={() => onEtudeMarche(machine)} title={t("card.etudeTitle")}>
+                  📊 {t("card.etude")}
+                  {machine.etude_marche?.mediane ? (
+                    <span className="tb-badge">{Math.round(machine.etude_marche.mediane / 1000)} k€</span>
+                  ) : null}
+                </button>
+              )}
+              {canInternalPhotos && onInternalPhotos && (
+                <button type="button" className="action-menu-item" onClick={() => onInternalPhotos(machine)} title={t("card.internalPhotosTitle")}>
+                  🔒 {t("card.internalPhotos")}
+                  {machine.photos_internes && machine.photos_internes.length > 0 ? (
+                    <span className="tb-badge">{machine.photos_internes.length}</span>
+                  ) : null}
+                </button>
+              )}
+              {canLld && onLld && (
+                <button type="button" className="action-menu-item" onClick={() => onLld(machine)} title={t("card.lldTitle")}>
+                  🔁 {t("card.lld")}
+                </button>
+              )}
+              {canOffre && hasPrice && onTogglePanier && (
+                <button
+                  type="button"
+                  className={`action-menu-item ${isInPanier ? "checked" : ""}`}
+                  onClick={() => onTogglePanier(machine)}
+                  title={isInPanier ? t("card.removeOfferTitle") : t("card.addOfferTitle")}
+                >
+                  {isInPanier ? `✓ ${t("card.inOffer")}` : `➕ ${t("card.addOffer")}`}
+                </button>
+              )}
+              {canDelete && onDelete && (
+                <button type="button" className="action-menu-item danger" onClick={() => onDelete(machine.id)} title={t("card.deleteTitle")}>
+                  🗑️ {t("card.delete")}
+                </button>
+              )}
+            </ActionMenu>
+          )}
         </div>
       </div>
 

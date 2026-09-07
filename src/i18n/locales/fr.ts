@@ -139,6 +139,7 @@ const fr = {
     inOffer: "Dans l'offre",
     addOffer: "Ajouter à l'offre",
     deleteTitle: "Supprimer définitivement cette machine",
+    moreActions: "Plus d'actions",
     delete: "Supprimer",
     inStockSince: "Stock depuis le",
     site: "Site —",

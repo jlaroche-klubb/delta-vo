@@ -5,6 +5,8 @@ export interface ImportResult {
   success: ImportSuccess[];
   errors: ImportError[];
   totalRows: number;
+  /** Lignes dont le prix est identique à celui déjà en base (fichier renvoyé tel quel) */
+  inchangees?: number;
 }
 
 export interface ImportSuccess {
@@ -50,6 +52,7 @@ export async function importPricingFromExcel({
 
   const success: ImportSuccess[] = [];
   const errors: ImportError[] = [];
+  const stats = { inchangees: 0 };
 
   // Vérifier que le fichier ressemble bien au modèle (colonnes de prix présentes)
   if (rows.length > 0) {
@@ -64,11 +67,21 @@ export async function importPricingFromExcel({
     }
   }
 
-  rows.forEach((row, idx) => {
-    processRow(row, idx + 2, machines, success, errors);
+  // 📄 Lignes de titre de groupe (« ── K26 · 5 machine(s) ── »), lignes vides
+  // et ligne de pied du fichier : ni immat, ni N° occasion, ni prix → ignorées
+  // silencieusement (ce ne sont pas des machines).
+  const lignesMachines = rows.filter((r) => {
+    const immat = String(r["Immatriculation"] || "").trim();
+    const occ = String(r["N° occasion"] || "").trim();
+    const prix = r["Prix France HT (€)"] ?? r["Prix Dealer HT (€)"];
+    return immat || occ || (prix !== undefined && prix !== "");
   });
 
-  return { success, errors, totalRows: rows.length };
+  lignesMachines.forEach((row, idx) => {
+    processRow(row, idx + 2, machines, success, errors, stats);
+  });
+
+  return { success, errors, totalRows: lignesMachines.length, inchangees: stats.inchangees };
 }
 
 function processRow(
@@ -76,7 +89,8 @@ function processRow(
   rowNum: number,
   machines: Machine[],
   success: ImportSuccess[],
-  errors: ImportError[]
+  errors: ImportError[],
+  stats: { inchangees: number }
 ) {
   const immat = String(row["Immatriculation"] || "").trim().toUpperCase();
   // 🏷️ Correspondance par immat OU par N° occasion (référence commerciale)
@@ -104,7 +118,7 @@ function processRow(
   // Même périmètre que l'export : disponible OU restitution dont l'expertise est validée
   const perimetreOk =
     machine.statut === "disponible" ||
-    (machine.statut === "restitution" && machine.expertise_ok);
+    (machine.statut === "restitution" && machine.expertise_recue && machine.expertise_ok);
   if (!perimetreOk) {
     errors.push({
       immat,
@@ -126,6 +140,15 @@ function processRow(
     return;
   }
 
+  // ♻️ Fichier renvoyé avec les prix déjà faits pré-remplis : une ligne dont
+  // les prix n'ont pas bougé n'est ni une mise à jour ni une erreur.
+  const memeFr = prixFr === null || prixFr === (machine.prix_fr ?? null);
+  const memeDealer = prixDealer === null || prixDealer === (machine.prix_dealer ?? null);
+  if (memeFr && memeDealer) {
+    stats.inchangees++;
+    return;
+  }
+
   if (prixFr !== null && prixFr < 0) {
     errors.push({ immat: machine.immat, raison: "Prix France HT négatif", source: SOURCE });
     return;
@@ -139,8 +162,9 @@ function processRow(
     // ⚠ Toujours l'immat de la machine TROUVÉE : l'application des prix
     // (DisponiblesPage) retrouve la machine par cette valeur.
     immat: machine.immat,
-    prixFr: prixFr === null ? undefined : prixFr,
-    prixDealer: prixDealer === null ? undefined : prixDealer,
+    // Seuls les prix réellement modifiés sont appliqués
+    prixFr: memeFr ? undefined : prixFr!,
+    prixDealer: memeDealer ? undefined : prixDealer!,
     source: SOURCE,
   });
 }

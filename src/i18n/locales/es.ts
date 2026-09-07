@@ -678,6 +678,7 @@ const es = {
     importTitle: "Resultado de la importación",
     importUpdated: "Actualizadas",
     importIgnored: "Ignoradas",
+    importUnchanged: "Sin cambios",
     importTotalRows: "Total de líneas",
     importPricesUpdated: "Precios actualizados",
     importIgnoredLines: "Líneas ignoradas",

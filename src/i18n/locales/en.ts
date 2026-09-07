@@ -678,6 +678,7 @@ const en: TranslationSchema = {
     importTitle: "Import result",
     importUpdated: "Updated",
     importIgnored: "Ignored",
+    importUnchanged: "Unchanged",
     importTotalRows: "Total rows",
     importPricesUpdated: "Prices updated",
     importIgnoredLines: "Ignored rows",

@@ -44,6 +44,8 @@ interface DisponiblesFiltersProps {
   userRole: string;
   isOpen: boolean;
   onToggle: () => void;
+  /** Le bouton « Filtres » est rendu par la page (barre d'outils) : n'afficher que le panneau */
+  hideToggle?: boolean;
   seuilRepricer: number;
 }
 
@@ -54,6 +56,7 @@ export default function DisponiblesFilters({
   userRole,
   isOpen,
   onToggle,
+  hideToggle = false,
   seuilRepricer,
 }: DisponiblesFiltersProps) {
   const { t } = useTranslation();
@@ -128,12 +131,14 @@ export default function DisponiblesFilters({
   }
 
   return (
-    <div className={`filters-wrap ${isOpen ? "open" : ""}`}>
-      <button className="filters-toggle" onClick={onToggle}>
-        <span className="filter-icon">▾</span>
-        <span>Filtres</span>
-        {activeCount > 0 && <span className="filters-count">{activeCount}</span>}
-      </button>
+    <div className={`filters-wrap ${isOpen ? "open" : ""} ${hideToggle ? "detached" : ""}`}>
+      {!hideToggle && (
+        <button className="filters-toggle" onClick={onToggle}>
+          <span className="filter-icon">▾</span>
+          <span>Filtres</span>
+          {activeCount > 0 && <span className="filters-count">{activeCount}</span>}
+        </button>
+      )}
 
       {isOpen && (
         <div className="filters-panel">
@@ -470,6 +475,10 @@ export default function DisponiblesFilters({
       )}
     </div>
   );
+}
+
+export function countActiveDispoFilters(f: DispoFilterState, lockedPriceType: boolean): number {
+  return countActiveFilters(f, lockedPriceType);
 }
 
 function countActiveFilters(f: DispoFilterState, lockedPriceType: boolean): number {

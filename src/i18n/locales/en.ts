@@ -531,6 +531,8 @@ const en: TranslationSchema = {
     erreur: "⚠️ {{immat}} is in preparation, but the email to workshop staff could not be sent ({{message}}).",
   },
   marche: {
+    tileLabel: "Avg market",
+    tileVide: "no recent study",
     titre: "Online market",
     aucune: "no market study under {{jours}} days old on machines for sale (run 📊 Market study).",
     machines: "{{count}} machine(s) studied",
@@ -552,6 +554,11 @@ const en: TranslationSchema = {
     colEcart: "Our prices gap",
     colEtude: "Latest study",
     legende: "Studies under {{jours}} days · min = lowest of the low ranges · avg = mean of medians · max = highest of the high ranges · gap = our average France price vs average market.",
+  },
+  toolbar: {
+    exports: "Exports",
+    imports: "Imports",
+    tools: "Tools",
   },
   stats: {
     title: "Sales statistics",

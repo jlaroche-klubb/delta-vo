@@ -531,6 +531,8 @@ const es = {
     erreur: "⚠️ {{immat}} está en preparación, pero el email a los preparadores no pudo enviarse ({{message}}).",
   },
   marche: {
+    tileLabel: "Mercado medio",
+    tileVide: "sin estudio reciente",
     titre: "Mercado internet",
     aucune: "ningún estudio de mercado de menos de {{jours}} días en las máquinas en venta (lanzar 📊 Estudio mercado).",
     machines: "{{count}} máquina(s) estudiada(s)",
@@ -552,6 +554,11 @@ const es = {
     colEcart: "Desvío nuestros precios",
     colEtude: "Último estudio",
     legende: "Estudios de menos de {{jours}} días · mín = la más baja de las horquillas bajas · medio = media de las medianas · máx = la más alta de las horquillas altas · desvío = nuestro precio Francia medio respecto al mercado medio.",
+  },
+  toolbar: {
+    exports: "Exportar",
+    imports: "Importar",
+    tools: "Herramientas",
   },
   stats: {
     title: "Estadísticas de venta",

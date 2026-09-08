@@ -29,6 +29,10 @@ interface DisponibleCardProps {
   onEtudeMarche?: (machine: Machine) => void;
   canDelete?: boolean;
   onDelete?: (id: string) => void;
+  // 🔎 Super admin : diagnostic + réouverture d'une restitution
+  canDiagnostic?: boolean;
+  onDiagnostic?: (machine: Machine) => void;
+  onRouvrirRestitution?: (machine: Machine) => void;
   // ✅ Offre HubSpot
   canOffre?: boolean;
   isInPanier?: boolean;
@@ -60,6 +64,9 @@ export default function DisponibleCard({
   onEtudeMarche,
   canDelete = false,
   onDelete,
+  canDiagnostic = false,
+  onDiagnostic,
+  onRouvrirRestitution,
   canOffre = false,
   isInPanier = false,
   onTogglePanier,
@@ -302,6 +309,16 @@ export default function DisponibleCard({
                   title={isInPanier ? t("card.removeOfferTitle") : t("card.addOfferTitle")}
                 >
                   {isInPanier ? `✓ ${t("card.inOffer")}` : `➕ ${t("card.addOffer")}`}
+                </button>
+              )}
+              {canDiagnostic && onRouvrirRestitution && machine.statut === "disponible" && machine.expertise_recue && (
+                <button type="button" className="action-menu-item" onClick={() => onRouvrirRestitution(machine)} title={t("card.rouvrirTitle")}>
+                  ↩️ {t("card.rouvrir")}
+                </button>
+              )}
+              {canDiagnostic && onDiagnostic && (
+                <button type="button" className="action-menu-item" onClick={() => onDiagnostic(machine)} title={t("card.diagTitle")}>
+                  🔎 {t("card.diag")}
                 </button>
               )}
               {canDelete && onDelete && (

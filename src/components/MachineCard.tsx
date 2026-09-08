@@ -21,6 +21,8 @@ interface MachineCardProps {
   canValidate?: boolean;
   canDelete?: boolean;
   onDelete?: (id: string) => void;
+  /** 🔎 Super admin : diagnostic (données brutes + historique) */
+  onDiagnostic?: (machine: Machine) => void;
 }
 
 export default function MachineCard({ 
@@ -29,7 +31,8 @@ export default function MachineCard({
   onToggleField,
   canValidate = true,
   canDelete = false,
-  onDelete 
+  onDelete,
+  onDiagnostic,
 }: MachineCardProps) {
   const [showExpertise, setShowExpertise] = useState(false);
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
@@ -235,6 +238,15 @@ export default function MachineCard({
                 style={{ background: "none", border: "1px solid var(--border, #d8dbe6)", borderRadius: 6, cursor: "pointer", padding: "4px 8px", fontSize: 13 }}
               >
                 ✏️
+              </button>
+            )}
+            {onDiagnostic && (
+              <button
+                className="btn-archive"
+                onClick={() => onDiagnostic(machine)}
+                title={t("card.diagTitle")}
+              >
+                🔎
               </button>
             )}
             {canDelete && !machine.archived && (

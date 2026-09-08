@@ -40,6 +40,9 @@ export function exportListePrix(machines: Machine[], userRole: UserRole) {
       "Mise en circulation": m.annee_circulation || "",
       "Heures nacelle": m.heures_nacelle ?? "",
       "Km porteur": m.km_porteur ?? "",
+      // 📍 Site de stockage (demande des vendeurs — F. Larronde, 08/09/2026) :
+      // savoir où est la machine pour organiser visite / livraison
+      "Site de stockage": m.localite || "",
       "Montant expertise VO (€)": m.rapport_expertise?.total_retenue_ht ?? "",
     };
 
@@ -71,6 +74,7 @@ export function exportListePrix(machines: Machine[], userRole: UserRole) {
     { wch: 15 }, // Mise en circulation
     { wch: 12 }, // Heures
     { wch: 12 }, // Km
+    { wch: 14 }, // Site de stockage
     { wch: 20 }, // Montant expertise VO
   ];
 

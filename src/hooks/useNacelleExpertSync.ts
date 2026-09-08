@@ -4,6 +4,7 @@ import { notifyExpertiseArrivee } from '../services/emailService';
 import { db, dbNacelleExpert } from '../firebase';
 import { syncHubspotProduct } from '../services/hubspotService';
 import { normalizeLocalite } from '../utils/localites';
+import { traceStatut } from '../utils/historique';
 
 interface NacelleExpertDossier {
   immat: string;
@@ -240,6 +241,7 @@ export function useNacelleExpertSync(enabled: boolean = true) {
                     // bascule automatique en location LLD, désarchivée si besoin
                     await updateDoc(refDepart, {
                       ...trace,
+                      historique: traceStatut(m.archived ? 'archivée' : m.statut, 'louee_lld', 'synchro_ne_depart', `départ ${dateDepart} — ${dossier.info?.client || ''}`, 'Synchro NE'),
                       statut: 'louee_lld',
                       type_sortie: 'lld',
                       client_lld: m.client_lld || dossier.info?.client || '',
@@ -252,6 +254,7 @@ export function useNacelleExpertSync(enabled: boolean = true) {
                     // LLD en préparation : le départ vaut mise à disposition
                     await updateDoc(refDepart, {
                       ...trace,
+                      historique: traceStatut(m.statut, 'louee_lld', 'synchro_ne_depart', `départ ${dateDepart} (LLD en préparation)`, 'Synchro NE'),
                       statut: 'louee_lld',
                       date_mise_dispo_lld: m.date_mise_dispo_lld || dateDepart,
                     });
@@ -280,6 +283,7 @@ export function useNacelleExpertSync(enabled: boolean = true) {
                     // en Restitutions jusqu'au règlement (règle Jonathan).
                     await updateDoc(refDepart, {
                       ...trace,
+                      historique: traceStatut(m.statut, 'louee_lld', 'synchro_ne_depart', `départ ${dateDepart} — ${dossier.info?.client || ''} (facturation conservée)`, 'Synchro NE'),
                       statut: 'louee_lld',
                       type_sortie: 'lld',
                       client_lld: dossier.info?.client || m.client_lld || '',
@@ -411,6 +415,7 @@ export function useNacelleExpertSync(enabled: boolean = true) {
             // 📦 Mise en vente = expertise retour reçue (règle Jonathan) : l'âge
             // de stock démarre ici
             date_mise_stock: String(dateRecup).slice(0, 10),
+            historique: traceStatut(undefined, 'restitution', 'synchro_ne_retour', `créée par l'expertise retour ${dateRecup} — ${dossier.info?.client || ''}`, 'Synchro NE'),
             
             date_ajout: new Date(),
             date_modification: new Date(),
@@ -442,7 +447,9 @@ export function useNacelleExpertSync(enabled: boolean = true) {
               : !memeRetour; // fiches anciennes sans cycle_id : on compare la date de retour
             // 🛡 Statuts protégés : en préparation et clôturée (vendue/facturée) ne
             // reviennent JAMAIS en restitution automatiquement.
-            const statutProtege = existingData.statut === 'en_cours' || existingData.statut === 'cloturee';
+            const statutProtege =
+              existingData.statut === 'en_cours' ||
+              (existingData.statut === 'cloturee' && existingData.type_sortie !== 'lld');
             const basculeRestitution = nouvelleExpertise && !statutProtege;
             console.log(
               `🔎 ${immatId} : ${nouvelleExpertise ? 'NOUVELLE expertise' : 'mise à jour du même cycle'}` +
@@ -493,7 +500,19 @@ export function useNacelleExpertSync(enabled: boolean = true) {
               // remontent bien (bloc ci-dessus).
               ...(!basculeRestitution ? {
                 expertise_recue: true, // l'expertise à jour est bien arrivée
+                // 🔁 NOUVELLE expertise retour sur une machine EN PRÉPARATION (elle
+                // était réellement partie et revient) : nouveau cycle de frais NE →
+                // facture/règlement remis à faire, SANS toucher au statut ni aux
+                // étapes. Elle reste visible en Restitutions (en_cours non réglée)
+                // et, si la préparation est annulée, repasse par Restitutions.
+                ...(nouvelleExpertise && existingData.statut === 'en_cours' ? {
+                  facture_ok: false,
+                  facture_reglee_ok: false,
+                  date_demande_recuperation: dateRecup,
+                  historique: traceStatut(existingData.statut, existingData.statut, 'synchro_ne_retour', `nouvelle expertise retour ${dateRecup} — statut en préparation conservé, frais NE à refacturer`, 'Synchro NE'),
+                } : {}),
               } : {
+              historique: traceStatut(existingData.archived ? 'archivée' : existingData.statut, 'restitution', 'synchro_ne_retour', `expertise retour ${dateRecup} — ${dossier.info?.client || ''}`, 'Synchro NE'),
               // ✅ Nouvelle date de récupération pour ce cycle de relocation
               date_demande_recuperation: dateRecup,
 

@@ -57,6 +57,7 @@ import RecalculChiffrageTous from "../components/RecalculChiffrageTous";
 import EtudeMarcheTous from "../components/EtudeMarcheTous";
 import { MarcheTile, MarchePanel } from "../components/SyntheseMarche";
 import ActionMenu from "../components/ActionMenu";
+import DiagnosticModal from "../components/DiagnosticModal";
 import { calculerSyntheseMarche } from "../utils/syntheseMarche";
 import { doc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
@@ -97,6 +98,7 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
     updatePhotosSupplementaires,
     updatePhotosInternes,
     enregistrerEtudeMarche,
+    rouvrirRestitution,
     updateShareToken,
     updateLocalite,
     attribuerNumeroFiche,
@@ -125,6 +127,7 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
   const [internalPhotosMachine, setInternalPhotosMachine] = useState<Machine | null>(null);
   const [etudeMachine, setEtudeMachine] = useState<Machine | null>(null); // 🔒 super admin
   const [marcheOpen, setMarcheOpen] = useState(false); // 📊 synthèse marché (admin)
+  const [diagMachine, setDiagMachine] = useState<Machine | null>(null); // 🔎 super admin
   const [phoneSetupOpen, setPhoneSetupOpen] = useState(false);
   const [pendingGenerate, setPendingGenerate] = useState<Machine | null>(null);
   const [choixPrixMachine, setChoixPrixMachine] = useState<Machine | null>(null);
@@ -233,6 +236,18 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
 
   function handleExportPricing() {
     exportPricingToExcel({ machines, seuilRepricer: SEUIL_REPRICER });
+  }
+
+  // ↩️ Super admin : remettre une machine « disponible » dans le circuit Restitutions
+  async function handleRouvrirRestitution(m: Machine) {
+    const ok = window.confirm(t("card.rouvrirConfirm", { immat: m.immat }));
+    if (!ok) return;
+    const motif = window.prompt(t("card.rouvrirMotif"), "") ?? "";
+    try {
+      await rouvrirRestitution(m.id, motif || undefined);
+    } catch (e: any) {
+      alert("Erreur : " + (e?.message || e));
+    }
   }
 
   function handleExportListePrix() {
@@ -822,6 +837,9 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
                 canInternalPhotos={isSuperAdminUser}
                 canEtudeMarche={isSuperAdminUser}
                 onEtudeMarche={setEtudeMachine}
+                canDiagnostic={isSuperAdminUser}
+                onDiagnostic={setDiagMachine}
+                onRouvrirRestitution={handleRouvrirRestitution}
                 onInternalPhotos={setInternalPhotosMachine}
                 canDelete={canDeleteMachine(userRole as any)}
                 onDelete={handleDeleteMachine}
@@ -867,6 +885,9 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
                 canInternalPhotos={isSuperAdminUser}
                 canEtudeMarche={isSuperAdminUser}
                 onEtudeMarche={setEtudeMachine}
+                canDiagnostic={isSuperAdminUser}
+                onDiagnostic={setDiagMachine}
+                onRouvrirRestitution={handleRouvrirRestitution}
                 onInternalPhotos={setInternalPhotosMachine}
                 canDelete={canDeleteMachine(userRole as any)}
                 onDelete={handleDeleteMachine}
@@ -906,6 +927,9 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
                 canInternalPhotos={isSuperAdminUser}
                 canEtudeMarche={isSuperAdminUser}
                 onEtudeMarche={setEtudeMachine}
+                canDiagnostic={isSuperAdminUser}
+                onDiagnostic={setDiagMachine}
+                onRouvrirRestitution={handleRouvrirRestitution}
                 onInternalPhotos={setInternalPhotosMachine}
                 canDelete={canDeleteMachine(userRole as any)}
                 onDelete={handleDeleteMachine}
@@ -943,6 +967,8 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
           onSave={handlePriceUpdate}
         />
       )}
+
+      {diagMachine && <DiagnosticModal machine={diagMachine} onClose={() => setDiagMachine(null)} />}
 
       {importResult && (
         <ImportResultModal

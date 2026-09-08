@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useMemo } from "react";
 import { collection, onSnapshot, doc, updateDoc, setDoc, Timestamp, deleteField } from "firebase/firestore";
 import { db, dbNacelleExpert } from "../firebase";
+import { traceStatut } from "../utils/historique";
 import {
   Machine,
   EtapePrepa,
@@ -115,6 +116,7 @@ interface MachinesContextType {
   ) => void;
   cancelEnCours: (machineId: string) => void;  // ✅ Annuler mise en préparation
   modifierInfosVente: (machineId: string, infos: { acheteur: string; commercial_vendeur: string; date_vente: string; date_livraison_prevue: string; contrat?: string; email_client?: string }) => Promise<void>;
+  rouvrirRestitution: (machineId: string, motif?: string) => Promise<void>;
   marquerFacturee: (
     machineId: string,
     numeroFacture: string,
@@ -403,6 +405,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             date_mise_en_cours: data.date_mise_en_cours || undefined,
             etapes_prepa: data.etapes_prepa || undefined,
             notif_prepa: data.notif_prepa || undefined,
+            historique: Array.isArray(data.historique) ? data.historique : undefined,
             client_lld: data.client_lld || undefined,
             date_mise_dispo_lld: data.date_mise_dispo_lld || undefined,
             
@@ -536,6 +539,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       // on ne l'écrase pas s'il est déjà posé par la synchro
       if (!machine.date_mise_stock) updates.date_mise_stock = new Date().toISOString().slice(0, 10);
       updates.statut = "disponible";
+      updates.historique = traceStatut(machine.statut, "disponible", "etape_restitution", "4 étapes validées (facture réglée)");
       console.log(`✅ Machine ${machine.immat} basculée en disponible`);
     }
     // ↩️ Une étape décochée sur une machine déjà passée « disponible » (frais
@@ -544,6 +548,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     if (!newVal && machine.statut === "disponible" && (field === "facture_ok" || field === "facture_reglee_ok")) {
       updates.statut = "restitution";
       updates.fiche_vo_creee = false;
+      updates.historique = traceStatut(machine.statut, "restitution", "etape_restitution", `${field} décoché`);
       console.log(`↩️ Machine ${machine.immat} rouverte en restitution (${field} décoché)`);
     }
 
@@ -620,6 +625,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
           expertise_recue: false, // ⏳ Pas encore d'expertise Nacelle-Expert
           date_ajout: new Date(),
           date_modification: new Date(),
+          historique: traceStatut(undefined, "restitution", "creation_manuelle", machine.client_precedent || undefined),
         },
         { merge: true }
       );
@@ -797,7 +803,9 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
   async function basculerEnLld(machineId: string, clientLld: string, dateMiseDispo: string, contrat?: string, emailClient?: string) {
     // ✅ La LLD passe en "en_cours" mais NON CONFIGURÉE
     // → L'ADV/Admin devra choisir le type de prépa (normale / en l'état)
+    const mLld = machines.find((x) => x.id === machineId);
     const updates: any = {
+      historique: traceStatut(mLld?.statut, "en_cours", "mise_en_location", clientLld),
       statut: "en_cours" as const,
       type_sortie: "lld" as const,
       // PAS de type_prepa : la machine sera "non configurée" pour que l'ADV choisisse
@@ -1104,6 +1112,9 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
         const significatif = Object.keys(updates).filter((k) => k !== "import_vog");
         if (significatif.length > 0 || !existing.import_vog) {
           updates.updatedAt = now;
+          if (updates.statut && updates.statut !== existing.statut) {
+            updates.historique = traceStatut(existing.statut, updates.statut, "import_vog", `disponibilité VOG : ${p.disponibilite_vog || "—"}`);
+          }
           try {
             // On écrit sur l'ID du doc RÉELLEMENT trouvé (existing.id), pas sur
             // p.docId : sinon un match par immat sur un doc legacy créerait un doublon.
@@ -1128,6 +1139,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
         // Nouvelle machine du stock VOG
         const newDoc = buildNewVogDoc(p);
         newDoc.date_ajout = Timestamp.fromDate(new Date());
+        newDoc.historique = traceStatut(undefined, newDoc.statut, "import_vog", `créée depuis le VOG (${p.disponibilite_vog || "—"})`);
         try {
           await setDoc(doc(db, "machines_vo", p.docId), newDoc);
           created++;
@@ -1207,7 +1219,8 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     // configure sa préparation (ne pas l'écraser en « vente »)
     const machineCfg = machines.find((x) => x.id === machineId);
     const estLocation = machineCfg?.type_sortie === "lld";
-    const updates = {
+    const updates: Record<string, any> = {
+      historique: traceStatut(machineCfg?.statut, "en_cours", "configuration_prepa", estLocation ? "location" : `vente${acheteur ? " — " + acheteur : ""}`),
       statut: "en_cours" as const,        // ✅ Bug 3 : Passer en en_cours
       type_sortie: (estLocation ? "lld" : "vente") as any,
       // 📋 Location : contrat + email demandés à la configuration
@@ -1245,6 +1258,30 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
           m.id === machineId ? { ...m, ...updates } : m
         )
       );
+    }
+  }
+
+  // ↩️ RÉOUVERTURE MANUELLE D'UNE RESTITUTION (super admin) — pour une machine
+  // passée « disponible » sans être passée par la case Restitutions (ex.
+  // GN-610-XG, 07/09/2026) : nouveau cycle de facturation des frais NE.
+  async function rouvrirRestitution(machineId: string, motif?: string) {
+    const m = machines.find((x) => x.id === machineId);
+    if (!m) return;
+    const updates: Record<string, any> = {
+      historique: traceStatut(m.statut, "restitution", "reouverture", motif),
+      statut: "restitution",
+      recuperation_ok: true,
+      expertise_ok: !!m.expertise_recue,
+      facture_ok: false,
+      facture_reglee_ok: false,
+      fiche_vo_creee: false,
+      updatedAt: new Date().toISOString(),
+    };
+    if (isFirebaseMachine(machineId)) {
+      await updateDoc(doc(db, "machines_vo", machineId), updates);
+      console.log(`↩️ ${m.immat} rouverte en restitution`);
+    } else {
+      setMockMachines((prev) => prev.map((x) => (x.id === machineId ? ({ ...x, ...updates } as Machine) : x)));
     }
   }
 
@@ -1286,6 +1323,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     const mAvant = machines.find((x) => x.id === machineId);
     const fraisImpayes = !!mAvant?.expertise_recue && !mAvant?.facture_reglee_ok;
     const updates = {
+      historique: traceStatut(mAvant?.statut, fraisImpayes ? "restitution" : "disponible", "annulation_prepa", fraisImpayes ? "frais NE non réglés" : undefined),
       statut: (fraisImpayes ? "restitution" : "disponible") as "restitution" | "disponible",
       type_sortie: null,
       type_prepa: null,
@@ -1333,14 +1371,16 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     // relance impayés, et son prochain retour NE la remettra en restitution).
     const mFact = machines.find((x) => x.id === machineId);
     const estLocation = mFact?.type_sortie === "lld";
-    const updates = estLocation
+    const updates: Record<string, any> = estLocation
       ? {
+          historique: traceStatut(mFact?.statut, "louee_lld", "facturation", "mise à disposition LLD"),
           statut: "louee_lld" as const,
           date_mise_dispo_lld: dateFacturation || new Date().toISOString().slice(0, 10),
           ...(numeroFacture ? { numero_facture: numeroFacture } : {}),
           updatedAt: new Date().toISOString(),
         }
       : {
+          historique: traceStatut(mFact?.statut, "cloturee", "facturation", `facture ${numeroFacture}`),
           numero_facture: numeroFacture,
           date_facturation: dateFacturation,
           statut: "cloturee" as const,
@@ -1848,6 +1888,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       configureEnCours,
       cancelEnCours,
       modifierInfosVente,
+      rouvrirRestitution,
       marquerFacturee,
       marquerPayee,
       marquerLivree,

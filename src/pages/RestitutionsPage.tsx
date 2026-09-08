@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { Machine } from "../types/machine";
 import { useMachinesFiltered } from "../contexts/MachinesContext";
 import MachineCard from "../components/MachineCard";
+import DiagnosticModal from "../components/DiagnosticModal";
 import RecalculChiffrageTous from "../components/RecalculChiffrageTous";
 import FiltersBar, { FilterState, EMPTY_FILTERS, applyFilters } from "../components/FiltersBar";
 import { exportMachinesToExcel } from "../utils/exportExcel";
@@ -61,6 +62,8 @@ export default function RestitutionsPage() {
   const { profile } = useAuth();
   const userRole = profile?.role || "atelier";
   const isAdmin = userRole === "admin" || userRole === "superadmin";
+  const isSuperAdmin = userRole === "superadmin";
+  const [diagMachine, setDiagMachine] = useState<Machine | null>(null); // 🔎 super admin
 
   const [search, setSearch] = useState("");
   const { t } = useTranslation();
@@ -449,10 +452,12 @@ export default function RestitutionsPage() {
               canValidate={canValidateRestitutionSteps(userRole)}
               canDelete={canDeleteMachine(userRole)}
               onDelete={handleDeleteMachine}
+              onDiagnostic={isSuperAdmin ? setDiagMachine : undefined}
             />
           ))
         )}
       </div>
+      {diagMachine && <DiagnosticModal machine={diagMachine} onClose={() => setDiagMachine(null)} />}
     </div>
   );
 }

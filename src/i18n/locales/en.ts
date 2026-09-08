@@ -651,6 +651,8 @@ const en: TranslationSchema = {
     priceDealerShort: "Dealer price",
     generatePdf: "Generate PDF",
     factTitle: "Mark as invoiced",
+    factSansFrais: "Nothing to invoice (inspection €0)",
+    factSansFraisInfo: "The Nacelle Expert inspection lists no damage: no refurbishment invoice to issue. This button ticks invoice and payment with the note \"NO INVOICE — inspection €0\" and puts the machine back to available.",
     factQuestion: "Enter the invoicing details",
     regNumber: "Registration",
     model: "Model",

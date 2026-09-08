@@ -260,21 +260,23 @@ export function useNacelleExpertSync(enabled: boolean = true) {
                     });
                     console.log(`🚚 ${immatDepart} : départ NE → mise à disposition LLD`);
                   } else if (m.statut === 'en_cours') {
-                    // Vente en préparation : machine physiquement partie →
-                    // étapes restantes validées, elle passe « Prête à facturer »
-                    const etapes = Array.isArray(m.etapes_prepa)
-                      ? m.etapes_prepa.map((e: any) =>
-                          e.done || e.non_necessaire
-                            ? e
-                            : { ...e, done: true, done_by: 'Départ Nacelle Expert', done_at: new Date().toISOString() }
-                        )
-                      : m.etapes_prepa;
+                    // ⚠️ Machine « en préparation VENTE » qui reçoit un DÉPART NE :
+                    // une vente ne déclenche JAMAIS d'expertise départ (règle
+                    // Jonathan, confirmée 08/09/2026 — cas GN-610-XG traité en vente
+                    // alors qu'il partait en location). Le départ NE fait foi : la
+                    // machine part en LOCATION → louée, client du dossier NE, et
+                    // une alerte est posée dans l'historique.
                     await updateDoc(refDepart, {
                       ...trace,
-                      ...(m.type_prepa ? {} : { type_prepa: 'en_etat' }),
-                      ...(etapes ? { etapes_prepa: etapes } : {}),
+                      historique: traceStatut(m.statut, 'louee_lld', 'synchro_ne_depart', `⚠️ départ NE ${dateDepart} reçu sur une machine en préparation VENTE (acheteur « ${m.acheteur || '—'} ») → requalifiée en LOCATION, client ${dossier.info?.client || '—'}`, 'Synchro NE'),
+                      statut: 'louee_lld',
+                      type_sortie: 'lld',
+                      client_lld: dossier.info?.client || m.client_lld || m.acheteur || '',
+                      date_mise_dispo_lld: dateDepart,
+                      alerte_saisie: `Départ Nacelle Expert du ${dateDepart} alors que la machine était en préparation VENTE — requalifiée en location le ${new Date().toISOString().slice(0, 10)}`,
                     });
-                    console.log(`🚚 ${immatDepart} : départ NE → prête à facturer (étapes validées)`);
+                    syncHubspotProduct('archive', immatDepart);
+                    console.warn(`⚠️ ${immatDepart} : départ NE sur une préparation VENTE → requalifiée en location (client ${dossier.info?.client || '—'})`);
                   } else if (m.statut === 'restitution' || (m.statut === 'cloturee' && m.type_sortie === 'lld')) {
                     // 🔁 Machine revenue (expertisée, éventuellement frais NE encore
                     // impayés) ou LLD marquée « mise à dispo » à l'ancienne, qui

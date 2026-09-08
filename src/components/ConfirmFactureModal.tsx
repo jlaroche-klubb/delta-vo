@@ -8,6 +8,8 @@ interface ConfirmFactureModalProps {
   mode?: "vente" | "restitution";
   onClose: () => void;
   onConfirm: (machineId: string, numeroFacture: string, dateFacturation: string) => void;
+  /** 🟢 Restitution à 0 € : clôture sans facture (facture + règlement cochés) */
+  onSansFrais?: (machineId: string) => void;
 }
 
 export default function ConfirmFactureModal({
@@ -15,8 +17,11 @@ export default function ConfirmFactureModal({
   mode = "vente",
   onClose,
   onConfirm,
+  onSansFrais,
 }: ConfirmFactureModalProps) {
   const isResti = mode === "restitution";
+  const montantExpertise = Number(machine.rapport_expertise?.total_retenue_ht) || 0;
+  const sansFraisPossible = isResti && !!onSansFrais && montantExpertise <= 0;
   const { t } = useTranslation();
   const [numeroFacture, setNumeroFacture] = useState("");
   const [dateFacturation, setDateFacturation] = useState(
@@ -136,6 +141,20 @@ export default function ConfirmFactureModal({
           </div>
         </div>
 
+        {sansFraisPossible && (
+          <div style={{ margin: "0 24px 12px", padding: "10px 14px", background: "#eaf7ee", border: "1px solid #b5dfc2", borderRadius: 8, fontSize: 13, color: "#1a7f37" }}>
+            ✓ {t("modals.factSansFraisInfo")}
+            <div style={{ marginTop: 8 }}>
+              <button
+                type="button"
+                className="btn-primary btn-success"
+                onClick={() => { onSansFrais!(machine.id); onClose(); }}
+              >
+                🟢 {t("modals.factSansFrais")}
+              </button>
+            </div>
+          </div>
+        )}
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onClose}>
             {t("modals.cancel")}

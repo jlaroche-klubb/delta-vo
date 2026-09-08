@@ -651,6 +651,8 @@ const es = {
     priceDealerShort: "Precio Dealer",
     generatePdf: "Generar el PDF",
     factTitle: "Marcar como facturada",
+    factSansFrais: "Nada que facturar (peritaje 0 €)",
+    factSansFraisInfo: "El peritaje Nacelle Expert no retiene ningún daño: no hay factura de reparación que emitir. Este botón marca factura y pago con la mención «SIN FACTURA — peritaje 0 €» y devuelve la máquina a disponibles.",
     factQuestion: "Introducir los datos de facturación",
     regNumber: "Matrícula",
     model: "Modelo",

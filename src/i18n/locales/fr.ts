@@ -650,6 +650,8 @@ const fr = {
     priceDealerShort: "Prix Dealer",
     generatePdf: "Générer le PDF",
     factTitle: "Marquer comme facturée",
+    factSansFrais: "Rien à facturer (expertise 0 €)",
+    factSansFraisInfo: "L'expertise Nacelle Expert ne retient aucun dégât : aucune facture de remise en état à émettre. Ce bouton coche facture et règlement avec la mention « SANS FACTURE — expertise 0 € » et remet la machine en disponible.",
     factQuestion: "Saisir les informations de facturation",
     regNumber: "Immatriculation",
     model: "Modèle",

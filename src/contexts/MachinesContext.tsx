@@ -117,6 +117,7 @@ interface MachinesContextType {
   cancelEnCours: (machineId: string) => void;  // ✅ Annuler mise en préparation
   modifierInfosVente: (machineId: string, infos: { acheteur: string; commercial_vendeur: string; date_vente: string; date_livraison_prevue: string; contrat?: string; email_client?: string }) => Promise<void>;
   rouvrirRestitution: (machineId: string, motif?: string) => Promise<void>;
+  cloreRestitutionSansFrais: (machineId: string, par: string) => Promise<void>;
   marquerFacturee: (
     machineId: string,
     numeroFacture: string,
@@ -406,6 +407,8 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             etapes_prepa: data.etapes_prepa || undefined,
             notif_prepa: data.notif_prepa || undefined,
             historique: Array.isArray(data.historique) ? data.historique : undefined,
+            alerte_saisie: data.alerte_saisie || undefined,
+            hubspot_synced: data.hubspot_synced === true ? true : undefined,
             client_lld: data.client_lld || undefined,
             date_mise_dispo_lld: data.date_mise_dispo_lld || undefined,
             
@@ -1261,6 +1264,33 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // 🟢 RIEN À FACTURER (expertise à 0 €) — clôture propre du cycle restitution :
+  // facture + règlement cochés avec une mention explicite (plus de faux n° de
+  // facture « PAS DE DEGAT »), passage en disponible, tracé dans l'historique.
+  async function cloreRestitutionSansFrais(machineId: string, par: string) {
+    const m = machines.find((x) => x.id === machineId);
+    if (!m) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const bascule = m.statut === "restitution";
+    const updates: Record<string, any> = {
+      facture_ok: true,
+      facture_resti_numero: "SANS FACTURE — expertise 0 €",
+      facture_resti_date: today,
+      facture_resti_par: par,
+      facture_reglee_ok: true,
+      fiche_vo_creee: true,
+      ...(bascule ? { statut: "disponible" } : {}),
+      ...(!m.date_mise_stock ? { date_mise_stock: today } : {}),
+      historique: traceStatut(m.statut, bascule ? "disponible" : m.statut, "etape_restitution", "rien à facturer (expertise 0 €)", par),
+      updatedAt: new Date().toISOString(),
+    };
+    if (isFirebaseMachine(machineId)) {
+      await updateDoc(doc(db, "machines_vo", machineId), updates);
+    } else {
+      setMockMachines((prev) => prev.map((x) => (x.id === machineId ? ({ ...x, ...updates } as Machine) : x)));
+    }
+  }
+
   // ↩️ RÉOUVERTURE MANUELLE D'UNE RESTITUTION (super admin) — pour une machine
   // passée « disponible » sans être passée par la case Restitutions (ex.
   // GN-610-XG, 07/09/2026) : nouveau cycle de facturation des frais NE.
@@ -1889,6 +1919,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       cancelEnCours,
       modifierInfosVente,
       rouvrirRestitution,
+      cloreRestitutionSansFrais,
       marquerFacturee,
       marquerPayee,
       marquerLivree,

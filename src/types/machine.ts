@@ -146,6 +146,9 @@ export interface Machine {
   agent_expertise?: string;
   // 💶 Trace de l'outil super admin « chiffrage à zéro » (rattrapage ponctuel)
   chiffrage_corrige?: { mode: "manuel" | "recalcul" | "import_vog"; par: string; date: string };
+  /** ⚠️ Alerte de cohérence posée par la synchro (ex. départ NE sur une préparation vente) */
+  alerte_saisie?: string;
+  hubspot_synced?: boolean;
   /** 🧾 Historique des changements de statut (voir utils/historique.ts) */
   historique?: { date: string; de: string; vers: string; source: string; par: string; note?: string }[];
   /** 📧 Trace de la notification envoyée aux préparateurs du site à la mise en préparation */

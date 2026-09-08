@@ -49,6 +49,7 @@ export default function RestitutionsPage() {
     machines: allMachines,
     toggleEtapeRestitution,
     facturerRestitution,
+    cloreRestitutionSansFrais,
     annulerFacturationRestitution,
     setDateDemandeRecup,
     createMachineRestitution,
@@ -330,6 +331,7 @@ export default function RestitutionsPage() {
           onConfirm={(machineId, numero, date) =>
             facturerRestitution(machineId, numero, date, userName)
           }
+          onSansFrais={(machineId) => cloreRestitutionSansFrais(machineId, userName)}
         />
       )}
 

@@ -3,6 +3,7 @@ import { Machine, FicheCommerciale } from "../types/machine";
 import { useTranslation } from "react-i18next";
 import { useMachines } from "../contexts/MachinesContext";
 import { normalizeTypeNacelle } from "../utils/nacelles";
+import { referencePourMachine } from "../utils/referenceNacelles";
 
 interface FicheCommercialeModalProps {
   machine: Machine;
@@ -24,8 +25,11 @@ export default function FicheCommercialeModal({
   // celles de la fiche VO la plus récente du même type déjà dans la base
   // (aucune table à maintenir : la référence s'enrichit toute seule).
   // Les champs restent modifiables — une variante machine peut différer.
+  // 📐 Priorité 1 : la FICHE TECHNIQUE KLUBB du type (utils/referenceNacelles.ts,
+  // relevée dans les brochures du Drive) ; priorité 2 : fiche VO du même type.
+  const refTech = referencePourMachine(machine);
   let modeleRef: Machine | null = null;
-  if (!existing.hauteur_travail_m || !existing.deport_travail_m) {
+  if (!refTech && (!existing.hauteur_travail_m || !existing.deport_travail_m)) {
     const typeCible = normalizeTypeNacelle(machine.type_nacelle || "");
     if (typeCible && typeCible !== "Sans nacelle") {
       modeleRef =
@@ -44,14 +48,20 @@ export default function FicheCommercialeModal({
 
   const [hauteur, setHauteur] = useState<string>(
     existing.hauteur_travail_m?.toString() ||
+      refTech?.hauteur_travail_m?.toString() ||
       refFiche?.hauteur_travail_m?.toString() ||
       ""
   );
   const [deport, setDeport] = useState<string>(
     existing.deport_travail_m?.toString() ||
+      refTech?.deport_m?.toString() ||
       refFiche?.deport_travail_m?.toString() ||
       ""
   );
+  const ecartRef =
+    !!refTech &&
+    (parseFloat(hauteur.replace(",", ".")) !== refTech.hauteur_travail_m ||
+      parseFloat(deport.replace(",", ".")) !== refTech.deport_m);
   const [nbPersonnes, setNbPersonnes] = useState<number>(
     existing.nb_personnes_panier || 1
   );
@@ -167,6 +177,28 @@ export default function FicheCommercialeModal({
                 />
               </div>
             </div>
+            {refTech && (
+              <div style={{ fontSize: 11, color: ecartRef ? "#b7791f" : "#7a7f92", marginTop: 2, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <span>
+                  📐 {t("modals.ficheRefTech", { modele: refTech.modele, h: refTech.hauteur_travail_m, d: refTech.deport_m })}
+                  {refTech.variante ? ` — ${refTech.variante}` : ""}
+                  {refTech.assimile ? ` (${refTech.assimile})` : ""}
+                </span>
+                {ecartRef && (
+                  <button
+                    type="button"
+                    className="btn-secondary"
+                    style={{ padding: "2px 8px", fontSize: 11 }}
+                    onClick={() => {
+                      setHauteur(String(refTech.hauteur_travail_m));
+                      setDeport(String(refTech.deport_m));
+                    }}
+                  >
+                    {t("modals.ficheRefApply")}
+                  </button>
+                )}
+              </div>
+            )}
             {modeleRef && (
               <div style={{ fontSize: 11, color: "#7a7f92", marginTop: 2 }}>
                 ↳ {t("modals.fichePrefill", {

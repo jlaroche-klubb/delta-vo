@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { Machine } from "../types/machine";
+import { apiFetch } from "../services/apiFetch";
 
 interface GenerateFicheOptions {
   machine: Machine;
@@ -40,7 +41,7 @@ async function imageUrlToBase64(url: string): Promise<string | null> {
   //    Sans ce repli, la photo restait en URL distante et html2canvas la
   //    rendait VIDE dans le PDF (cases blanches sur la fiche).
   try {
-    const r = await fetch("/api/fetch-image", {
+    const r = await apiFetch("/api/fetch-image", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url }),

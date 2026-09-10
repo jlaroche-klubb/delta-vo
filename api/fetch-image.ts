@@ -10,18 +10,19 @@
 // (delta-vo et nacelle-expert) — aucune autre destination acceptée.
 // ============================================================
 
+import { cors, exigerUtilisateur, fetchAvecReessai } from "./_lib/auth";
+
 const ALLOWED = [
   /^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/(delta-vo|nacelle-expert)\.(firebasestorage\.app|appspot\.com)\//,
   /^https:\/\/storage\.googleapis\.com\/(delta-vo|nacelle-expert)\.(firebasestorage\.app|appspot\.com)\//,
 ];
 
 export default async function handler(req: any, res: any) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
-  if (req.method === "OPTIONS") return res.status(200).end();
+  if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  // 🔐 Jeton Firebase obligatoire (voir api/_lib/auth.ts)
+  const user = await exigerUtilisateur(req, res);
+  if (!user) return;
 
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};

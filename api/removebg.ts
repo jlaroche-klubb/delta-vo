@@ -6,13 +6,16 @@
 // Mêmes réglages que la fiche FR : type=car, ombre portée.
 // ============================================================
 
-export default async function handler(req: any, res: any) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+import { cors, exigerUtilisateur, fetchAvecReessai } from "./_lib/auth";
 
-  if (req.method === "OPTIONS") return res.status(200).end();
+export const maxDuration = 60;
+
+export default async function handler(req: any, res: any) {
+  if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  // 🔐 Jeton Firebase obligatoire (voir api/_lib/auth.ts)
+  const user = await exigerUtilisateur(req, res, { accepterNE: true });
+  if (!user) return;
 
   const key = process.env.REMOVE_BG_KEY;
   if (!key) {
@@ -20,26 +23,42 @@ export default async function handler(req: any, res: any) {
     return res.status(500).json({ error: "Server misconfigured: REMOVE_BG_KEY manquant" });
   }
 
-  const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
-  const imageBase64: string | undefined = body.imageBase64;
-  if (!imageBase64) {
-    return res.status(400).json({ error: "imageBase64 manquant" });
+  let body: any = {};
+  try {
+    body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+  } catch {
+    return res.status(400).json({ error: "Corps JSON invalide" });
   }
+  // Image en base64 (Delta VO) OU URL Firebase Storage (Nacelle Expert : remove.bg
+  // va chercher l'image lui-même, pas de lecture cross-origin dans le navigateur)
+  const imageBase64: string | undefined = typeof body.imageBase64 === "string" ? body.imageBase64.replace(/^data:[^,]+,/, "") : undefined;
+  const imageUrl: string | undefined = typeof body.imageUrl === "string" ? body.imageUrl : undefined;
+  if (!imageBase64 && !imageUrl) {
+    return res.status(400).json({ error: "imageBase64 ou imageUrl manquant" });
+  }
+  if (imageBase64 && imageBase64.length > 6_000_000) {
+    return res.status(413).json({ error: "Image trop lourde (réduisez-la avant l'envoi)" });
+  }
+  if (imageUrl && !/^https:\/\/(firebasestorage\.googleapis\.com|storage\.googleapis\.com)\//.test(imageUrl)) {
+    return res.status(400).json({ error: "imageUrl non autorisée" });
+  }
+  // Qualité : « auto » (Delta VO, fiches) ou « 4k » (Nacelle Expert, photos de ventes)
+  const size = body.size === "4k" ? "4k" : "auto";
 
   try {
-    const rb = await fetch("https://api.remove.bg/v1.0/removebg", {
+    const rb = await fetchAvecReessai("https://api.remove.bg/v1.0/removebg", {
       method: "POST",
       headers: { "X-Api-Key": key, "Content-Type": "application/json" },
       body: JSON.stringify({
-        image_file_b64: imageBase64,
-        size: "auto",
+        ...(imageBase64 ? { image_file_b64: imageBase64 } : { image_url: imageUrl }),
+        size,
         // "auto" (et non "car") : sur une nacelle sur porteur, le profil
         // voiture amputait parfois la cabine ou le plateau (cas DS2294)
         type: "auto",
         shadow_type: "drop",
         shadow_opacity: "55",
       }),
-    });
+    }, { timeoutMs: 40_000, essais: 2 });
 
     if (!rb.ok) {
       const detail = await rb.text();

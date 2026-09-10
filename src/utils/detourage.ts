@@ -1,4 +1,5 @@
 import { DELTA_LOGO_BASE64 } from "../assets/deltaLogo";
+import { apiFetch } from "../services/apiFetch";
 
 /** Réduit une image (data URL) à max px sur le plus grand côté. */
 export function downscaleDataUrl(dataUrl: string, max = 1600, quality = 0.9): Promise<string> {
@@ -23,7 +24,7 @@ export function downscaleDataUrl(dataUrl: string, max = 1600, quality = 0.9): Pr
 export async function removeBgViaProxy(dataUrl: string): Promise<string> {
   const small = await downscaleDataUrl(dataUrl, 1600, 0.9);
   const imageBase64 = small.split(",")[1];
-  const resp = await fetch("/api/removebg", {
+  const resp = await apiFetch("/api/removebg", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ imageBase64 }),

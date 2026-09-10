@@ -6,6 +6,8 @@
  * - Les imports faits par Jonathan lui-même ne déclenchent pas d'email.
  * - Best-effort : un échec d'envoi n'interrompt JAMAIS l'import.
  */
+import { apiFetch } from "./apiFetch";
+
 export async function notifyImportAdmin(params: {
   type: "Parc VOG" | "VNC compta" | "Pricing PDG";
   par: string;
@@ -16,7 +18,7 @@ export async function notifyImportAdmin(params: {
   try {
     // Jonathan n'a pas besoin d'être prévenu de ses propres imports
     if ((params.email || "").toLowerCase() === "jlaroche@klubb.com") return;
-    await fetch("/api/notify-import", {
+    await apiFetch("/api/notify-import", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(params),

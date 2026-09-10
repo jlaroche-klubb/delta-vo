@@ -16,6 +16,8 @@
 // Optionnel : ETUDE_MODEL (défaut claude-sonnet-4-5).
 // ============================================================
 
+import { cors, exigerUtilisateur, fetchAvecReessai } from "./_lib/auth";
+
 export const maxDuration = 60; // les recherches web prennent 20-50 s
 
 const SITES =
@@ -23,11 +25,11 @@ const SITES =
   "mascus.fr, europe-camions.com, europe-utilitaires.com";
 
 export default async function handler(req: any, res: any) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  if (req.method === "OPTIONS") return res.status(200).end();
+  if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  // 🔐 Jeton Firebase obligatoire (voir api/_lib/auth.ts)
+  const user = await exigerUtilisateur(req, res, { roles: ["admin", "superadmin"] });
+  if (!user) return;
 
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) {
@@ -63,7 +65,7 @@ export default async function handler(req: any, res: any) {
       `Les montants sont en euros HT quand précisé, sinon tels qu'affichés. ` +
       `La fourchette exclut les valeurs aberrantes (annonce très au-dessus/en-dessous du lot).`;
 
-    const resp = await fetch("https://api.anthropic.com/v1/messages", {
+    const resp = await fetchAvecReessai("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "x-api-key": key,
@@ -76,7 +78,7 @@ export default async function handler(req: any, res: any) {
         tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 8 }],
         messages: [{ role: "user", content: prompt }],
       }),
-    });
+    }, { timeoutMs: 50_000, essais: 2 });
 
     if (!resp.ok) {
       const detail = await resp.text();

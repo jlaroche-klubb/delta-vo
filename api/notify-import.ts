@@ -12,14 +12,16 @@
 //   virgules) — défaut : jlaroche@klubb.com.
 // ============================================================
 
+import { cors, exigerUtilisateur, fetchAvecReessai } from "./_lib/auth";
+
 const DEFAULT_TO = ["jlaroche@klubb.com"];
 
 export default async function handler(req: any, res: any) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  if (req.method === "OPTIONS") return res.status(200).end();
+  if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  // 🔐 Jeton Firebase obligatoire (voir api/_lib/auth.ts)
+  const user = await exigerUtilisateur(req, res);
+  if (!user) return;
 
   const apiKey = process.env.BREVO_API_KEY;
   const senderEmail = process.env.BREVO_SENDER_EMAIL;

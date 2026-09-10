@@ -13,14 +13,17 @@
 // Les destinataires sont fournis par le front (lus dans Firestore).
 // ============================================================
 
+import admin from "firebase-admin";
+import { cors, exigerUtilisateur, fetchAvecReessai } from "./_lib/auth";
+
 const APP_URL = "https://delta-vo.vercel.app";
 
 export default async function handler(req: any, res: any) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  if (req.method === "OPTIONS") return res.status(200).end();
+  if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  // 🔐 Réservé aux rôles qui mettent en préparation (mêmes droits que l'écran)
+  const user = await exigerUtilisateur(req, res, { roles: ["secretaire", "admin", "superadmin"] });
+  if (!user) return;
 
   const apiKey = process.env.BREVO_API_KEY;
   const senderEmail = process.env.BREVO_SENDER_EMAIL;
@@ -33,15 +36,22 @@ export default async function handler(req: any, res: any) {
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
     const s = (v: any, max = 200) => String(v ?? "").trim().slice(0, max);
 
+    // 📧 Destinataires lus CÔTÉ SERVEUR (Admin → « Préparateurs par site »,
+    // Firestore config/notifications_preparation) : le navigateur n'envoie plus
+    // de liste d'emails → plus de relais de messagerie possible.
     const emailRe = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const to: string[] = Array.from(
-      new Set(
-        (Array.isArray(body.to) ? body.to : [])
-          .map((e: any) => s(e, 200).toLowerCase())
-          .filter((e: string) => emailRe.test(e))
-      )
-    ).slice(0, 30) as string[];
-    if (!to.length) return res.status(400).json({ error: "Aucun destinataire" });
+    const siteDemande = s(body.site, 60);
+    let to: string[] = [];
+    try {
+      const cfgSnap = await admin.firestore().collection("config").doc("notifications_preparation").get();
+      const sites = (cfgSnap.exists ? (cfgSnap.data() as any)?.sites : {}) || {};
+      const liste = Array.isArray(sites[siteDemande]) ? sites[siteDemande] : [];
+      to = Array.from(new Set(liste.map((e: any) => String(e).trim().toLowerCase()).filter((e: string) => emailRe.test(e)))).slice(0, 30) as string[];
+    } catch (e) {
+      console.error("❌ Lecture config préparateurs:", e);
+      return res.status(500).json({ error: "Configuration des préparateurs illisible" });
+    }
+    if (!to.length) return res.status(404).json({ error: "Aucun préparateur configuré pour ce site", site: siteDemande });
 
     const immat = s(body.immat, 20);
     const site = s(body.site, 60);
@@ -54,7 +64,7 @@ export default async function handler(req: any, res: any) {
     const acheteur = s(body.acheteur, 120);
     const commercial = s(body.commercial, 120);
     const dateLivraison = s(body.date_livraison_prevue, 20);
-    const par = s(body.par, 120);
+    const par = s(body.par, 120) || user.email;
     const etapes: string[] = Array.isArray(body.etapes) ? body.etapes.map((e: any) => s(e, 120)).filter(Boolean).slice(0, 40) : [];
 
     const esc = (str: string) =>
@@ -103,7 +113,7 @@ export default async function handler(req: any, res: any) {
       `<p style="color:#999;font-size:12px;margin-top:18px;">Notification automatique envoyée aux préparateurs du site à chaque mise en préparation · ne pas répondre à cet email.</p>` +
       `</div>`;
 
-    const resp = await fetch("https://api.brevo.com/v3/smtp/email", {
+    const resp = await fetchAvecReessai("https://api.brevo.com/v3/smtp/email", {
       method: "POST",
       headers: { accept: "application/json", "content-type": "application/json", "api-key": apiKey },
       body: JSON.stringify({
@@ -112,14 +122,14 @@ export default async function handler(req: any, res: any) {
         subject: `🔧 À préparer${site ? ` ${site}` : ""} : ${immat}${machineTitre !== immat ? ` · ${machineTitre}` : ""}${dateLivraison ? ` · livraison ${fmtDate(dateLivraison)}` : ""}`,
         htmlContent: html,
       }),
-    });
+    }, { timeoutMs: 15_000, essais: 2 });
     if (!resp.ok) {
       const detail = await resp.text();
       console.error("❌ Brevo (notify-preparation):", resp.status, detail.slice(0, 300));
       return res.status(502).json({ error: "Envoi Brevo échoué" });
     }
     console.log(`📧 notify-preparation ${immat} (${site}) → ${to.length} destinataire(s)`);
-    return res.status(200).json({ ok: true, recipients: to.length });
+    return res.status(200).json({ ok: true, recipients: to.length, to });
   } catch (e: any) {
     console.error("❌ notify-preparation:", e);
     return res.status(500).json({ error: e?.message || "Erreur notification préparation" });

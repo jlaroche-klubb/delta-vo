@@ -10,6 +10,7 @@ import ChiffrageZeroTools from "./ChiffrageZeroTools";
 import { useTranslation } from "react-i18next";
 import { canEditInfosAdmin } from "../utils/permissions";
 import { validerDevisEtEnvoyer } from "../services/devisService";
+import { ouvrirRapportNE } from "../services/nacelleExpertService";
 
 interface MachineCardProps {
   machine: Machine;
@@ -313,6 +314,10 @@ export default function MachineCard({
           <div style={{ padding: "2px 0 6px" }}>
             <a
               href={machine.rapport_expertise?.rapport_url || machine.dossier_nacelle_expert?.rapport_url}
+              onClick={(e) => {
+                e.preventDefault();
+                ouvrirRapportNE(machine.rapport_expertise?.rapport_url || machine.dossier_nacelle_expert?.rapport_url || "", machine.immat);
+              }}
               target="_blank"
               rel="noopener noreferrer"
               style={{ color: "#1a2a6e", fontWeight: 600, fontSize: 13, textDecoration: "underline" }}

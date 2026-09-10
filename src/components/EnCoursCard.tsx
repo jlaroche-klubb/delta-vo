@@ -10,6 +10,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useAuth } from "../AuthContext";
 import { canViewExpertiseReport } from "../utils/permissions";
+import { ouvrirRapportNE } from "../services/nacelleExpertService";
 
 interface EnCoursCardProps {
   machine: Machine;
@@ -149,6 +150,7 @@ export default function EnCoursCard({
           {machine.rapport_expertise.rapport_url && (
             <a
               href={machine.rapport_expertise.rapport_url}
+              onClick={(e) => { e.preventDefault(); ouvrirRapportNE(machine.rapport_expertise?.rapport_url || "", machine.immat); }}
               target="_blank"
               rel="noopener noreferrer"
               style={{ marginLeft: 8, color: "#1a2a6e", fontWeight: 600, textDecoration: "underline" }}

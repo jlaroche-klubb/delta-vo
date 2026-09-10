@@ -6,13 +6,16 @@
 // Mêmes réglages que la fiche FR : type=car, ombre portée.
 // ============================================================
 
-export default async function handler(req: any, res: any) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+import { cors, exigerUtilisateur, fetchAvecReessai } from "./_lib/auth";
 
-  if (req.method === "OPTIONS") return res.status(200).end();
+export const maxDuration = 60;
+
+export default async function handler(req: any, res: any) {
+  if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  // 🔐 Jeton Firebase obligatoire (voir api/_lib/auth.ts)
+  const user = await exigerUtilisateur(req, res, { accepterNE: true });
+  if (!user) return;
 
   const key = process.env.REMOVE_BG_KEY;
   if (!key) {
@@ -27,7 +30,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const rb = await fetch("https://api.remove.bg/v1.0/removebg", {
+    const rb = await fetchAvecReessai("https://api.remove.bg/v1.0/removebg", {
       method: "POST",
       headers: { "X-Api-Key": key, "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -39,7 +42,7 @@ export default async function handler(req: any, res: any) {
         shadow_type: "drop",
         shadow_opacity: "55",
       }),
-    });
+    }, { timeoutMs: 40_000, essais: 2 });
 
     if (!rb.ok) {
       const detail = await rb.text();

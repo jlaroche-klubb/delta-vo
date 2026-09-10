@@ -6,6 +6,7 @@ import { storage, db } from "../firebase";
 import { Machine, PhotoSupplementaire } from "../types/machine";
 import { DELTA_LOGO_BASE64 } from "../assets/deltaLogo";
 import { useTranslation } from "react-i18next";
+import { apiFetch } from "../services/apiFetch";
 
 interface PhotosModalProps {
   machine: Machine;
@@ -117,7 +118,7 @@ export default function PhotosModal({
       /* CORS ou réseau : on passe par le serveur */
     }
     // 2) Repli : le serveur Delta VO récupère l'image (contourne le CORS)
-    const pr = await fetch("/api/fetch-image", {
+    const pr = await apiFetch("/api/fetch-image", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url }),
@@ -268,7 +269,7 @@ export default function PhotosModal({
       const detoure = pickDetour && !sansDetourage;
       if (detoure) {
         const raw = b64.replace(/^data:image\/\w+;base64,/, "");
-        const resp = await fetch("/api/removebg", {
+        const resp = await apiFetch("/api/removebg", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ imageBase64: raw }),

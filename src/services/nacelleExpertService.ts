@@ -6,6 +6,7 @@ import {
   doc,
   getDoc,
   Timestamp,
+  updateDoc,
 } from "firebase/firestore";
 import { dbNacelleExpert } from "../firebase";
 
@@ -131,5 +132,43 @@ export async function findExpertiseByImmat(
   } catch (error) {
     console.error("Erreur lors de la recherche de l'expertise:", error);
     return null;
+  }
+}
+
+
+/**
+ * 🔐 Ouvre le rapport Nacelle Expert d'une machine avec sa clé d'accès.
+ * Les rapports NE exigent désormais `?cle=<rapport_token>` (plus lisibles par
+ * simple immatriculation). Si le lien mémorisé n'a pas de clé (dossier ancien),
+ * on la lit dans le dossier NE — et on la crée si elle n'existe pas encore
+ * (migration douce des anciens dossiers).
+ */
+export async function ouvrirRapportNE(url: string, immat: string): Promise<void> {
+  try {
+    if (!url) return;
+    if (/[?&]cle=/.test(url)) {
+      window.open(url, "_blank", "noopener,noreferrer");
+      return;
+    }
+    const im = (immat || "").trim().toUpperCase();
+    let token = "";
+    if (im) {
+      const ref = doc(dbNacelleExpert, "dossiers", im);
+      const snap = await getDoc(ref);
+      if (snap.exists()) {
+        token = String((snap.data() as any)?.rapport_token || "");
+        if (!token) {
+          const bytes = new Uint8Array(24);
+          crypto.getRandomValues(bytes);
+          token = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+          await updateDoc(ref, { rapport_token: token, rapport_token_created: new Date().toISOString() });
+        }
+      }
+    }
+    const sep = url.includes("?") ? "&" : "?";
+    window.open(token ? `${url}${sep}cle=${encodeURIComponent(token)}` : url, "_blank", "noopener,noreferrer");
+  } catch (e) {
+    console.error("ouvrirRapportNE:", e);
+    window.open(url, "_blank", "noopener,noreferrer");
   }
 }

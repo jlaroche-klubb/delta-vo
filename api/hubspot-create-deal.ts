@@ -12,6 +12,8 @@
 // même créé et on renvoie un avertissement (quoteWarning).
 // ============================================================
 
+import { cors, exigerUtilisateur, fetchAvecReessai } from "./_lib/auth";
+
 const HUBSPOT_API_BASE = "https://api.hubapi.com";
 
 interface NacelleOffre {
@@ -29,13 +31,14 @@ interface CreateDealBody {
   userEmail?: string;
 }
 
-export default async function handler(req: any, res: any) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+export const maxDuration = 30;
 
-  if (req.method === "OPTIONS") return res.status(200).end();
+export default async function handler(req: any, res: any) {
+  if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  // 🔐 Jeton Firebase obligatoire (voir api/_lib/auth.ts)
+  const user = await exigerUtilisateur(req, res);
+  if (!user) return;
 
   const token = process.env.HUBSPOT_TOKEN;
   if (!token) {
@@ -46,14 +49,16 @@ export default async function handler(req: any, res: any) {
   const quoteTemplateId = process.env.HUBSPOT_QUOTE_TEMPLATE_ID || "";
 
   const hs = async (path: string, method: string, body?: any) => {
-    const r = await fetch(`${HUBSPOT_API_BASE}${path}`, {
+    const r = await fetchAvecReessai(`${HUBSPOT_API_BASE}${path}`, {
       method,
       headers: {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
       body: body ? JSON.stringify(body) : undefined,
-    });
+    // ⚠️ Pas de réessai automatique sur les écritures HubSpot (risque de doublon
+    // de deal / ligne) : uniquement délai maximal ; les lectures GET réessaient.
+    }, { timeoutMs: 20_000, essais: method === "GET" ? 3 : 1 });
     const text = await r.text();
     let json: any = null;
     try { json = text ? JSON.parse(text) : null; } catch { /* noop */ }

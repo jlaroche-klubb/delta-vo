@@ -1,4 +1,5 @@
 import type { Machine, EtudeMarche } from "../types/machine";
+import { apiFetch } from "./apiFetch";
 
 /**
  * 📊 Lance UNE étude de marché IA pour une machine (appel /api/etude-marche)
@@ -8,7 +9,7 @@ import type { Machine, EtudeMarche } from "../types/machine";
  */
 export async function lancerEtudeMarche(machine: Machine, userName: string): Promise<EtudeMarche> {
   const fc = machine.fiche_commerciale || {};
-  const resp = await fetch("/api/etude-marche", {
+  const resp = await apiFetch("/api/etude-marche", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

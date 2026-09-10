@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { collection, query, where, getDocs, doc, updateDoc, setDoc, onSnapshot, getDoc, deleteField } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, updateDoc, setDoc, onSnapshot, getDoc, deleteField, runTransaction } from 'firebase/firestore';
 import { notifyExpertiseArrivee } from '../services/emailService';
 import { db, dbNacelleExpert } from '../firebase';
 import { syncHubspotProduct } from '../services/hubspotService';
@@ -138,6 +138,32 @@ export function useNacelleExpertSync(enabled: boolean = true) {
   // temps → emails d'alerte et upserts HubSpot envoyés en double/triple.
   const syncEnCoursRef = useRef(false);
   const resyncDemandeRef = useRef(false);
+  // 🔒 VERROU MULTI-ONGLETS : la synchro tourne dans CHAQUE onglet ouvert.
+  // Avant de traiter un dossier, l'onglet le « réserve » par une transaction
+  // Firestore (sync_lock) ; un autre onglet qui trouve une réservation de
+  // moins de 2 minutes passe son tour → un seul traitement, un seul email,
+  // un seul envoi HubSpot.
+  const tabIdRef = useRef(`tab-${Math.random().toString(36).slice(2, 10)}`);
+  const LOCK_MS = 2 * 60 * 1000;
+  async function reserverDossier(dossierId: string): Promise<boolean> {
+    const ref = doc(dbNacelleExpert, 'dossiers', dossierId);
+    try {
+      return await runTransaction(dbNacelleExpert, async (tx) => {
+        const snap = await tx.get(ref);
+        if (!snap.exists()) return false;
+        const d: any = snap.data();
+        if (d.synced_to_delta_vo === true) return false; // déjà traité par un autre onglet
+        const lock = d.sync_lock;
+        const lockAt = lock?.at ? new Date(lock.at).getTime() : 0;
+        if (lock && lock.by !== tabIdRef.current && Date.now() - lockAt < LOCK_MS) return false;
+        tx.update(ref, { sync_lock: { by: tabIdRef.current, at: new Date().toISOString() } });
+        return true;
+      });
+    } catch (e) {
+      console.warn(`⚠️ Réservation ${dossierId} impossible :`, e);
+      return false;
+    }
+  }
 
   const syncDossiers = async () => {
     if (syncEnCoursRef.current) {
@@ -189,6 +215,11 @@ export function useNacelleExpertSync(enabled: boolean = true) {
         const dossier = dossierDoc.data() as NacelleExpertDossier;
         
         try {
+          // 🔒 Un seul onglet traite ce dossier
+          if (!(await reserverDossier(dossierDoc.id))) {
+            console.log(`⏭️ ${dossierDoc.id} : déjà pris en charge par un autre onglet`);
+            continue;
+          }
           console.log(`\n📦 Traitement du dossier: ${dossier.immat}`);
 
           // 🗄️ COPIE D'ARCHIVE d'un cycle précédent (créée par NE au nouveau
@@ -196,7 +227,7 @@ export function useNacelleExpertSync(enabled: boolean = true) {
           // vient de partir repasserait en vente. On la marque et on passe.
           if (dossier.archived || dossierDoc.id.includes('__ARCH__')) {
             console.log(`⏭️ ${dossierDoc.id} : archive d'un cycle précédent, ignorée`);
-            await updateDoc(doc(dbNacelleExpert, 'dossiers', dossierDoc.id), { synced_to_delta_vo: true });
+            await updateDoc(doc(dbNacelleExpert, 'dossiers', dossierDoc.id), { synced_to_delta_vo: true, sync_lock: deleteField() });
             continue;
           }
           
@@ -219,7 +250,7 @@ export function useNacelleExpertSync(enabled: boolean = true) {
             // la machine en location (le retour arrive juste après).
             if ((dossier.depart as any)?.sansDossier) {
               console.log(`⏭️ ${dossier.immat} : départ administratif (sans dossier), ignoré`);
-              await updateDoc(doc(dbNacelleExpert, 'dossiers', dossierDoc.id), { synced_to_delta_vo: true });
+              await updateDoc(doc(dbNacelleExpert, 'dossiers', dossierDoc.id), { synced_to_delta_vo: true, sync_lock: deleteField() });
               successCount++;
               continue;
             }
@@ -310,7 +341,7 @@ export function useNacelleExpertSync(enabled: boolean = true) {
               continue;
             }
             // Dossier traité : on le marque pour ne pas le reprendre en boucle
-            await updateDoc(doc(dbNacelleExpert, 'dossiers', dossierDoc.id), { synced_to_delta_vo: true });
+            await updateDoc(doc(dbNacelleExpert, 'dossiers', dossierDoc.id), { synced_to_delta_vo: true, sync_lock: deleteField() });
             successCount++;
             continue;
           }
@@ -327,6 +358,7 @@ export function useNacelleExpertSync(enabled: boolean = true) {
             console.warn(`⚠️ ${dossierDoc.id} : ${motifErreur} — non importé dans Delta VO`);
             await updateDoc(doc(dbNacelleExpert, 'dossiers', dossierDoc.id), {
               synced_to_delta_vo: true,
+              sync_lock: deleteField(),
               sync_error: `${motifErreur} (Delta VO, ${new Date().toISOString().slice(0, 10)})`,
             });
             errorCount++;
@@ -343,6 +375,7 @@ export function useNacelleExpertSync(enabled: boolean = true) {
             continue;
           }
           const machineVORef = doc(db, 'machines_vo', immatId);
+          const apresMarquage: Array<() => any> = [];
           
           // ✅ Date demande récupération = date de retour (la machine est arrivée)
           const dateRecup = dossier.retour?.date || dossier.depart?.date || new Date().toISOString().slice(0, 10);
@@ -380,7 +413,9 @@ export function useNacelleExpertSync(enabled: boolean = true) {
             ...(dossier.expertise_resume ? {
               rapport_expertise: {
                 ...dossier.expertise_resume,
-                rapport_url: `https://nacelle-expert2.vercel.app/api/rapport/${encodeURIComponent(immatId)}`,
+                rapport_url:
+                  `https://nacelle-expert2.vercel.app/api/rapport/${encodeURIComponent(immatId)}` +
+                  ((dossier as any).rapport_token ? `?cle=${encodeURIComponent((dossier as any).rapport_token)}` : ''),
               },
             } : {}),
             
@@ -566,23 +601,24 @@ export function useNacelleExpertSync(enabled: boolean = true) {
             await updateDoc(machineVORef, smartUpdate);
             console.log(`✅ Machine ${dossier.immat} mise à jour (relocation détectée)`);
 
-            // 🔄 HubSpot : la machine revient de location (expertise reçue) et
-            // entre dans les Disponibles — si elle a un prix conservé, elle
-            // RERENTRE automatiquement dans le catalogue produits.
+            // 🔄 HubSpot / email : différés APRÈS le marquage « synchronisé »
+            // (voir plus bas) pour ne jamais partir deux fois.
             const prixRetour = Number(existingData.prix_fr) || 0;
             if (basculeRestitution && prixRetour > 0) {
               const labelRetour = [dossier.info?.type_nacelle, dossier.info?.modele]
                 .filter(Boolean).join(' ');
-              syncHubspotProduct('upsert', immatId, labelRetour || undefined, prixRetour);
+              apresMarquage.push(() => syncHubspotProduct('upsert', immatId, labelRetour || undefined, prixRetour));
             }
             if (nouvelleExpertise) {
-              notifyExpertiseArrivee({
-                immat: immatId,
-                modele: dossier.info?.modele,
-                type_nacelle: dossier.info?.type_nacelle,
-                date: dateRecup,
-                type: 'retour',
-              });
+              apresMarquage.push(() =>
+                notifyExpertiseArrivee({
+                  immat: immatId,
+                  modele: dossier.info?.modele,
+                  type_nacelle: dossier.info?.type_nacelle,
+                  date: dateRecup,
+                  type: 'retour',
+                })
+              );
             }
           } else {
             // 🆕 Nouvelle nacelle : création normale
@@ -595,21 +631,28 @@ export function useNacelleExpertSync(enabled: boolean = true) {
             });
             await setDoc(machineVORef, machineVOData);
             console.log(`✅ Fiche créée avec succès`);
-            notifyExpertiseArrivee({
-              immat: immatId,
-              modele: dossier.info?.modele,
-              type_nacelle: dossier.info?.type_nacelle,
-              date: dateRecup,
-              type: 'nouvelle',
-            });
+            apresMarquage.push(() =>
+              notifyExpertiseArrivee({
+                immat: immatId,
+                modele: dossier.info?.modele,
+                type_nacelle: dossier.info?.type_nacelle,
+                date: dateRecup,
+                type: 'nouvelle',
+              })
+            );
           }
 
-          // Marquer comme synchronisé dans Nacelle-Expert
+          // Marquer comme synchronisé dans Nacelle-Expert (et lever le verrou)
           const dossierRef = doc(dbNacelleExpert, 'dossiers', dossierDoc.id);
           await updateDoc(dossierRef, {
-            synced_to_delta_vo: true
+            synced_to_delta_vo: true,
+            sync_lock: deleteField(),
           });
           console.log(`✅ Dossier marqué comme synchronisé`);
+          // 📧 / 🔄 Effets de bord une fois le marquage réussi (jamais en double)
+          for (const fx of apresMarquage) {
+            try { await fx(); } catch (e) { console.warn('⚠️ Effet post-synchro :', e); }
+          }
 
           successCount++;
         } catch (err) {

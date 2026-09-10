@@ -5,6 +5,8 @@
 // Le token reste côté serveur (jamais exposé au navigateur).
 // ============================================================
 
+import { apiFetch } from "./apiFetch";
+
 export interface NacelleOffre {
   /** Référence commerciale (DS1587...) — jamais d'immat sur le devis */
   reference: string;
@@ -31,7 +33,7 @@ export async function createHubspotDeal(
   nacelles: NacelleOffre[],
   userEmail?: string
 ): Promise<CreateDealResult> {
-  const response = await fetch("/api/hubspot-create-deal", {
+  const response = await apiFetch("/api/hubspot-create-deal", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ client, nacelles, userEmail }),
@@ -62,7 +64,7 @@ export async function syncHubspotProduct(
   prix?: number | null
 ): Promise<void> {
   try {
-    const response = await fetch("/api/hubspot-sync-product", {
+    const response = await apiFetch("/api/hubspot-sync-product", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action, immat, modele, prix }),

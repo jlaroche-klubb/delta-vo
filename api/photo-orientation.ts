@@ -15,13 +15,16 @@
 // Optionnel : ORIENTATION_MODEL (défaut claude-haiku-4-5).
 // ============================================================
 
-export default async function handler(req: any, res: any) {
-  res.setHeader("Access-Control-Allow-Origin", "*"); // appelé depuis nacelle-expert2
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+import { cors, exigerUtilisateur, fetchAvecReessai } from "./_lib/auth";
 
-  if (req.method === "OPTIONS") return res.status(200).end();
+export const maxDuration = 60;
+
+export default async function handler(req: any, res: any) {
+  if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
+  // 🔐 Jeton Firebase obligatoire (voir api/_lib/auth.ts)
+  const user = await exigerUtilisateur(req, res, { accepterNE: true });
+  if (!user) return;
 
   const key = process.env.ANTHROPIC_API_KEY;
   if (!key) {
@@ -45,7 +48,7 @@ export default async function handler(req: any, res: any) {
 
     // ─── Interrogation du modèle (réutilisée pour l'auto-contrôle) ───
     const demander = async (imgData: string, imgType: string): Promise<number | null> => {
-      const resp = await fetch("https://api.anthropic.com/v1/messages", {
+      const resp = await fetchAvecReessai("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
           "x-api-key": key,
@@ -74,7 +77,7 @@ export default async function handler(req: any, res: any) {
             },
           ],
         }),
-      });
+      }, { timeoutMs: 25_000, essais: 3 });
       if (!resp.ok) {
         const detail = await resp.text();
         console.error("❌ Anthropic", resp.status, detail.slice(0, 300));

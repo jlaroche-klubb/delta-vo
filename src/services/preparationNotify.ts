@@ -3,6 +3,7 @@ import { db } from "../firebase";
 import { creerEtapesPrepa } from "../types/machine";
 import type { Machine, TypePrepa } from "../types/machine";
 import { LOCALITES, normalizeLocalite } from "../utils/localites";
+import { apiFetch } from "./apiFetch";
 
 /**
  * 🔧 NOTIFICATION PRÉPARATEURS PAR SITE (validée avec Jonathan).
@@ -84,16 +85,14 @@ export async function notifierPreparateurs(
   try {
     const site = normalizeLocalite(machine.localite);
     if (!site) return { status: "sans_site" };
-    const cfg = await chargerConfigNotifPrepa();
-    const to = destinatairesPourSite(cfg, site);
-    if (!to.length) return { status: "sans_destinataire", site };
+    // 🔐 Les destinataires sont désormais lus CÔTÉ SERVEUR (config Firestore)
+    // à partir du site : le navigateur n'envoie plus de liste d'emails.
 
     const estLocation = machine.type_sortie === "lld";
-    const resp = await fetch("/api/notify-preparation", {
+    const resp = await apiFetch("/api/notify-preparation", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        to,
         immat: machine.immat,
         site,
         reference: machine.numero_dossier || "",
@@ -110,7 +109,9 @@ export async function notifierPreparateurs(
       }),
     });
     const data = await resp.json().catch(() => ({}));
+    if (resp.status === 404) return { status: "sans_destinataire", site };
     if (!resp.ok) return { status: "erreur", message: data?.error || `Erreur ${resp.status}` };
+    const to: string[] = Array.isArray(data?.to) ? data.to : [];
 
     // 🧾 Trace sur la machine (best-effort)
     try {

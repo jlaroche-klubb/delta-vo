@@ -5627,3 +5627,25 @@ button {
 }
 .attention-textarea:focus { outline: none; border-color: #1a2a6e; }
 .attention-meta { font-size: 12px; color: #6a7488; margin-bottom: 8px; }
+
+/* 📐 Outil « Mettre à jour les hauteurs » */
+.hauteurs-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.hauteurs-stat { border-radius: 8px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; border: 1px solid #e3e6ec; background: #fafbfc; }
+.hauteurs-stat strong { font-size: 22px; line-height: 1.1; }
+.hauteurs-stat span { font-size: 12px; color: #6a7488; }
+.hauteurs-stat.ok strong { color: #1e7e46; }
+.hauteurs-stat.fill strong { color: #1a2a6e; }
+.hauteurs-stat.diff strong { color: #b7791f; }
+.hauteurs-stat.unk strong { color: #6a7488; }
+.hauteurs-h4 { margin: 14px 0 6px; font-size: 13px; color: #1a2030; }
+.hauteurs-table-wrap { max-height: 260px; overflow: auto; border: 1px solid #e3e6ec; border-radius: 6px; }
+.hauteurs-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.hauteurs-table th, .hauteurs-table td { padding: 6px 10px; text-align: left; border-bottom: 1px solid #eef0f4; white-space: nowrap; }
+.hauteurs-table th { background: #f4f5f8; position: sticky; top: 0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #6a7488; }
+.hauteurs-note { color: #b7791f; font-size: 11px; white-space: normal; }
+.hauteurs-check { display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 13px; font-weight: 600; color: #7a4a00; }
+.hauteurs-chips { display: flex; flex-wrap: wrap; gap: 6px; max-height: 160px; overflow: auto; }
+.hauteurs-chip { font-size: 12px; padding: 3px 9px; border-radius: 999px; background: #eef2ff; border: 1px solid #cfd8f7; color: #1a2a6e; }
+.hauteurs-chip em { font-style: normal; color: #6a7488; }
+.hauteurs-chip.unk { background: #f4f5f8; border-color: #dfe3ea; color: #4a5568; }
+.hauteurs-bilan { margin-top: 12px; padding: 10px 12px; background: #eaf7ef; border: 1px solid #b7e0c4; border-radius: 6px; color: #1e7e46; font-weight: 600; font-size: 13px; }

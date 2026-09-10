@@ -57,6 +57,7 @@ import {
 import { useAuth } from "../AuthContext";
 import RecalculChiffrageTous from "../components/RecalculChiffrageTous";
 import EtudeMarcheTous from "../components/EtudeMarcheTous";
+import MiseAJourHauteurs from "../components/MiseAJourHauteurs";
 import { MarcheTile, MarchePanel } from "../components/SyntheseMarche";
 import ActionMenu from "../components/ActionMenu";
 import DiagnosticModal from "../components/DiagnosticModal";
@@ -754,6 +755,7 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
           <ActionMenu label={t("toolbar.tools")} icon="🛠" busy={refreshingExpertise || rattrapage}>
             <RecalculChiffrageTous variant="menu" />
             <EtudeMarcheTous machines={baseDispo} variant="menu" />
+            <MiseAJourHauteurs variant="menu" />
             <button type="button" className="action-menu-item" onClick={handleRefreshExpertise} disabled={refreshingExpertise} title={t("dispo.expertiseTitle")}>
               {refreshingExpertise ? `⏳ ${t("dispo.refreshingExpertise")}` : `🧰 ${t("dispo.expertiseAmounts")}`}
             </button>

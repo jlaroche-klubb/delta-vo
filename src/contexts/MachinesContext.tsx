@@ -135,7 +135,7 @@ interface MachinesContextType {
   ) => void;
   annulerFacturationRestitution: (machineId: string) => void;
   annulerCloture: (machineId: string) => void;  // ✅ Revenir en arrière (admin)
-  updateFicheCommerciale: (machineId: string, fiche: FicheCommerciale) => void;
+  updateFicheCommerciale: (machineId: string, fiche: FicheCommerciale) => Promise<void>;
   updatePhotosSupplementaires: (machineId: string, photos: PhotoSupplementaire[]) => void;
   updatePhotosInternes: (machineId: string, photos: PhotoSupplementaire[]) => void; // 🔒 super admin
   updateShareToken: (machineId: string, token: string | null) => void;
@@ -1602,6 +1602,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
         console.log(`✅ Fiche commerciale mise à jour dans Firebase`);
       } catch (err) {
         console.error("❌ Erreur Firebase fiche:", err);
+        throw err;
       }
     } else {
       setMockMachines((prev) =>

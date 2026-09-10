@@ -12,7 +12,7 @@
 // même créé et on renvoie un avertissement (quoteWarning).
 // ============================================================
 
-import { cors, exigerUtilisateur, fetchAvecReessai } from "./_lib/auth";
+import { cors, exigerUtilisateur, fetchAvecReessai } from "./_lib/auth.js";
 
 const HUBSPOT_API_BASE = "https://api.hubapi.com";
 

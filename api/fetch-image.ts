@@ -10,7 +10,7 @@
 // (delta-vo et nacelle-expert) — aucune autre destination acceptée.
 // ============================================================
 
-import { cors, exigerUtilisateur, fetchAvecReessai } from "./_lib/auth";
+import { cors, exigerUtilisateur, fetchAvecReessai } from "./_lib/auth.js";
 
 const ALLOWED = [
   /^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/(delta-vo|nacelle-expert)\.(firebasestorage\.app|appspot\.com)\//,

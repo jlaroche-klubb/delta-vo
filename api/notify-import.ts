@@ -12,7 +12,7 @@
 //   virgules) — défaut : jlaroche@klubb.com.
 // ============================================================
 
-import { cors, exigerUtilisateur, fetchAvecReessai } from "./_lib/auth";
+import { cors, exigerUtilisateur, fetchAvecReessai } from "./_lib/auth.js";
 
 const DEFAULT_TO = ["jlaroche@klubb.com"];
 

@@ -13,7 +13,7 @@
 // échoue proprement et renvoie un warning, sans casser l'app.
 // ============================================================
 
-import { cors, exigerUtilisateur, fetchAvecReessai } from "./_lib/auth";
+import { cors, exigerUtilisateur, fetchAvecReessai } from "./_lib/auth.js";
 
 const HUBSPOT_API_BASE = "https://api.hubapi.com";
 

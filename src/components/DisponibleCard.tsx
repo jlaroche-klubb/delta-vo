@@ -91,6 +91,15 @@ export default function DisponibleCard({
   const nbPhotosSupp = machine.photos_supplementaires?.length || 0;
   const nbPhotosInternes = machine.photos_internes?.length || 0;
   const nbPhotosTotal = nbPhotosFiche + nbPhotosSupp + nbPhotosInternes;
+  // 🔍 Photos d'EXPERTISE Nacelle Expert (vues 3/4 du retour + photos de dégâts) :
+  // pas utilisables pour la fiche VO, mais elles existent (c'est ce que montre la
+  // vignette quand il n'y a encore aucune photo commerciale).
+  const nbPhotosExpertise = (() => {
+    const ne: any = machine.dossier_nacelle_expert || {};
+    const compte = (v: any): number =>
+      !v ? 0 : Array.isArray(v) ? v.filter(Boolean).length : typeof v === "object" ? Object.values(v).filter(Boolean).length : typeof v === "string" ? 1 : 0;
+    return compte(machine.photos_commerciales) + compte(ne.photos_commerciales) + compte(ne.photos_retour);
+  })();
 
   return (
     <div
@@ -188,12 +197,13 @@ export default function DisponibleCard({
                 fontSize: 11,
                 fontWeight: 700,
                 marginTop: 2,
-                color: nbPhotosTotal === 0 ? "#c0392b" : "#1e7e46",
+                color: nbPhotosTotal > 0 ? "#1e7e46" : nbPhotosExpertise > 0 ? "#b7791f" : "#c0392b",
               }}
             >
-              {nbPhotosTotal === 0
+              {nbPhotosTotal === 0 && nbPhotosExpertise === 0
                 ? `📷 ${t("card.photosNone")}`
                 : `📷 ${t("card.photosCount", { fiche: nbPhotosFiche, supp: nbPhotosSupp, internes: nbPhotosInternes })}`}
+              {nbPhotosTotal === 0 && nbPhotosExpertise > 0 && ` — ${t("card.photosExpertise", { n: nbPhotosExpertise })}`}
             </div>
           )}
         </div>

@@ -36,6 +36,15 @@ export interface DegatExpertise {
   sur_devis?: boolean;
 }
 
+export interface PointsAttention {
+  /** Motifs cochés (clés de utils/pointsAttention.ts) */
+  motifs: string[];
+  /** Précision libre */
+  texte?: string;
+  date: string;
+  par: string;
+}
+
 export interface RapportExpertise {
   date_expertise?: string;
   agent?: string;
@@ -148,6 +157,14 @@ export interface Machine {
   chiffrage_corrige?: { mode: "manuel" | "recalcul" | "import_vog"; par: string; date: string };
   /** ⚠️ Alerte de cohérence posée par la synchro (ex. départ NE sur une préparation vente) */
   alerte_saisie?: string;
+  /**
+   * 🚩 Points d'attention pour les VENDEURS (demande Jonathan, 10/09/2026) :
+   * état réel de la machine à connaître avant de vendre (moteur HS, boîte HS,
+   * nacelle HS, vendu en l'état…). Motifs prédéfinis + texte libre. Visible
+   * par tous les rôles sur la carte Disponibles, dans la Liste Prix et le
+   * Pricing PDG ; JAMAIS sur la fiche VO ni les documents clients.
+   */
+  points_attention?: PointsAttention;
   hubspot_synced?: boolean;
   /** 🧾 Historique des changements de statut (voir utils/historique.ts) */
   historique?: { date: string; de: string; vers: string; source: string; par: string; note?: string }[];

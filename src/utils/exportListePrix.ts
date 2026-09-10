@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import { pointsAttentionTexte } from "./pointsAttention";
 import { Machine } from "../types/machine";
 import { UserRole } from "../types";
 
@@ -43,6 +44,8 @@ export function exportListePrix(machines: Machine[], userRole: UserRole) {
       // 📍 Site de stockage (demande des vendeurs — F. Larronde, 08/09/2026) :
       // savoir où est la machine pour organiser visite / livraison
       "Site de stockage": m.localite || "",
+      // 🚩 État réel à connaître avant de vendre (moteur HS, vendu en l'état…)
+      "Points d'attention": pointsAttentionTexte(m),
       "Montant expertise VO (€)": m.rapport_expertise?.total_retenue_ht ?? "",
     };
 

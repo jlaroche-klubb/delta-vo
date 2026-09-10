@@ -5561,3 +5561,69 @@ button {
 .action-menu-item.danger:hover:not(:disabled) {
   background: #fdecea;
 }
+
+/* 🚩 Points d'attention vendeurs (carte Disponibles) */
+.attention-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 10px 4px 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid;
+}
+.attention-banner.orange { background: #fff7e6; border-color: #f0c37a; color: #7a4a00; }
+.attention-banner.rouge { background: #fdecec; border-color: #e9a1a1; color: #8b1e1e; }
+.attention-banner[role="button"] { cursor: pointer; }
+.attention-banner[role="button"]:hover { filter: brightness(0.98); }
+.attention-icon { font-size: 18px; line-height: 1.2; flex-shrink: 0; }
+.attention-content { flex: 1; min-width: 0; }
+.attention-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.attention-tag {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid currentColor;
+}
+.attention-text { margin-top: 6px; font-size: 13px; font-weight: 500; white-space: pre-wrap; }
+.attention-edit { font-size: 14px; opacity: 0.6; flex-shrink: 0; }
+
+/* Modale de saisie */
+.attention-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+}
+.lld-field label.attention-choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid #d0d4da;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  user-select: none;
+  text-transform: none;
+  letter-spacing: 0;
+  color: #1a2030;
+  font-weight: 500;
+  margin: 0;
+}
+.attention-choice input { margin: 0; }
+.lld-field label.attention-choice.on.orange { background: #fff7e6; border-color: #f0c37a; }
+.lld-field label.attention-choice.on.rouge { background: #fdecec; border-color: #e9a1a1; }
+.attention-textarea {
+  padding: 10px 12px;
+  border: 1px solid #d0d4da;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+  color: #1a2030;
+  resize: vertical;
+}
+.attention-textarea:focus { outline: none; border-color: #1a2a6e; }
+.attention-meta { font-size: 12px; color: #6a7488; margin-bottom: 8px; }

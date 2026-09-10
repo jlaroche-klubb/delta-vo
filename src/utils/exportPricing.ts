@@ -1,4 +1,5 @@
 import * as XLSX from "xlsx";
+import { pointsAttentionTexte } from "./pointsAttention";
 import { Machine } from "../types/machine";
 import { horsVenteVog, normalizeTypeNacelle } from "./nacelles";
 import { calculerSyntheseMarche, lignesSyntheseMarche } from "./syntheseMarche";
@@ -74,6 +75,7 @@ export function exportPricingToExcel({ machines, seuilRepricer = 60 }: ExportPri
     "Heures nacelle",
     "Km porteur",
     "Localisation",
+    "Points d'attention",
     "Montant expertise VO (€)",
     "VNC (€)",
     // 📊 Étude de marché IA (fourchette indicative — décision au PDG)
@@ -97,6 +99,7 @@ export function exportPricingToExcel({ machines, seuilRepricer = 60 }: ExportPri
     m.heures_nacelle ?? "",
     m.km_porteur ?? "",
     m.localite || "",
+    pointsAttentionTexte(m),
     m.rapport_expertise?.total_retenue_ht ?? "",
     m.vr_vnc ?? "",
     m.etude_marche?.fourchette_basse ?? "",
@@ -159,6 +162,7 @@ export function exportPricingToExcel({ machines, seuilRepricer = 60 }: ExportPri
     { wch: 12 }, // Heures
     { wch: 12 }, // Km
     { wch: 12 }, // Localisation
+    { wch: 32 }, // Points d'attention
     { wch: 20 }, // Montant expertise VO
     { wch: 12 }, // VNC
     { wch: 13 }, // Marché bas

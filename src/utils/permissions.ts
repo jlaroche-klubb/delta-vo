@@ -192,6 +192,12 @@ export function canEditExpertise(role: UserRole): boolean {
 
 // ==================== SUPPRESSION ====================
 
+// 🚩 Points d'attention vendeurs : saisie par l'exploitation (admin, secrétaire,
+// chef d'atelier, atelier = « expert » côté Delta VO). Lecture : tous.
+export function canEditPointsAttention(role: UserRole): boolean {
+  return ["superadmin", "admin", "secretaire", "chef", "atelier"].includes(role);
+}
+
 export function canDeleteMachine(role: UserRole): boolean {
   // 🔒 Structure : suppression définitive
   return isSuperAdmin(role);

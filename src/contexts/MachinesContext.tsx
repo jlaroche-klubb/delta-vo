@@ -9,6 +9,7 @@ import {
   FicheCommerciale,
   PhotoSupplementaire,
   DocumentVO,
+  PointsAttention,
 } from "../types/machine";
 import { MOCK_MACHINES } from "../data/mockMachines";
 import { MOCK_DISPONIBLES } from "../data/mockDisponibles";
@@ -139,6 +140,8 @@ interface MachinesContextType {
   updatePhotosInternes: (machineId: string, photos: PhotoSupplementaire[]) => void; // 🔒 super admin
   updateShareToken: (machineId: string, token: string | null) => void;
   updateLocalite: (machineId: string, localite: string) => void;
+  /** 🚩 Points d'attention vendeurs — null = effacer */
+  updatePointsAttention: (machineId: string, points: PointsAttention | null) => Promise<void>;
   updateDocumentsVO: (machineId: string, documents: DocumentVO[]) => void;
   attribuerNumeroFiche: (machineId: string, numero: string) => void;
   syncExpertiseFromNacelleExpert: (expertiseData: {
@@ -408,6 +411,15 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             notif_prepa: data.notif_prepa || undefined,
             historique: Array.isArray(data.historique) ? data.historique : undefined,
             alerte_saisie: data.alerte_saisie || undefined,
+            points_attention:
+              data.points_attention && (Array.isArray(data.points_attention.motifs) || data.points_attention.texte)
+                ? {
+                    motifs: Array.isArray(data.points_attention.motifs) ? data.points_attention.motifs : [],
+                    texte: data.points_attention.texte || undefined,
+                    date: data.points_attention.date || "",
+                    par: data.points_attention.par || "",
+                  }
+                : undefined,
             hubspot_synced: data.hubspot_synced === true ? true : undefined,
             client_lld: data.client_lld || undefined,
             date_mise_dispo_lld: data.date_mise_dispo_lld || undefined,
@@ -1695,6 +1707,25 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // 🚩 Points d'attention vendeurs (moteur HS, vendu en l'état…) — null = effacer
+  async function updatePointsAttention(machineId: string, points: PointsAttention | null) {
+    if (isFirebaseMachine(machineId)) {
+      try {
+        await updateDoc(doc(db, "machines_vo", machineId), {
+          points_attention: points ? { ...points, texte: points.texte || "" } : deleteField(),
+          updatedAt: new Date().toISOString(),
+        });
+      } catch (err) {
+        console.error("❌ Erreur Firebase points_attention:", err);
+        throw err;
+      }
+    } else {
+      setMockMachines((prev) =>
+        prev.map((m) => (m.id === machineId ? { ...m, points_attention: points || undefined } : m))
+      );
+    }
+  }
+
   async function updateDocumentsVO(machineId: string, documents: DocumentVO[]) {
     if (isFirebaseMachine(machineId)) {
       try {
@@ -1932,6 +1963,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       updatePhotosInternes,
       updateShareToken,
       updateLocalite,
+      updatePointsAttention,
       updateDocumentsVO,
       attribuerNumeroFiche,
       syncExpertiseFromNacelleExpert,

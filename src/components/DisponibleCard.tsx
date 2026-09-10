@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import ChiffrageZeroTools from "./ChiffrageZeroTools";
 import { LOCALITES } from "../utils/localites";
 import ActionMenu from "./ActionMenu";
+import { aDesPointsAttention, gravitePointsAttention, libelleMotif } from "../utils/pointsAttention";
 
 interface DisponibleCardProps {
   machine: Machine;
@@ -38,6 +39,9 @@ interface DisponibleCardProps {
   isInPanier?: boolean;
   onTogglePanier?: (machine: Machine) => void;
   onAnnulerOffre?: (machine: Machine) => void;
+  /** 🚩 Points d'attention vendeurs : saisie (admin/secrétaire/atelier) */
+  canEditAttention?: boolean;
+  onEditAttention?: (machine: Machine) => void;
 }
 
 export default function DisponibleCard({
@@ -71,6 +75,8 @@ export default function DisponibleCard({
   isInPanier = false,
   onTogglePanier,
   onAnnulerOffre,
+  canEditAttention = false,
+  onEditAttention,
 }: DisponibleCardProps) {
   const age = machine.date_mise_stock ? calculAgeStock(machine.date_mise_stock) : 0;
   const ageInfo = getAgeStockColor(age, seuilRepricer);
@@ -83,6 +89,9 @@ export default function DisponibleCard({
     ] || "fresh";
 
   const offreEnCours = machine.offre_en_cours === true;
+  // 🚩 Points d'attention vendeurs (visibles par TOUS, saisis par l'exploitation)
+  const attention = aDesPointsAttention(machine) ? machine.points_attention : undefined;
+  const attentionGravite = gravitePointsAttention(attention);
 
   // 📷 Indicateur photos (SUPER ADMIN) : fiche + supplémentaires + internes
   const nbPhotosFiche = machine.photos_ventes
@@ -257,6 +266,15 @@ export default function DisponibleCard({
                 🔁 {t("card.lld")}
               </button>
             )}
+            {!isAdmin && canEditAttention && onEditAttention && (
+              <button
+                className="btn-lld"
+                onClick={() => onEditAttention(machine)}
+                title={t("attention.editTitle")}
+              >
+                🚩 {attention ? t("attention.edit") : t("attention.add")}
+              </button>
+            )}
             {!isAdmin && canOffre && hasPrice && onTogglePanier && (
               <button
                 onClick={() => onTogglePanier(machine)}
@@ -309,6 +327,11 @@ export default function DisponibleCard({
                   title={isInPanier ? t("card.removeOfferTitle") : t("card.addOfferTitle")}
                 >
                   {isInPanier ? `✓ ${t("card.inOffer")}` : `➕ ${t("card.addOffer")}`}
+                </button>
+              )}
+              {canEditAttention && onEditAttention && (
+                <button type="button" className="action-menu-item" onClick={() => onEditAttention(machine)} title={t("attention.editTitle")}>
+                  🚩 {attention ? t("attention.edit") : t("attention.add")}
                 </button>
               )}
               {canDiagnostic && onRouvrirRestitution && machine.statut === "disponible" && machine.expertise_recue && (
@@ -386,6 +409,29 @@ export default function DisponibleCard({
           </span>
         )}
       </div>
+
+      {/* 🚩 Points d'attention vendeurs : état réel à connaître avant de vendre */}
+      {attention && (
+        <div
+          className={`attention-banner ${attentionGravite}`}
+          title={canEditAttention && onEditAttention ? t("attention.editTitle") : t("attention.bannerTitle")}
+          onClick={canEditAttention && onEditAttention ? () => onEditAttention(machine) : undefined}
+          role={canEditAttention && onEditAttention ? "button" : undefined}
+        >
+          <span className="attention-icon">🚩</span>
+          <div className="attention-content">
+            {attention.motifs.length > 0 && (
+              <div className="attention-tags">
+                {attention.motifs.map((k) => (
+                  <span key={k} className="attention-tag">{libelleMotif(k)}</span>
+                ))}
+              </div>
+            )}
+            {attention.texte && <div className="attention-text">{attention.texte}</div>}
+          </div>
+          {canEditAttention && onEditAttention && <span className="attention-edit">✏️</span>}
+        </div>
+      )}
 
       {/* ⚠ Disponibilité déclarée dans le VOG (location en cours, à vérifier…) */}
       {machine.disponibilite_vog && !/^ok$/i.test(machine.disponibilite_vog.trim()) && (

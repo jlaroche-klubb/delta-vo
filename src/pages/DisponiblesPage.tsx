@@ -15,6 +15,7 @@ import { notifyImportAdmin } from "../services/importNotify";
 import EditPriceModal from "../components/EditPriceModal";
 import ImportResultModal from "../components/ImportResultModal";
 import LldModal from "../components/LldModal";
+import PointsAttentionModal from "../components/PointsAttentionModal";
 import FicheCommercialeModal from "../components/FicheCommercialeModal";
 import PhoneSetupModal from "../components/PhoneSetupModal";
 import ChoixPrixModal from "../components/ChoixPrixModal";
@@ -46,6 +47,7 @@ import {
   canImportExcelPricing,
   canExportListePrix,
   canDeleteMachine,
+  canEditPointsAttention,
   canCreateLLD,
   canGenerateFicheVO,
   canEditFicheCommerciale,
@@ -101,6 +103,7 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
     rouvrirRestitution,
     updateShareToken,
     updateLocalite,
+    updatePointsAttention,
     attribuerNumeroFiche,
     deleteMachine,
     creerOffre,
@@ -120,6 +123,9 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [importing, setImporting] = useState(false);
   const [lldMachine, setLldMachine] = useState<Machine | null>(null);
+  // 🚩 Points d'attention vendeurs
+  const [attentionMachine, setAttentionMachine] = useState<Machine | null>(null);
+  const canAttention = canEditPointsAttention(userRole as any);
   const [ficheMachine, setFicheMachine] = useState<Machine | null>(null);
   const [expertiseMachine, setExpertiseMachine] = useState<Machine | null>(null);
   const [neMachine, setNeMachine] = useState<Machine | null>(null);
@@ -843,6 +849,8 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
                 onInternalPhotos={setInternalPhotosMachine}
                 canDelete={canDeleteMachine(userRole as any)}
                 onDelete={handleDeleteMachine}
+                canEditAttention={canAttention}
+                onEditAttention={setAttentionMachine}
               />
             ))}
           </div>
@@ -891,6 +899,8 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
                 onInternalPhotos={setInternalPhotosMachine}
                 canDelete={canDeleteMachine(userRole as any)}
                 onDelete={handleDeleteMachine}
+                canEditAttention={canAttention}
+                onEditAttention={setAttentionMachine}
               />
             ))}
           </div>
@@ -933,6 +943,8 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
                 onInternalPhotos={setInternalPhotosMachine}
                 canDelete={canDeleteMachine(userRole as any)}
                 onDelete={handleDeleteMachine}
+                canEditAttention={canAttention}
+                onEditAttention={setAttentionMachine}
               />
             ))}
           </div>
@@ -989,6 +1001,15 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
               setStockParsed([]);
             }
           }}
+        />
+      )}
+
+      {attentionMachine && (
+        <PointsAttentionModal
+          machine={attentionMachine}
+          par={userName}
+          onClose={() => setAttentionMachine(null)}
+          onSave={updatePointsAttention}
         />
       )}
 

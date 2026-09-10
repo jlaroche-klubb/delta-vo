@@ -15,7 +15,7 @@
 // Optionnel : ORIENTATION_MODEL (défaut claude-haiku-4-5).
 // ============================================================
 
-import { cors, exigerUtilisateur, fetchAvecReessai } from "./_lib/auth";
+import { cors, exigerUtilisateur, fetchAvecReessai } from "./_lib/auth.js";
 
 export const maxDuration = 60;
 

@@ -14,7 +14,7 @@
 // ============================================================
 
 import admin from "firebase-admin";
-import { cors, exigerUtilisateur, fetchAvecReessai } from "./_lib/auth";
+import { cors, exigerUtilisateur, fetchAvecReessai } from "./_lib/auth.js";
 
 const APP_URL = "https://delta-vo.vercel.app";
 

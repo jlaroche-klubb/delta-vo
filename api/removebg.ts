@@ -6,7 +6,7 @@
 // Mêmes réglages que la fiche FR : type=car, ombre portée.
 // ============================================================
 
-import { cors, exigerUtilisateur, fetchAvecReessai } from "./_lib/auth";
+import { cors, exigerUtilisateur, fetchAvecReessai } from "./_lib/auth.js";
 
 export const maxDuration = 60;
 

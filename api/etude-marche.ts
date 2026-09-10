@@ -16,7 +16,7 @@
 // Optionnel : ETUDE_MODEL (défaut claude-sonnet-4-5).
 // ============================================================
 
-import { cors, exigerUtilisateur, fetchAvecReessai } from "./_lib/auth";
+import { cors, exigerUtilisateur, fetchAvecReessai } from "./_lib/auth.js";
 
 export const maxDuration = 60; // les recherches web prennent 20-50 s
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import MachineThumb from "./MachineThumb";
 import { Machine } from "../types/machine";
 import ExpertiseModal from "./ExpertiseModal";
@@ -39,6 +39,15 @@ export default function MachineCard({
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [showEditInfos, setShowEditInfos] = useState(false);
   const [validatingDevis, setValidatingDevis] = useState(false);
+  // 🔎 Vérification du devis PDF (montant lu par IA) par la secrétaire
+  const totalDevisRecu = (machine.devis_recu_items || []).reduce((s, it) => s + (it.montant || 0), 0);
+  const [devisMontant, setDevisMontant] = useState<string>(totalDevisRecu > 0 ? String(totalDevisRecu) : "");
+  const [devisRef, setDevisRef] = useState<string>(machine.devis_recu_items?.find((it) => it.reference)?.reference || "");
+  useEffect(() => {
+    // Le devis peut arriver (synchro) alors que la carte est déjà affichée
+    setDevisMontant(totalDevisRecu > 0 ? String(totalDevisRecu) : "");
+    setDevisRef(machine.devis_recu_items?.find((it) => it.reference)?.reference || "");
+  }, [totalDevisRecu, machine.devis_pdf?.date]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // const { archiveMachine, unarchiveMachine } = useMachines();
   const { profile } = useAuth();
@@ -137,57 +146,120 @@ export default function MachineCard({
               )}
             </div>
           ) : (
-            <div style={{ background: "#eefaf2", border: "1px solid #b5dfc4", borderRadius: 6, padding: "8px 12px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-              <div>
-                <strong style={{ color: "#1e7e46" }}>✓ {t("mcard.devisReceived")}</strong>
-                {/* 💶 Détail du chiffrage de l'atelier : montant HT (+ référence) par poste */}
-                {machine.devis_recu_items?.length ? (
-                  <div style={{ fontSize: 12, color: "#2a6a44", marginTop: 4 }}>
-                    {machine.devis_recu_items.map((it, i) => (
-                      <div key={i}>
-                        {it.label} : <b>{it.montant.toLocaleString("fr-FR")} € HT</b>
-                        {it.reference ? <span style={{ color: "#5a8a6c" }}> — {t("mcard.devisRef")} {it.reference}</span> : null}
-                      </div>
-                    ))}
-                    <div style={{ marginTop: 3, fontWeight: 700, borderTop: "1px solid #b5dfc4", paddingTop: 3 }}>
-                      {t("mcard.devisTotal", { total: machine.devis_recu_items.reduce((s, it) => s + (it.montant || 0), 0).toLocaleString("fr-FR") })}
+            <div style={{ background: machine.devis_a_verifier ? "#fff7e6" : "#eefaf2", border: `1px solid ${machine.devis_a_verifier ? "#f0c37a" : "#b5dfc4"}`, borderRadius: 6, padding: "8px 12px", marginBottom: 8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8 }}>
+                <div style={{ flex: 1, minWidth: 220 }}>
+                  <strong style={{ color: machine.devis_a_verifier ? "#b7791f" : "#1e7e46" }}>
+                    {machine.devis_a_verifier ? `🔎 ${t("mcard.devisToCheck")}` : `✓ ${t("mcard.devisReceived")}`}
+                  </strong>
+                  {/* 📎 Devis PDF déposé par l'atelier (à ouvrir pour contrôler) */}
+                  {machine.devis_pdf?.url && (
+                    <div style={{ fontSize: 13, marginTop: 4 }}>
+                      <a href={machine.devis_pdf.url} target="_blank" rel="noopener noreferrer" style={{ color: "#1a2a6e", fontWeight: 700 }}>
+                        📎 {t("mcard.devisPdf")}{machine.devis_pdf.nom ? ` — ${machine.devis_pdf.nom}` : ""}
+                      </a>
+                      {machine.devis_pdf.fournisseur ? <span style={{ color: "#666" }}> · {machine.devis_pdf.fournisseur}</span> : null}
                     </div>
-                    {/* 💶 Montant GLOBAL de l'expertise (postes fixes + devis) */}
-                    {machine.rapport_expertise?.total_retenue_ht != null && (
-                      <div style={{ marginTop: 2, fontWeight: 700, color: "#14532d" }}>
-                        {t("mcard.expTotal", { total: machine.rapport_expertise.total_retenue_ht.toLocaleString("fr-FR") })}
+                  )}
+                  {/* 🤖 Ce que l'IA a lu (ou pas) */}
+                  {machine.devis_a_verifier && machine.devis_pdf && (
+                    <div style={{ fontSize: 12, color: "#7a4a00", marginTop: 4 }}>
+                      {machine.devis_pdf.lecture_ia
+                        ? t("mcard.devisIaRead", {
+                            montant: (machine.devis_pdf.montant_lu || 0).toLocaleString("fr-FR"),
+                            confiance: machine.devis_pdf.confiance || "?",
+                          })
+                        : t("mcard.devisIaNone")}
+                      {machine.devis_pdf.note ? ` — ${machine.devis_pdf.note}` : ""}
+                      {machine.devis_pdf.immat_detectee && machine.devis_pdf.immat_detectee.replace(/[^A-Z0-9]/g, "") !== machine.immat.replace(/[^A-Z0-9]/gi, "").toUpperCase()
+                        ? ` — ⚠ ${t("mcard.devisImmatDiff", { immat: machine.devis_pdf.immat_detectee })}`
+                        : ""}
+                      {machine.devis_pdf.lignes?.length ? (
+                        <ul style={{ margin: "4px 0 0 16px", padding: 0 }}>
+                          {machine.devis_pdf.lignes.slice(0, 6).map((l, i) => (
+                            <li key={i}>{l.libelle}{l.montant_ht ? ` — ${l.montant_ht.toLocaleString("fr-FR")} € HT` : ""}</li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </div>
+                  )}
+                  {/* 💶 Détail du chiffrage (devis déjà vérifié ou saisi à la main) */}
+                  {!machine.devis_a_verifier && machine.devis_recu_items?.length ? (
+                    <div style={{ fontSize: 12, color: "#2a6a44", marginTop: 4 }}>
+                      {machine.devis_recu_items.map((it, i) => (
+                        <div key={i}>
+                          {it.label} : <b>{it.montant.toLocaleString("fr-FR")} € HT</b>
+                          {it.reference ? <span style={{ color: "#5a8a6c" }}> — {t("mcard.devisRef")} {it.reference}</span> : null}
+                        </div>
+                      ))}
+                      <div style={{ marginTop: 3, fontWeight: 700, borderTop: "1px solid #b5dfc4", paddingTop: 3 }}>
+                        {t("mcard.devisTotal", { total: totalDevisRecu.toLocaleString("fr-FR") })}
                       </div>
-                    )}
-                  </div>
-                ) : null}
-                <div style={{ fontSize: 11, color: "#3a7a52", marginTop: 2 }}>{t("mcard.devisReceivedNote")}</div>
-                {machine.devis_pdf?.url && (
-                  <div style={{ fontSize: 12, marginTop: 4 }}>
-                    <a href={machine.devis_pdf.url} target="_blank" rel="noopener noreferrer" style={{ color: "#1a2a6e", fontWeight: 700 }}>
-                      📎 {t("mcard.devisPdf")}{machine.devis_pdf.nom ? ` — ${machine.devis_pdf.nom}` : ""}
-                    </a>
-                    {machine.devis_pdf.lecture_ia && (
-                      <span style={{ color: "#5a8a6c", marginLeft: 6 }}>· {t("mcard.devisIa")}</span>
-                    )}
-                  </div>
-                )}
+                      {machine.rapport_expertise?.total_retenue_ht != null && (
+                        <div style={{ marginTop: 2, fontWeight: 700, color: "#14532d" }}>
+                          {t("mcard.expTotal", { total: machine.rapport_expertise.total_retenue_ht.toLocaleString("fr-FR") })}
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
+                  {!machine.devis_a_verifier && (
+                    <div style={{ fontSize: 11, color: "#3a7a52", marginTop: 2 }}>{t("mcard.devisReceivedNote")}</div>
+                  )}
+                </div>
               </div>
+
+              {/* 🔎 Contrôle + validation par la secrétaire : montant / référence corrigeables */}
               {canEditInfos && (
-                <button
-                  className="btn-primary"
-                  disabled={validatingDevis}
-                  style={{ fontSize: 13 }}
-                  onClick={async () => {
-                    if (!window.confirm(t("mcard.devisValidateConfirm", { immat: machine.immat }))) return;
-                    setValidatingDevis(true);
-                    const r = await validerDevisEtEnvoyer(machine.immat);
-                    setValidatingDevis(false);
-                    if (r.ok) alert(r.email_envoye ? t("mcard.devisValidatedSent", { client: r.client }) : t("mcard.devisValidatedNoEmail"));
-                    else alert(t("mcard.devisValidateError", { error: r.error }));
-                  }}
-                >
-                  {validatingDevis ? "⏳" : "📧"} {t("mcard.devisValidateBtn")}
-                </button>
+                <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap", marginTop: 8, paddingTop: 8, borderTop: `1px dashed ${machine.devis_a_verifier ? "#f0c37a" : "#b5dfc4"}` }}>
+                  {machine.devis_a_verifier && (
+                    <>
+                      <label style={{ fontSize: 11, fontWeight: 700, color: "#7a4a00", display: "flex", flexDirection: "column", gap: 2 }}>
+                        {t("mcard.devisMontantHt")}
+                        <input
+                          type="number"
+                          min={1}
+                          step={1}
+                          value={devisMontant}
+                          onChange={(e) => setDevisMontant(e.target.value)}
+                          placeholder={t("mcard.devisMontantPh")}
+                          style={{ width: 130, padding: "6px 8px", border: "1px solid #d0d4da", borderRadius: 4, fontSize: 15, fontWeight: 700 }}
+                        />
+                      </label>
+                      <label style={{ fontSize: 11, fontWeight: 700, color: "#7a4a00", display: "flex", flexDirection: "column", gap: 2 }}>
+                        {t("mcard.devisRefLabel")}
+                        <input
+                          type="text"
+                          value={devisRef}
+                          onChange={(e) => setDevisRef(e.target.value)}
+                          placeholder="DEV-2026-…"
+                          style={{ width: 160, padding: "6px 8px", border: "1px solid #d0d4da", borderRadius: 4, fontSize: 13 }}
+                        />
+                      </label>
+                    </>
+                  )}
+                  <button
+                    className="btn-primary"
+                    disabled={validatingDevis || (machine.devis_a_verifier && !(Number(devisMontant) > 0))}
+                    style={{ fontSize: 13 }}
+                    onClick={async () => {
+                      const montant = Number(devisMontant);
+                      const msg = machine.devis_a_verifier
+                        ? t("mcard.devisCheckConfirm", { immat: machine.immat, montant: montant.toLocaleString("fr-FR") })
+                        : t("mcard.devisValidateConfirm", { immat: machine.immat });
+                      if (!window.confirm(msg)) return;
+                      setValidatingDevis(true);
+                      const r = await validerDevisEtEnvoyer(
+                        machine.immat,
+                        machine.devis_a_verifier ? { montant_global: montant, reference: devisRef.trim() } : undefined
+                      );
+                      setValidatingDevis(false);
+                      if (r.ok) alert(r.email_envoye ? t("mcard.devisValidatedSent", { client: r.client }) : t("mcard.devisValidatedNoEmail"));
+                      else alert(t("mcard.devisValidateError", { error: r.error }));
+                    }}
+                  >
+                    {validatingDevis ? "⏳" : machine.devis_a_verifier ? "🔎" : "📧"} {machine.devis_a_verifier ? t("mcard.devisCheckBtn") : t("mcard.devisValidateBtn")}
+                  </button>
+                </div>
               )}
             </div>
           )

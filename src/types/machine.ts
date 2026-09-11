@@ -150,7 +150,13 @@ export interface Machine {
   /** 💶 Détail du devis chiffré par l'atelier : libellé, montant HT, référence */
   devis_recu_items?: { label: string; montant: number; reference?: string }[];
   /** 🧾 Devis PDF déposé par l'atelier (page devis Nacelle Expert), lu par IA */
-  devis_pdf?: { url?: string; nom?: string; date?: string; lecture_ia?: boolean; confiance?: string; fournisseur?: string } | null;
+  devis_pdf?: {
+    url?: string; nom?: string; date?: string; lecture_ia?: boolean; confiance?: string; fournisseur?: string;
+    montant_lu?: number | null; montant_ttc_lu?: number | null; immat_detectee?: string | null; note?: string | null;
+    lignes?: { libelle: string; montant_ht?: number | null }[];
+  } | null;
+  /** 🔎 Montant du devis (lu par IA ou non lu) à contrôler par la secrétaire avant validation */
+  devis_a_verifier?: boolean;
 
   heures_nacelle?: number;
   km_porteur?: number;

@@ -59,7 +59,8 @@ interface NacelleExpertDossier {
   /** Montants saisis par l'atelier via le lien de chiffrage, par id de poste tarifaire */
   devis_recu?: Record<string, { montant?: number; reference?: string; date?: string; label?: string }>;
   /** 🧾 Devis PDF déposé par l'atelier sur la page devis (lu par IA) */
-  devis_pdf?: { url?: string; nom?: string; date?: string; lecture_ia?: boolean; confiance?: string; fournisseur?: string } | null;
+  devis_pdf?: any | null;
+  devis_a_verifier?: boolean;
   /** 💶 Résumé d'expertise produit par Nacelle Expert (dégâts, montants, total retenue).
    *  Recalculé à chaque chiffrage atelier — copié tel quel dans machines_vo.rapport_expertise. */
   expertise_resume?: {
@@ -404,6 +405,7 @@ export function useNacelleExpertSync(enabled: boolean = true) {
             devis_valide: dossier.devis_valide || null,
             // 💶 Détail du devis chiffré par l'atelier (affiché à la secrétaire)
             devis_pdf: dossier.devis_pdf || null,
+            devis_a_verifier: dossier.devis_a_verifier === true,
             devis_recu_items: Object.entries(dossier.devis_recu || {}).map(([id, e]) => ({
               // Libellé : mémorisé au chiffrage par NE en priorité (config/tarifs
               // peut ne pas exister tant que le barème par défaut n'a pas été modifié)
@@ -528,6 +530,7 @@ export function useNacelleExpertSync(enabled: boolean = true) {
               devis_valide: machineVOData.devis_valide,
               devis_recu_items: machineVOData.devis_recu_items,
               devis_pdf: machineVOData.devis_pdf,
+              devis_a_verifier: machineVOData.devis_a_verifier,
               // 💶 Résumé d'expertise à jour (total retenue global) — uniquement
               // si présent, pour ne pas écraser un rapport legacy existant
               ...(machineVOData.rapport_expertise ? { rapport_expertise: machineVOData.rapport_expertise } : {}),

@@ -161,6 +161,16 @@ export default function MachineCard({
                   </div>
                 ) : null}
                 <div style={{ fontSize: 11, color: "#3a7a52", marginTop: 2 }}>{t("mcard.devisReceivedNote")}</div>
+                {machine.devis_pdf?.url && (
+                  <div style={{ fontSize: 12, marginTop: 4 }}>
+                    <a href={machine.devis_pdf.url} target="_blank" rel="noopener noreferrer" style={{ color: "#1a2a6e", fontWeight: 700 }}>
+                      📎 {t("mcard.devisPdf")}{machine.devis_pdf.nom ? ` — ${machine.devis_pdf.nom}` : ""}
+                    </a>
+                    {machine.devis_pdf.lecture_ia && (
+                      <span style={{ color: "#5a8a6c", marginLeft: 6 }}>· {t("mcard.devisIa")}</span>
+                    )}
+                  </div>
+                )}
               </div>
               {canEditInfos && (
                 <button

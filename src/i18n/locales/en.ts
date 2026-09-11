@@ -221,6 +221,8 @@ const en: TranslationSchema = {
     saveError: "Error while saving info",
   },
   mcard: {
+    devisPdf: "Workshop quote PDF",
+    devisIa: "amount read by AI, check against the PDF",
     archived: "Machine archived",
     archivedBy: "by",
     archivedOn: "on",

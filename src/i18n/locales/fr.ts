@@ -221,6 +221,8 @@ const fr = {
     saveError: "Erreur lors de l'enregistrement des infos",
   },
   mcard: {
+    devisPdf: "Devis PDF de l'atelier",
+    devisIa: "montant lu par IA, à vérifier avec le PDF",
     archived: "Machine archivée",
     archivedBy: "par",
     archivedOn: "le",

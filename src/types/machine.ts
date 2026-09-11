@@ -149,6 +149,8 @@ export interface Machine {
   devis_valide?: { par?: string; date?: string } | null;
   /** 💶 Détail du devis chiffré par l'atelier : libellé, montant HT, référence */
   devis_recu_items?: { label: string; montant: number; reference?: string }[];
+  /** 🧾 Devis PDF déposé par l'atelier (page devis Nacelle Expert), lu par IA */
+  devis_pdf?: { url?: string; nom?: string; date?: string; lecture_ia?: boolean; confiance?: string; fournisseur?: string } | null;
 
   heures_nacelle?: number;
   km_porteur?: number;

@@ -248,6 +248,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             devis_complet: data.devis_complet ?? null,
             devis_valide: data.devis_valide || null,
             devis_recu_items: Array.isArray(data.devis_recu_items) ? data.devis_recu_items : [],
+            devis_pdf: data.devis_pdf || null,
             
             heures_nacelle: parseInt(data.heures) || undefined,
             km_porteur: parseInt(data.km_porteur) || undefined,

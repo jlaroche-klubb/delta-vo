@@ -222,6 +222,8 @@ const es = {
     saveError: "Error al guardar los datos",
   },
   mcard: {
+    devisPdf: "Presupuesto PDF del taller",
+    devisIa: "importe leído por IA, comprobar con el PDF",
     archived: "Máquina archivada",
     archivedBy: "por",
     archivedOn: "el",

@@ -11,7 +11,8 @@ import { auth } from "../firebase";
 const NACELLE_EXPERT_URL = "https://nacelle-expert2.vercel.app";
 
 export async function validerDevisEtEnvoyer(
-  immat: string
+  immat: string,
+  corrections?: { montant_global?: number; reference?: string }
 ): Promise<{ ok: boolean; error?: string; email_envoye?: boolean; client?: string | null }> {
   try {
     const token = await auth.currentUser?.getIdToken();
@@ -23,7 +24,7 @@ export async function validerDevisEtEnvoyer(
         "Content-Type": "application/json",
         Authorization: "Bearer " + token,
       },
-      body: JSON.stringify({ immat }),
+      body: JSON.stringify({ immat, ...(corrections || {}) }),
     });
     const j = await resp.json().catch(() => ({}));
     if (!resp.ok) return { ok: false, error: j.error || `Erreur ${resp.status}` };

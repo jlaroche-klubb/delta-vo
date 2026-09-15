@@ -148,23 +148,48 @@ export function useNacelleExpertSync(enabled: boolean = true) {
   // un seul envoi HubSpot.
   const tabIdRef = useRef(`tab-${Math.random().toString(36).slice(2, 10)}`);
   const LOCK_MS = 2 * 60 * 1000;
-  async function reserverDossier(dossierId: string): Promise<boolean> {
+  /**
+   * Réserve le dossier pour cet onglet (verrou multi-onglets).
+   *  - 'ok'           : à nous de le traiter
+   *  - 'autre_onglet' : déjà pris (ou déjà synchronisé) → on passe
+   *  - 'erreur'       : la transaction a échoué (droits Firestore, réseau…)
+   *                     → on traite QUAND MÊME sans verrou : mieux vaut un
+   *                     risque de doublon qu'un dossier jamais synchronisé
+   *                     (cas GD-954-RG, 15/09/2026 : validation de devis
+   *                     restée bloquée côté Delta VO).
+   */
+  async function reserverDossier(dossierId: string): Promise<'ok' | 'autre_onglet' | 'erreur'> {
     const ref = doc(dbNacelleExpert, 'dossiers', dossierId);
     try {
       return await runTransaction(dbNacelleExpert, async (tx) => {
         const snap = await tx.get(ref);
-        if (!snap.exists()) return false;
+        if (!snap.exists()) return 'autre_onglet' as const;
         const d: any = snap.data();
-        if (d.synced_to_delta_vo === true) return false; // déjà traité par un autre onglet
+        if (d.synced_to_delta_vo === true) return 'autre_onglet' as const; // déjà traité par un autre onglet
         const lock = d.sync_lock;
         const lockAt = lock?.at ? new Date(lock.at).getTime() : 0;
-        if (lock && lock.by !== tabIdRef.current && Date.now() - lockAt < LOCK_MS) return false;
+        if (lock && lock.by !== tabIdRef.current && Date.now() - lockAt < LOCK_MS) return 'autre_onglet' as const;
         tx.update(ref, { sync_lock: { by: tabIdRef.current, at: new Date().toISOString() } });
-        return true;
+        return 'ok' as const;
       });
     } catch (e) {
-      console.warn(`⚠️ Réservation ${dossierId} impossible :`, e);
-      return false;
+      console.warn(`⚠️ Réservation ${dossierId} impossible (traitement sans verrou) :`, e);
+      return 'erreur';
+    }
+  }
+
+  /**
+   * Marque le dossier NE synchronisé et lève le verrou. Si l'écriture avec
+   * `sync_lock` est refusée (règles Firestore limitant les champs), on
+   * réessaie avec le seul champ historique `synced_to_delta_vo`.
+   */
+  async function marquerSynchronise(dossierId: string, extra: Record<string, any> = {}) {
+    const ref = doc(dbNacelleExpert, 'dossiers', dossierId);
+    try {
+      await updateDoc(ref, { synced_to_delta_vo: true, sync_lock: deleteField(), ...extra });
+    } catch (e) {
+      console.warn(`⚠️ Marquage ${dossierId} avec verrou refusé, nouvel essai sans sync_lock :`, e);
+      await updateDoc(ref, { synced_to_delta_vo: true, ...extra });
     }
   }
 
@@ -219,7 +244,8 @@ export function useNacelleExpertSync(enabled: boolean = true) {
         
         try {
           // 🔒 Un seul onglet traite ce dossier
-          if (!(await reserverDossier(dossierDoc.id))) {
+          const reservation = await reserverDossier(dossierDoc.id);
+          if (reservation === 'autre_onglet') {
             console.log(`⏭️ ${dossierDoc.id} : déjà pris en charge par un autre onglet`);
             continue;
           }
@@ -230,7 +256,7 @@ export function useNacelleExpertSync(enabled: boolean = true) {
           // vient de partir repasserait en vente. On la marque et on passe.
           if (dossier.archived || dossierDoc.id.includes('__ARCH__')) {
             console.log(`⏭️ ${dossierDoc.id} : archive d'un cycle précédent, ignorée`);
-            await updateDoc(doc(dbNacelleExpert, 'dossiers', dossierDoc.id), { synced_to_delta_vo: true, sync_lock: deleteField() });
+            await marquerSynchronise(dossierDoc.id);
             continue;
           }
           
@@ -253,7 +279,7 @@ export function useNacelleExpertSync(enabled: boolean = true) {
             // la machine en location (le retour arrive juste après).
             if ((dossier.depart as any)?.sansDossier) {
               console.log(`⏭️ ${dossier.immat} : départ administratif (sans dossier), ignoré`);
-              await updateDoc(doc(dbNacelleExpert, 'dossiers', dossierDoc.id), { synced_to_delta_vo: true, sync_lock: deleteField() });
+              await marquerSynchronise(dossierDoc.id);
               successCount++;
               continue;
             }
@@ -344,7 +370,7 @@ export function useNacelleExpertSync(enabled: boolean = true) {
               continue;
             }
             // Dossier traité : on le marque pour ne pas le reprendre en boucle
-            await updateDoc(doc(dbNacelleExpert, 'dossiers', dossierDoc.id), { synced_to_delta_vo: true, sync_lock: deleteField() });
+            await marquerSynchronise(dossierDoc.id);
             successCount++;
             continue;
           }
@@ -359,9 +385,7 @@ export function useNacelleExpertSync(enabled: boolean = true) {
             : '';
           if (motifErreur) {
             console.warn(`⚠️ ${dossierDoc.id} : ${motifErreur} — non importé dans Delta VO`);
-            await updateDoc(doc(dbNacelleExpert, 'dossiers', dossierDoc.id), {
-              synced_to_delta_vo: true,
-              sync_lock: deleteField(),
+            await marquerSynchronise(dossierDoc.id, {
               sync_error: `${motifErreur} (Delta VO, ${new Date().toISOString().slice(0, 10)})`,
             });
             errorCount++;
@@ -650,11 +674,7 @@ export function useNacelleExpertSync(enabled: boolean = true) {
           }
 
           // Marquer comme synchronisé dans Nacelle-Expert (et lever le verrou)
-          const dossierRef = doc(dbNacelleExpert, 'dossiers', dossierDoc.id);
-          await updateDoc(dossierRef, {
-            synced_to_delta_vo: true,
-            sync_lock: deleteField(),
-          });
+          await marquerSynchronise(dossierDoc.id);
           console.log(`✅ Dossier marqué comme synchronisé`);
           // 📧 / 🔄 Effets de bord une fois le marquage réussi (jamais en double)
           for (const fx of apresMarquage) {

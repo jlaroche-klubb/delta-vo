@@ -424,6 +424,10 @@ export function useNacelleExpertSync(enabled: boolean = true) {
             // 📍 Localisation = lieu de restitution saisi par l'expert
             // (normalisée : « Ferrière »/« Ferrières », « St-Alban »/« St Alban »...)
             localite: normalizeLocalite(dossier.retour?.lieu_restitution) || '',
+            // 🔒 Client / contrat / email de la restitution (figés sur la machine)
+            client_precedent: dossier.info.client || '',
+            contrat: dossier.info.contrat || '',
+            ...(dossier.info.email ? { email_client: dossier.info.email } : {}),
 
             // ⏳ Devis en attente (postes sur devis non chiffrés) — badge + blocage facture
             devis_pending_labels: dossier.devis_pending_labels || [],
@@ -580,6 +584,9 @@ export function useNacelleExpertSync(enabled: boolean = true) {
                 // étapes. Elle reste visible en Restitutions (en_cours non réglée)
                 // et, si la préparation est annulée, repasse par Restitutions.
                 ...(nouvelleExpertise && existingData.statut === 'en_cours' ? {
+                  client_precedent: dossier.info.client || existingData.client_precedent || '',
+                  contrat: dossier.info.contrat || existingData.contrat || '',
+                  ...(dossier.info.email ? { email_client: dossier.info.email } : {}),
                   facture_ok: false,
                   facture_reglee_ok: false,
                   date_demande_recuperation: dateRecup,
@@ -604,6 +611,15 @@ export function useNacelleExpertSync(enabled: boolean = true) {
                 desarchivee_motif: 'Expertise retour reçue (retour de location)',
               } : {}),
               statut: 'restitution',
+              // 🔒 Client / contrat / email DE CETTE RESTITUTION : photo figée à
+              // l'arrivée de l'expertise. Plus rien ne les écrase ensuite (ni une
+              // mise en location, ni une resynchro du même dossier) — bug 16/09/2026.
+              client_precedent: dossier.info.client || existingData.client_precedent || '',
+              contrat: dossier.info.contrat || existingData.contrat || '',
+              ...(dossier.info.email ? { email_client: dossier.info.email } : {}),
+              // 🔁 Les infos de la sortie précédente ne concernent plus ce cycle
+              contrat_sortie: deleteField(),
+              email_sortie: deleteField(),
               recuperation_ok: true,
               expertise_ok: true,
               expertise_recue: true,    // ✅ L'expertise vient d'arriver (fiches pré-créées ADV incluses)

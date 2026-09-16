@@ -69,3 +69,47 @@ export async function pushInfosAdminToNacelleExpert(
     return false;
   }
 }
+
+/**
+ * 🔁 PROCHAIN DÉPART (mise en location / configuration d'une location).
+ * Le dossier Nacelle Expert de l'immat porte encore la RESTITUTION en cours
+ * (client qui doit les frais) : on ne touche PAS à son bloc `info` client /
+ * contrat / email. Le nouveau client est rangé dans `info_prochain_depart`,
+ * que l'écran « Nouveau départ » de Nacelle Expert utilise pour pré-remplir
+ * et qui devient le client du nouveau cycle à la validation du départ.
+ * Seule l'identité de la machine (modèle, type, année) est complétée dans `info`.
+ */
+export async function pushProchainDepartToNacelleExpert(infos: InfosAdminNacelleExpert): Promise<boolean> {
+  const immat = normalizeImmat((infos.immat || "").trim());
+  if (!immat) return false;
+  const prochain: Record<string, string> = {};
+  if (infos.client) prochain.client = infos.client;
+  if (infos.contrat) prochain.contrat = infos.contrat;
+  if (infos.email) prochain.email = infos.email;
+  const identite: Record<string, string> = { immat };
+  if (infos.modele) identite.modele = infos.modele;
+  if (infos.type_nacelle) identite.type_nacelle = infos.type_nacelle;
+  if (infos.annee_fab) identite.annee_fab = infos.annee_fab;
+  try {
+    const dossierRef = doc(dbNacelleExpert, "dossiers", immat);
+    const existing = await getDoc(dossierRef);
+    const payload: Record<string, unknown> = {
+      immat,
+      info: identite,
+      info_prochain_depart: { ...prochain, updatedAt: new Date().toISOString(), source: "delta-vo" },
+      infos_admin_source: "delta-vo",
+      infos_admin_updatedAt: new Date().toISOString(),
+    };
+    if (!existing.exists()) {
+      payload.createdAt = new Date().toISOString();
+      // Dossier neuf (aucun cycle) : le prochain client EST le client du dossier
+      payload.info = { ...identite, ...prochain };
+    }
+    await setDoc(dossierRef, payload, { merge: true });
+    console.log(`📤 Prochain départ poussé vers Nacelle Expert pour ${immat} (${prochain.client || "—"})`);
+    return true;
+  } catch (e) {
+    console.error(`❌ Push prochain départ vers Nacelle Expert (${immat}):`, e);
+    return false;
+  }
+}

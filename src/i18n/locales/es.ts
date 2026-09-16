@@ -165,6 +165,8 @@ const es = {
     manualOverrideOn: "el",
   },
   resti: {
+    verifClients: "Clientes a verificar",
+    verifClientsTitle: "Listar las devoluciones cuyo cliente mostrado pudo ser sobrescrito por un alquiler / venta",
     title: "Devoluciones",
     subtitle: "Seguimiento de las plataformas que vuelven de alquiler · Flujo ADV",
     statInProgress: "en curso",

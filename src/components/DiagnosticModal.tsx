@@ -34,7 +34,12 @@ export default function DiagnosticModal({ machine, onClose }: { machine: Machine
     ["Cycle NE (id)", m.dossier_nacelle_expert?.cycle_id || "—"],
     ["Départ NE", m.dossier_nacelle_expert?.date_depart || "—"],
     ["Retour NE", m.dossier_nacelle_expert?.date_retour || "—"],
-    ["Client NE", m.dossier_nacelle_expert?.client || m.client_precedent || "—"],
+    ["Client restitution (figé)", `${m.client_precedent || "—"}${m.contrat ? ` · contrat ${m.contrat}` : ""}`],
+    ["Client dossier NE (actuel)", m.dossier_nacelle_expert?.client || "—"],
+    ...(m.dossier_nacelle_expert?.client && m.client_precedent && m.dossier_nacelle_expert.client !== m.client_precedent
+      ? ([["⚠️ Écart client", `dossier NE « ${m.dossier_nacelle_expert.client} » ≠ restitution « ${m.client_precedent} » — vérifier lequel doit les frais`]] as [string, string][])
+      : []),
+    ["Prochain client (sortie)", `${m.client_lld || m.acheteur || "—"}${m.contrat_sortie ? ` · contrat ${m.contrat_sortie}` : ""}${m.email_sortie ? ` · ${m.email_sortie}` : ""}`],
     ["Départ constaté NE", m.depart_constate_ne || "—"],
     ["Devis en attente", (m.devis_pending_labels || []).length ? m.devis_pending_labels.join(", ") : "—"],
     ["Devis complet / validé", `${oui(m.devis_complet)} / ${m.devis_valide ? "✅ " + (m.devis_valide.par || "") : "❌ non"}`],

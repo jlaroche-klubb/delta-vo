@@ -136,20 +136,15 @@ export function exportPricingToExcel({ machines, seuilRepricer = 60 }: ExportPri
     const aRevoir = ms.filter((m) => ordreStatut(m) === 1).length;
     nbAFaire += aFaire;
     nbARevoir += aRevoir;
-    // Ligne de titre du groupe (ignorée à l'import : ni immat ni prix)
-    aoa.push([
-      `── ${type} · ${ms.length} machine(s)` +
-        (aFaire ? ` · ${aFaire} à faire` : "") +
-        (aRevoir ? ` · ${aRevoir} à revoir` : "") +
-        " ──",
-    ]);
+    // ⚠ Pas de ligne de titre par type (retour PDG, 16/09/2026) : une liste
+    // brute, une machine par ligne — le regroupement par type reste visible
+    // grâce à l'ordre et à la colonne « Type nacelle » (filtre automatique).
+    void type;
     for (const m of ms) aoa.push(toRow(m));
   }
-  aoa.push([]);
-  aoa.push([
-    `${actives.length} machine(s) en vente · ${nbAFaire} prix à faire · ${nbARevoir} prix à revoir (> ${seuilRepricer} j) · ` +
-      `Complétez / corrigez « Prix France HT (€) » et « Prix Dealer HT (€) » puis réimportez ce fichier tel quel : seules les lignes dont le prix a changé sont prises en compte.`,
-  ]);
+  // (plus de ligne de pied récapitulative : liste brute demandée par le PDG ;
+  //  les compteurs restent affichés dans l'appli au moment de l'export)
+  void nbAFaire; void nbARevoir; void seuilRepricer;
 
   const cols = [
     { wch: 18 }, // Statut prix

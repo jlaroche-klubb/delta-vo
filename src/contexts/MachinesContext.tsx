@@ -17,7 +17,7 @@ import { MOCK_EN_COURS } from "../data/mockEnCours";
 import { MOCK_CLOTUREES } from "../data/mockCloturees";
 import { syncHubspotProduct } from "../services/hubspotService";
 import { getAllExpertises } from "../services/nacelleExpertService";
-import { pushInfosAdminToNacelleExpert } from "../services/nacelleExpertPushService";
+import { pushInfosAdminToNacelleExpert, pushProchainDepartToNacelleExpert } from "../services/nacelleExpertPushService";
 import { normalizeImmat } from "../utils/immat";
 import type { ParsedStockMachine } from "../utils/importStock";
 import { computeVogUpdates, buildNewVogDoc } from "../utils/importVogMerge";
@@ -239,9 +239,15 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             date_retour: data.dossier_nacelle_expert?.date_retour || data.date_retour || '',
             // ✅ Auto-remplir date_demande_recuperation (machine déjà récupérée)
             date_demande_recuperation: data.date_demande_recuperation || data.dossier_nacelle_expert?.date_retour || data.dossier_nacelle_expert?.date_depart || '',
-            client_precedent: data.dossier_nacelle_expert?.client || data.client_precedent || '',
-            contrat: data.dossier_nacelle_expert?.contrat || data.contrat || '',
+            // 🔒 Client / contrat / email DE LA RESTITUTION : valeur figée sur la
+            // machine en priorité (posée à l'arrivée de l'expertise ou corrigée au
+            // crayon par la secrétaire) ; le dossier NE ne sert que de repli, car
+            // son bloc info peut avoir été modifié depuis (bug du 16/09/2026).
+            client_precedent: data.client_precedent || data.dossier_nacelle_expert?.client || '',
+            contrat: data.contrat || data.dossier_nacelle_expert?.contrat || '',
             email_client: data.email_client || data.dossier_nacelle_expert?.email || undefined,
+            contrat_sortie: data.contrat_sortie || undefined,
+            email_sortie: data.email_sortie || undefined,
 
             // ⏳ Devis en attente (Nacelle Expert)
             devis_pending_labels: Array.isArray(data.devis_pending_labels) ? data.devis_pending_labels : [],
@@ -830,9 +836,11 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       client_lld: clientLld,
       acheteur: clientLld,
       date_mise_dispo_lld: dateMiseDispo,
-      // 📋 Demandés à la mise en location : partent dans le pré-départ NE
-      ...(contrat ? { contrat } : {}),
-      ...(emailClient ? { email_client: emailClient } : {}),
+      // 📋 Demandés à la mise en location : partent dans le pré-départ NE.
+      //    Champs de SORTIE — le contrat / email de la restitution en cours
+      //    (client qui doit les frais NE) ne sont jamais écrasés.
+      ...(contrat ? { contrat_sortie: contrat } : {}),
+      ...(emailClient ? { email_sortie: emailClient } : {}),
       date_livraison_prevue: dateMiseDispo,
       date_mise_en_cours: new Date().toISOString(),
       etapes_prepa: null,
@@ -869,11 +877,13 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
   // Expert que pour les mises en location.
   function pushPreDepartNacelleExpert(m: Machine | undefined, client?: string, contrat?: string, email?: string) {
     if (!m?.immat) return;
-    pushInfosAdminToNacelleExpert({
+    // 🔁 Rangé dans `info_prochain_depart` : le client de la restitution en
+    // cours (bloc `info`) reste intact — voir nacelleExpertPushService.
+    pushProchainDepartToNacelleExpert({
       immat: m.immat,
       client: (client || m.client_lld || m.acheteur || "").trim() || undefined,
-      contrat: (contrat || m.contrat || "").trim() || undefined,
-      email: (email || m.email_client || "").trim() || undefined,
+      contrat: (contrat || m.contrat_sortie || "").trim() || undefined,
+      email: (email || m.email_sortie || "").trim() || undefined,
       modele: m.modele_porteur || undefined,
       type_nacelle: m.type_nacelle || undefined,
       annee_fab: m.annee_circulation || undefined,
@@ -1240,9 +1250,9 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       historique: traceStatut(machineCfg?.statut, "en_cours", "configuration_prepa", estLocation ? "location" : `vente${acheteur ? " — " + acheteur : ""}`),
       statut: "en_cours" as const,        // ✅ Bug 3 : Passer en en_cours
       type_sortie: (estLocation ? "lld" : "vente") as any,
-      // 📋 Location : contrat + email demandés à la configuration
-      ...(contrat ? { contrat } : {}),
-      ...(emailClient ? { email_client: emailClient } : {}),
+      // 📋 Location : contrat + email demandés à la configuration (champs de SORTIE)
+      ...(contrat ? { contrat_sortie: contrat } : {}),
+      ...(emailClient ? { email_sortie: emailClient } : {}),
       type_prepa: typePrepa,
       acheteur,
       commercial_vendeur: commercial,
@@ -1345,8 +1355,8 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       commercial_vendeur: infos.commercial_vendeur,
       date_vente: infos.date_vente,
       date_livraison_prevue: infos.date_livraison_prevue,
-      ...(infos.contrat !== undefined ? { contrat: infos.contrat } : {}),
-      ...(infos.email_client !== undefined ? { email_client: infos.email_client } : {}),
+      ...(infos.contrat !== undefined ? { contrat_sortie: infos.contrat } : {}),
+      ...(infos.email_client !== undefined ? { email_sortie: infos.email_client } : {}),
       updatedAt: now,
     };
     if (isFirebaseMachine(machineId)) {
@@ -1378,6 +1388,8 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       date_mise_en_cours: null,
       etapes_prepa: null,
       client_lld: null,
+      contrat_sortie: deleteField(),
+      email_sortie: deleteField(),
       date_mise_dispo_lld: null,
       updatedAt: new Date().toISOString(),
     };

@@ -92,6 +92,29 @@ export default function RestitutionsPage() {
     }
   }
 
+  // 🔍 Contrôle super admin : restitutions dont le client affiché a pu être
+  // écrasé par une mise en location / vente (bug corrigé le 16/09/2026).
+  function handleVerifierClients() {
+    const suspects = allMachinesUnfiltered
+      .filter((m) => !m.archived && (m.statut === "restitution" || (m.expertise_recue && !m.facture_reglee_ok)))
+      .map((m) => {
+        const sortie = (m.client_lld || m.acheteur || "").trim();
+        const resti = (m.client_precedent || "").trim();
+        const ne = (m.dossier_nacelle_expert?.client || "").trim();
+        const raisons: string[] = [];
+        if (resti && sortie && resti.toLowerCase() === sortie.toLowerCase()) raisons.push("client restitution = client de sortie");
+        if (resti && ne && resti.toLowerCase() !== ne.toLowerCase()) raisons.push(`dossier NE « ${ne} » ≠ « ${resti} »`);
+        if (!resti && sortie) raisons.push("client restitution vide, client de sortie présent");
+        return raisons.length ? `${m.immat} (${m.type_nacelle || "?"}) — ${resti || "—"} : ${raisons.join(" ; ")}` : null;
+      })
+      .filter(Boolean) as string[];
+    alert(
+      suspects.length
+        ? `🔍 ${suspects.length} restitution(s) à vérifier (client possiblement écrasé) :\n\n${suspects.join("\n")}\n\nCorrigez avec le crayon ✏️ de la carte (client / contrat).`
+        : "✅ Aucune restitution suspecte : les clients affichés sont cohérents."
+    );
+  }
+
   // === Filtrage par statut restitution puis search + filtres avancés ===
   // ⚠️ Les machines issues de l'import du stock VOG (import_vog) sont du STOCK :
   // elles ne doivent JAMAIS apparaître ici, quels que soient leurs autres indicateurs.
@@ -288,6 +311,11 @@ export default function RestitutionsPage() {
         {canCreateRestitution(userRole) && (
           <button className="btn-primary" onClick={() => setShowForm(true)}>
             + {t("resti.createReturn")}
+          </button>
+        )}
+        {isSuperAdmin && (
+          <button className="btn-export" onClick={handleVerifierClients} title={t("resti.verifClientsTitle")}>
+            🔍 {t("resti.verifClients")}
           </button>
         )}
         {isAdmin && (

@@ -45,8 +45,9 @@ export default function ConfigEnCoursModal({
   );
   // 📋 LOCATION : contrat + email client demandés ICI (pas à la réservation)
   const isLld = machine.type_sortie === "lld";
-  const [contrat, setContrat] = useState(machine.contrat || "");
-  const [emailClient, setEmailClient] = useState(machine.email_client || "");
+  // 🔁 Champs de SORTIE (nouveau locataire) — jamais ceux de la restitution en cours
+  const [contrat, setContrat] = useState(machine.contrat_sortie || "");
+  const [emailClient, setEmailClient] = useState(machine.email_sortie || "");
 
   function handleSave() {
     if (!acheteur.trim()) {

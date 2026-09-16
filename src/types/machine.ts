@@ -140,6 +140,14 @@ export interface Machine {
   contrat: string;
   /** Email du client (repris dans Nacelle Expert pour l'envoi du rapport) */
   email_client?: string;
+  /**
+   * 🔁 SORTIE (vente / location) — contrat et email du NOUVEAU client.
+   * Distincts de `contrat` / `email_client`, qui appartiennent à la
+   * RESTITUTION en cours (client qui doit les frais NE). Bug corrigé le
+   * 16/09/2026 : la mise en location écrasait le contrat de la restitution.
+   */
+  contrat_sortie?: string;
+  email_sortie?: string;
 
   /** ⏳ Devis en attente : libellés des postes sur devis non chiffrés (Nacelle Expert) */
   devis_pending_labels?: string[];

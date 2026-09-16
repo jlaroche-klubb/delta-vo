@@ -165,6 +165,8 @@ const en: TranslationSchema = {
     manualOverrideOn: "on",
   },
   resti: {
+    verifClients: "Customers to check",
+    verifClientsTitle: "List returns whose displayed customer may have been overwritten by a rental / sale",
     title: "Returns",
     subtitle: "Tracking platforms returned from rental · Admin workflow",
     statInProgress: "in progress",

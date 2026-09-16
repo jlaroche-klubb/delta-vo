@@ -164,6 +164,8 @@ const fr = {
     manualOverrideOn: "le",
   },
   resti: {
+    verifClients: "Clients à vérifier",
+    verifClientsTitle: "Lister les restitutions dont le client affiché a pu être écrasé par une mise en location / vente",
     title: "Restitutions",
     subtitle: "Suivi des nacelles en retour de location · Workflow ADV",
     statInProgress: "en cours",

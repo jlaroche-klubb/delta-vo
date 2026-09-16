@@ -157,6 +157,10 @@ export interface Machine {
   } | null;
   /** 🔎 Montant du devis (lu par IA ou non lu) à contrôler par la secrétaire avant validation */
   devis_a_verifier?: boolean;
+  /** 🔔 Relances envoyées à Nacelle Assistance depuis Delta VO */
+  devis_relances?: { date: string; par?: string }[];
+  /** 🚫 Demande de devis annulée (société liquidée, client injoignable…) */
+  devis_annule?: { date: string; par?: string; motif?: string; postes?: string[] } | null;
 
   heures_nacelle?: number;
   km_porteur?: number;

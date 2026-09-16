@@ -61,6 +61,8 @@ interface NacelleExpertDossier {
   /** 🧾 Devis PDF déposé par l'atelier sur la page devis (lu par IA) */
   devis_pdf?: any | null;
   devis_a_verifier?: boolean;
+  devis_relances?: { date: string; par?: string }[];
+  devis_annule?: any | null;
   /** 💶 Résumé d'expertise produit par Nacelle Expert (dégâts, montants, total retenue).
    *  Recalculé à chaque chiffrage atelier — copié tel quel dans machines_vo.rapport_expertise. */
   expertise_resume?: {
@@ -406,6 +408,8 @@ export function useNacelleExpertSync(enabled: boolean = true) {
             // 💶 Détail du devis chiffré par l'atelier (affiché à la secrétaire)
             devis_pdf: dossier.devis_pdf || null,
             devis_a_verifier: dossier.devis_a_verifier === true,
+            devis_relances: Array.isArray(dossier.devis_relances) ? dossier.devis_relances.map((r: any) => ({ date: r.date, par: r.par })) : [],
+            devis_annule: dossier.devis_annule || null,
             devis_recu_items: Object.entries(dossier.devis_recu || {}).map(([id, e]) => ({
               // Libellé : mémorisé au chiffrage par NE en priorité (config/tarifs
               // peut ne pas exister tant que le barème par défaut n'a pas été modifié)
@@ -531,6 +535,8 @@ export function useNacelleExpertSync(enabled: boolean = true) {
               devis_recu_items: machineVOData.devis_recu_items,
               devis_pdf: machineVOData.devis_pdf,
               devis_a_verifier: machineVOData.devis_a_verifier,
+              devis_relances: machineVOData.devis_relances,
+              devis_annule: machineVOData.devis_annule,
               // 💶 Résumé d'expertise à jour (total retenue global) — uniquement
               // si présent, pour ne pas écraser un rapport legacy existant
               ...(machineVOData.rapport_expertise ? { rapport_expertise: machineVOData.rapport_expertise } : {}),

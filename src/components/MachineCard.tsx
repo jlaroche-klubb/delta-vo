@@ -9,7 +9,7 @@ import { useAuth } from "../AuthContext";
 import ChiffrageZeroTools from "./ChiffrageZeroTools";
 import { useTranslation } from "react-i18next";
 import { canEditInfosAdmin } from "../utils/permissions";
-import { validerDevisEtEnvoyer } from "../services/devisService";
+import { validerDevisEtEnvoyer, relancerDevis, annulerDemandeDevis } from "../services/devisService";
 import { ouvrirRapportNE } from "../services/nacelleExpertService";
 
 interface MachineCardProps {
@@ -39,6 +39,8 @@ export default function MachineCard({
   const [showConfirmDelete, setShowConfirmDelete] = useState(false);
   const [showEditInfos, setShowEditInfos] = useState(false);
   const [validatingDevis, setValidatingDevis] = useState(false);
+  const [devisAction, setDevisAction] = useState<"" | "relance" | "annulation">("");
+  const derniereRelance = machine.devis_relances?.length ? machine.devis_relances[machine.devis_relances.length - 1] : null;
   // 🔎 Vérification du devis PDF (montant lu par IA) par la secrétaire
   const totalDevisRecu = (machine.devis_recu_items || []).reduce((s, it) => s + (it.montant || 0), 0);
   const [devisMontant, setDevisMontant] = useState<string>(totalDevisRecu > 0 ? String(totalDevisRecu) : "");
@@ -142,6 +144,52 @@ export default function MachineCard({
               {machine.rapport_expertise?.total_retenue_ht != null && (
                 <div style={{ fontSize: 12, fontWeight: 700, color: "#b3541e", marginTop: 4 }}>
                   {t("mcard.expTotalProvisoire", { total: machine.rapport_expertise.total_retenue_ht.toLocaleString("fr-FR") })}
+                </div>
+              )}
+              {derniereRelance && (
+                <div style={{ fontSize: 11, color: "#8a5a30", marginTop: 4 }}>
+                  🔔 {t("mcard.devisRelanceInfo", {
+                    n: machine.devis_relances!.length,
+                    date: new Date(derniereRelance.date).toLocaleDateString("fr-FR"),
+                    par: derniereRelance.par || "",
+                  })}
+                </div>
+              )}
+              {/* 🔔 Relancer l'atelier / 🚫 Annuler la demande (secrétaire, admin) */}
+              {canEditInfos && (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 8, paddingTop: 8, borderTop: "1px dashed #e8c9a8" }}>
+                  <button
+                    className="btn-secondary"
+                    style={{ fontSize: 12 }}
+                    disabled={!!devisAction}
+                    title={t("mcard.devisRelanceTitle")}
+                    onClick={async () => {
+                      if (!window.confirm(t("mcard.devisRelanceConfirm", { immat: machine.immat }))) return;
+                      setDevisAction("relance");
+                      const r = await relancerDevis(machine.immat);
+                      setDevisAction("");
+                      alert(r.ok ? t("mcard.devisRelanceOk", { n: r.relances || 1 }) : t("mcard.devisValidateError", { error: r.error }));
+                    }}
+                  >
+                    {devisAction === "relance" ? "⏳" : "🔔"} {t("mcard.devisRelanceBtn")}
+                  </button>
+                  <button
+                    className="btn-secondary"
+                    style={{ fontSize: 12, color: "#c0392b", borderColor: "#e9a1a1" }}
+                    disabled={!!devisAction}
+                    title={t("mcard.devisAnnulerTitle")}
+                    onClick={async () => {
+                      const motif = window.prompt(t("mcard.devisAnnulerPrompt", { immat: machine.immat }), t("mcard.devisAnnulerMotifDefaut"));
+                      if (motif === null) return;
+                      if (!window.confirm(t("mcard.devisAnnulerConfirm", { immat: machine.immat }))) return;
+                      setDevisAction("annulation");
+                      const r = await annulerDemandeDevis(machine.immat, motif.trim());
+                      setDevisAction("");
+                      alert(r.ok ? t("mcard.devisAnnulerOk") : t("mcard.devisValidateError", { error: r.error }));
+                    }}
+                  >
+                    {devisAction === "annulation" ? "⏳" : "🚫"} {t("mcard.devisAnnulerBtn")}
+                  </button>
                 </div>
               )}
             </div>
@@ -264,6 +312,18 @@ export default function MachineCard({
             </div>
           )
         ) : null}
+
+        {/* 🚫 Demande de devis annulée (société liquidée…) : trace visible */}
+        {!machine.archived && machine.devis_annule && !machine.devis_pending_labels?.length && (
+          <div style={{ background: "#f4f5f8", border: "1px solid #dfe3ea", borderRadius: 6, padding: "6px 12px", marginBottom: 8, fontSize: 12, color: "#4a5568" }}>
+            🚫 <b>{t("mcard.devisAnnuleInfo", {
+              date: machine.devis_annule.date ? new Date(machine.devis_annule.date).toLocaleDateString("fr-FR") : "",
+              par: machine.devis_annule.par || "",
+            })}</b>
+            {machine.devis_annule.motif ? ` — ${machine.devis_annule.motif}` : ""}
+            {machine.devis_annule.postes?.length ? ` (${machine.devis_annule.postes.join(" · ")} : 0 €)` : ""}
+          </div>
+        )}
 
         {/* Bandeau expertise reçue */}
         {expertiseRecue && !machine.archived && (

@@ -211,6 +211,11 @@ const en: TranslationSchema = {
     otherPlaceholder: "Enter the platform type...",
   },
   editInfos: {
+    fieldImmat: "Registration",
+    immatWarn: "Record {{ancienne}} will be renamed {{nouvelle}} (Delta VO and Nacelle Expert). History, photos, prices and inspection are kept.",
+    immatConfirm: "Correct registration {{ancienne}} → {{nouvelle}}?\n\nThe record changes identifier in Delta VO and Nacelle Expert; links already sent (report, quote) with the old registration remain accessible.",
+    immatInvalid: "Invalid registration: expected format AB-123-CD.",
+    immatError: "Correction failed: {{error}}",
     title: "Edit administrative info",
     fieldClient: "Client",
     fieldContract: "Contract no.",

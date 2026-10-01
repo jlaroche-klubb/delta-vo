@@ -148,6 +148,8 @@ export interface Machine {
    */
   contrat_sortie?: string;
   email_sortie?: string;
+  /** 🔧 Ancienne immatriculation (fiche renommée après une erreur de saisie) */
+  immat_precedente?: string;
 
   /** ⏳ Devis en attente : libellés des postes sur devis non chiffrés (Nacelle Expert) */
   devis_pending_labels?: string[];

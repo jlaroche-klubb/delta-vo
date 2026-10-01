@@ -210,6 +210,11 @@ const fr = {
     otherPlaceholder: "Saisir le type de nacelle...",
   },
   editInfos: {
+    fieldImmat: "Immatriculation",
+    immatWarn: "La fiche {{ancienne}} sera renommée {{nouvelle}} (Delta VO et Nacelle Expert). Historique, photos, prix et expertise sont conservés.",
+    immatConfirm: "Corriger l'immatriculation {{ancienne}} → {{nouvelle}} ?\n\nLa fiche change d'identifiant dans Delta VO et dans Nacelle Expert ; les liens déjà envoyés (rapport, devis) avec l'ancienne immatriculation restent consultables.",
+    immatInvalid: "Immatriculation invalide : format attendu AB-123-CD.",
+    immatError: "Correction impossible : {{error}}",
     title: "Modifier les infos administratives",
     fieldClient: "Client",
     fieldContract: "N° contrat",

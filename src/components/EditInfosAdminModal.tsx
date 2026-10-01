@@ -3,6 +3,9 @@ import { Machine } from "../types/machine";
 import { useMachines } from "../contexts/MachinesContext";
 import { useTranslation } from "react-i18next";
 import TypeNacelleSelect from "./TypeNacelleSelect";
+import { useAuth } from "../AuthContext";
+import { canCorrigerImmat } from "../utils/permissions";
+import { normalizeImmat } from "../utils/immat";
 
 /**
  * ✏️ Modal d'édition des infos ADMINISTRATIVES d'une fiche machine
@@ -22,7 +25,12 @@ interface EditInfosAdminModalProps {
 
 export default function EditInfosAdminModal({ machine, onClose }: EditInfosAdminModalProps) {
   const { t } = useTranslation();
-  const { updateInfosAdmin } = useMachines();
+  const { updateInfosAdmin, corrigerImmat } = useMachines();
+  const { profile } = useAuth();
+  // 🔧 Correction d'immatriculation : admin / super admin (opération de structure)
+  const peutCorrigerImmat = !!profile && canCorrigerImmat(profile.role);
+  const [immat, setImmat] = useState(machine.immat || "");
+  const immatChangee = normalizeImmat(immat.trim()) !== machine.immat;
 
   const [client, setClient] = useState(machine.client_precedent || "");
   const [contrat, setContrat] = useState(machine.contrat || "");
@@ -34,8 +42,25 @@ export default function EditInfosAdminModal({ machine, onClose }: EditInfosAdmin
 
   async function handleSave() {
     if (saving) return;
+    let cibleId = machine.id;
+    if (peutCorrigerImmat && immatChangee) {
+      const nouvelle = normalizeImmat(immat.trim());
+      if (!/^[A-Z]{2}-[0-9]{3}-[A-Z]{2}$/.test(nouvelle)) {
+        alert(t("editInfos.immatInvalid"));
+        return;
+      }
+      if (!window.confirm(t("editInfos.immatConfirm", { ancienne: machine.immat, nouvelle }))) return;
+      setSaving(true);
+      const r = await corrigerImmat(machine.id, nouvelle, profile ? `${profile.prenom} ${profile.nom}`.trim() : "");
+      if (!r.ok) {
+        setSaving(false);
+        alert(t("editInfos.immatError", { error: r.error || "" }));
+        return;
+      }
+      cibleId = r.nouvelId || nouvelle;
+    }
     setSaving(true);
-    const ok = await updateInfosAdmin(machine.id, {
+    const ok = await updateInfosAdmin(cibleId, {
       client_precedent: client,
       contrat,
       email_client: email,
@@ -70,6 +95,21 @@ export default function EditInfosAdminModal({ machine, onClose }: EditInfosAdmin
         </div>
 
         <div className="form-grid">
+          {peutCorrigerImmat && (
+            <div className="form-field form-field-wide" style={{ background: immatChangee ? "#fff7e6" : undefined, borderRadius: 6, padding: immatChangee ? "6px 8px" : 0 }}>
+              <label>{t("editInfos.fieldImmat")}</label>
+              <input
+                type="text"
+                value={immat}
+                onChange={(e) => setImmat(e.target.value.toUpperCase())}
+                placeholder="AB-123-CD"
+                style={{ fontFamily: "monospace", fontWeight: 700, letterSpacing: 1 }}
+              />
+              {immatChangee && (
+                <div style={{ fontSize: 11, color: "#7a4a00", marginTop: 4 }}>⚠ {t("editInfos.immatWarn", { ancienne: machine.immat, nouvelle: normalizeImmat(immat.trim()) })}</div>
+              )}
+            </div>
+          )}
           <div className="form-field form-field-wide">
             <label>{t("editInfos.fieldClient")}</label>
             <input

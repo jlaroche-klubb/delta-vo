@@ -211,6 +211,11 @@ const es = {
     otherPlaceholder: "Introducir el tipo de plataforma...",
   },
   editInfos: {
+    fieldImmat: "Matrícula",
+    immatWarn: "La ficha {{ancienne}} pasará a llamarse {{nouvelle}} (Delta VO y Nacelle Expert). Historial, fotos, precios y peritaje se conservan.",
+    immatConfirm: "¿Corregir la matrícula {{ancienne}} → {{nouvelle}}?\n\nLa ficha cambia de identificador en Delta VO y Nacelle Expert; los enlaces ya enviados (informe, presupuesto) con la antigua matrícula siguen accesibles.",
+    immatInvalid: "Matrícula no válida: formato esperado AB-123-CD.",
+    immatError: "Corrección imposible: {{error}}",
     title: "Modificar los datos administrativos",
     fieldClient: "Cliente",
     fieldContract: "N.º de contrato",

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useMemo } from "react";
-import { collection, onSnapshot, doc, updateDoc, setDoc, Timestamp, deleteField } from "firebase/firestore";
+import { collection, onSnapshot, doc, getDoc, updateDoc, setDoc, deleteDoc, Timestamp, deleteField } from "firebase/firestore";
 import { db, dbNacelleExpert } from "../firebase";
 import { traceStatut } from "../utils/historique";
 import {
@@ -140,6 +140,8 @@ interface MachinesContextType {
   updatePhotosInternes: (machineId: string, photos: PhotoSupplementaire[]) => void; // 🔒 super admin
   updateShareToken: (machineId: string, token: string | null) => void;
   updateLocalite: (machineId: string, localite: string) => void;
+  /** 🔧 Corrige une immatriculation erronée : la fiche (et le dossier NE) changent d'identifiant */
+  corrigerImmat: (ancienId: string, nouvelleImmat: string, par: string) => Promise<{ ok: boolean; error?: string; nouvelId?: string }>;
   /** 🚩 Points d'attention vendeurs — null = effacer */
   updatePointsAttention: (machineId: string, points: PointsAttention | null) => Promise<void>;
   updateDocumentsVO: (machineId: string, documents: DocumentVO[]) => void;
@@ -1743,6 +1745,75 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // 🔧 CORRECTION D'IMMATRICULATION (demande Jonathan, 01/10/2026).
+  // L'identifiant du document machines_vo EST l'immatriculation (clé de
+  // jointure VOG / Nacelle Expert / HubSpot) : corriger = recopier la fiche
+  // sous le nouvel identifiant, puis retirer l'ancienne. Le dossier Nacelle
+  // Expert suit (copie sous la nouvelle immat, ancien marqué archivé/renommé)
+  // pour que la synchro et les rapports restent alignés. Photos et PDF : URL
+  // inchangées (Storage), rien à déplacer.
+  async function corrigerImmat(ancienId: string, nouvelleImmatBrute: string, par: string) {
+    const nouvelId = normalizeImmat((nouvelleImmatBrute || "").trim());
+    if (!/^[A-Z]{2}-[0-9]{3}-[A-Z]{2}$/.test(nouvelId)) {
+      return { ok: false, error: "Immatriculation invalide (format attendu : AB-123-CD)" };
+    }
+    if (nouvelId === ancienId) return { ok: true, nouvelId };
+    if (!isFirebaseMachine(ancienId)) return { ok: false, error: "Fiche hors base" };
+    try {
+      const ancienRef = doc(db, "machines_vo", ancienId);
+      const nouveauRef = doc(db, "machines_vo", nouvelId);
+      const [ancienSnap, existant] = await Promise.all([getDoc(ancienRef), getDoc(nouveauRef)]);
+      if (!ancienSnap.exists()) return { ok: false, error: "Fiche introuvable" };
+      if (existant.exists()) return { ok: false, error: `Une fiche existe déjà pour ${nouvelId} — impossible de fusionner automatiquement` };
+      const data: any = ancienSnap.data();
+      const now = new Date().toISOString();
+      const historique = Array.isArray(data.historique) ? data.historique : [];
+      await setDoc(nouveauRef, {
+        ...data,
+        immat: nouvelId,
+        immat_precedente: ancienId,
+        historique: [
+          ...historique,
+          { date: now, de: data.statut || "", vers: data.statut || "", source: "correction_immat", par, note: `ancienne immatriculation ${ancienId}` },
+        ],
+        updatedAt: now,
+      });
+
+      // 🔗 Dossier Nacelle Expert : copie sous la nouvelle immat, ancien archivé
+      try {
+        const neAncienRef = doc(dbNacelleExpert, "dossiers", ancienId);
+        const neAncien = await getDoc(neAncienRef);
+        if (neAncien.exists()) {
+          const d: any = neAncien.data();
+          const neNouveau = await getDoc(doc(dbNacelleExpert, "dossiers", nouvelId));
+          if (!neNouveau.exists()) {
+            await setDoc(doc(dbNacelleExpert, "dossiers", nouvelId), {
+              ...d,
+              immat: nouvelId,
+              info: { ...(d.info || {}), immat: nouvelId },
+              immat_precedente: ancienId,
+              synced_to_delta_vo: true, // la fiche Delta VO vient d'être recopiée : rien à resynchroniser
+              updatedAt: now,
+            });
+          }
+          await setDoc(neAncienRef, { archived: true, renamed_to: nouvelId, renamed_at: now, synced_to_delta_vo: true }, { merge: true });
+        }
+      } catch (e) {
+        console.warn("⚠️ Correction immat : dossier Nacelle Expert non renommé", e);
+      }
+
+      await deleteDoc(ancienRef);
+      // 🗄️ HubSpot : le produit est indexé par immat → ancien archivé, nouveau recréé si prix
+      syncHubspotProduct("archive", ancienId);
+      if (data.prix_fr && data.prix_fr > 0) syncHubspotProduct("upsert", nouvelId, modeleLabel(data as Machine), data.prix_fr);
+      console.log(`🔧 Immatriculation corrigée : ${ancienId} → ${nouvelId} (${par})`);
+      return { ok: true, nouvelId };
+    } catch (e: any) {
+      console.error("❌ corrigerImmat:", e);
+      return { ok: false, error: e?.message || String(e) };
+    }
+  }
+
   async function updateDocumentsVO(machineId: string, documents: DocumentVO[]) {
     if (isFirebaseMachine(machineId)) {
       try {
@@ -1981,6 +2052,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       updateShareToken,
       updateLocalite,
       updatePointsAttention,
+      corrigerImmat,
       updateDocumentsVO,
       attribuerNumeroFiche,
       syncExpertiseFromNacelleExpert,

@@ -198,10 +198,11 @@ export function canEditPointsAttention(role: UserRole): boolean {
   return ["superadmin", "admin", "secretaire", "chef", "atelier"].includes(role);
 }
 
-// 🔧 Correction d'une immatriculation (opération de structure : la fiche
-// change d'identifiant dans Delta VO ET dans Nacelle Expert)
+// 🔧 Correction d'une immatriculation (la fiche change d'identifiant dans
+// Delta VO ET dans Nacelle Expert) — ouverte aux secrétaires (validé Jonathan,
+// 01/10/2026 : ce sont elles qui saisissent et repèrent les fautes)
 export function canCorrigerImmat(role: UserRole): boolean {
-  return ["superadmin", "admin"].includes(role);
+  return ["superadmin", "admin", "secretaire"].includes(role);
 }
 
 export function canDeleteMachine(role: UserRole): boolean {

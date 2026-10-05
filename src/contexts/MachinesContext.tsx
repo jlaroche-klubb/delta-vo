@@ -18,6 +18,7 @@ import { MOCK_CLOTUREES } from "../data/mockCloturees";
 import { syncHubspotProduct } from "../services/hubspotService";
 import { getAllExpertises } from "../services/nacelleExpertService";
 import { pushInfosAdminToNacelleExpert, pushProchainDepartToNacelleExpert } from "../services/nacelleExpertPushService";
+import type { SimulationParc, OptionsParc } from "../utils/importEtatParc";
 import { normalizeImmat } from "../utils/immat";
 import type { ParsedStockMachine } from "../utils/importStock";
 import { computeVogUpdates, buildNewVogDoc } from "../utils/importVogMerge";
@@ -96,6 +97,8 @@ interface MachinesContextType {
   addEtapePrepa: (machineId: string, label: string) => void;
   removeEtapePrepa: (machineId: string, etapeId: string) => void;
   importStockMachines: (parsed: ParsedStockMachine[], archiveIds?: string[]) => Promise<StockImportSummary>;
+  /** 📋 Import « état de parc » d'un site : applique la simulation validée (utils/importEtatParc) */
+  appliquerEtatParc: (sim: SimulationParc, options: OptionsParc, par: string) => Promise<{ creees: number; reactivees: number; sites: number; conflits: number; erreurs: string[] }>;
   /** 💶 Circuit VNC : applique les VNC validées par la compta (import ADV) */
   updateVncValues: (items: { immat: string; nouvelle: number }[]) => Promise<number>;
   refreshExpertiseMontants: () => Promise<{ updated: number; matched: number; total: number }>;
@@ -1122,6 +1125,88 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     return { updated, matched, total: machines.length };
   }
 
+  // 📋 IMPORT « ÉTAT DE PARC » (Jonathan, 05/10/2026) — applique exactement ce que
+  // la modale a montré. Les conflits ne sont touchés que si l'option est cochée.
+  async function appliquerEtatParc(sim: SimulationParc, options: OptionsParc, par: string) {
+    const now = new Date().toISOString();
+    const today = now.slice(0, 10);
+    let creees = 0, reactivees = 0, sites = 0, conflits = 0;
+    const erreurs: string[] = [];
+    const run = async (ref: string, fn: () => Promise<void>, compteur: () => void) => {
+      try { await fn(); compteur(); } catch (e: any) { console.error(`❌ état de parc ${ref}:`, e); erreurs.push(`${ref} (${e?.message || e})`); }
+    };
+    for (const l of sim.aCreer) {
+      await run(l.immat, async () => {
+        const x = l.ligne;
+        await setDoc(doc(db, "machines_vo", l.immat), {
+          immat: l.immat,
+          numero_dossier: x.d0 || "",
+          localite: x.site || "",
+          type_nacelle: "", modele: "", modele_porteur: "", annee_fab: "",
+          ...(x.km != null ? { km_porteur: x.km } : {}),
+          ...(x.heures != null ? { heures: x.heures } : {}),
+          statut: "disponible", disponibilite_vog: "OK",
+          import_vog: true, recuperation_ok: true, expertise_ok: true, fiche_vo_creee: true, facture_reglee_ok: true,
+          date_mise_stock: today, date_ajout: today,
+          alerte_saisie: `Fiche créée depuis l'état de parc « ${x.source} » le ${today.split("-").reverse().join("/")} — type de nacelle, modèle porteur et année à compléter`,
+          historique: traceStatut(undefined, "disponible", "import_etat_parc", `création depuis ${x.source} (D0 ${x.d0 || "—"}, site ${x.site || "—"})`, par),
+          createdAt: now, updatedAt: now,
+        });
+      }, () => creees++);
+    }
+    for (const l of sim.aReactiver) {
+      if (!l.machineId) continue;
+      await run(l.immat, async () => {
+        await updateDoc(doc(db, "machines_vo", l.machineId!), {
+          archived: false, archived_at: null, archived_by: null,
+          desarchivee_le: now, desarchivee_motif: `État de parc ${l.ligne.source} : machine en vente`,
+          ...(l.site ? { localite: l.site } : {}),
+          disponibilite_vog: "OK", date_mise_stock: today, updatedAt: now,
+          historique: traceStatut("archivée", "disponible", "import_etat_parc", `réactivée depuis ${l.ligne.source}`, par),
+        });
+      }, () => reactivees++);
+    }
+    for (const l of sim.sitesACorriger) {
+      if (!l.machineId) continue;
+      await run(l.immat, async () => {
+        await updateDoc(doc(db, "machines_vo", l.machineId!), { localite: l.site, updatedAt: now });
+      }, () => sites++);
+    }
+    if (options.remettreEnVentePrepa) {
+      for (const l of sim.conflitsPrepa) {
+        if (!l.machineId) continue;
+        await run(l.immat, async () => {
+          const m = machines.find((x) => x.id === l.machineId);
+          await updateDoc(doc(db, "machines_vo", l.machineId!), {
+            statut: "disponible", type_sortie: null, type_prepa: null, etapes_prepa: null,
+            acheteur: null, client_lld: null, commercial_vendeur: null, date_vente: null, date_livraison_prevue: null, date_mise_en_cours: null,
+            contrat_sortie: deleteField(), email_sortie: deleteField(),
+            ...(l.site ? { localite: l.site } : {}), disponibilite_vog: "OK", date_mise_stock: today, updatedAt: now,
+            historique: traceStatut(m?.statut, "disponible", "import_etat_parc", `remise en vente décidée à l'import de ${l.ligne.source} (était ${m?.statut})`, par),
+          });
+        }, () => conflits++);
+      }
+    }
+    if (options.leverVog) {
+      for (const l of sim.conflitsVog) {
+        if (!l.machineId) continue;
+        await run(l.immat, async () => {
+          await updateDoc(doc(db, "machines_vo", l.machineId!), { disponibilite_vog: "OK", ...(l.site ? { localite: l.site } : {}), updatedAt: now });
+        }, () => conflits++);
+      }
+    }
+    if (options.retirerDeLaVente) {
+      for (const l of sim.conflitsVente) {
+        if (!l.machineId) continue;
+        await run(l.immat, async () => {
+          await updateDoc(doc(db, "machines_vo", l.machineId!), { disponibilite_vog: l.ligne.statutBrut || "Pas dispo", updatedAt: now });
+        }, () => conflits++);
+      }
+    }
+    console.log(`📋 État de parc appliqué : ${creees} créée(s), ${reactivees} réactivée(s), ${sites} site(s), ${conflits} conflit(s) tranché(s), ${erreurs.length} erreur(s)`);
+    return { creees, reactivees, sites, conflits, erreurs };
+  }
+
   async function importStockMachines(parsed: ParsedStockMachine[], archiveIds: string[] = []): Promise<StockImportSummary> {
     // ⚠ La logique de fusion vit dans utils/importVogMerge.ts, PARTAGÉE avec la
     // simulation à blanc : le rapport montré avant import = ce qui est écrit ici.
@@ -2031,6 +2116,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       addEtapePrepa,
       removeEtapePrepa,
       importStockMachines,
+      appliquerEtatParc,
       updateVncValues,
       refreshExpertiseMontants,
       enregistrerChiffrageCorrige,

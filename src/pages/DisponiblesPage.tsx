@@ -37,6 +37,8 @@ import { parseStockExcel, ParsedStockMachine } from "../utils/importStock";
 import { simulateVogImport, VogSimulation } from "../utils/importVogMerge";
 import { parseVncExcel, exportVncToExcel } from "../utils/importVnc";
 import ImportSimulationModal from "../components/ImportSimulationModal";
+import ImportEtatParcModal from "../components/ImportEtatParcModal";
+import { parseEtatParcExcel, simulerEtatParc, type SimulationParc, type OptionsParc } from "../utils/importEtatParc";
 import { runNacelleExpertRattrapage } from "../hooks/useNacelleExpertSync";
 import { useTranslation } from "react-i18next";
 import { generateFichePdf } from "../utils/generateFichePdf";
@@ -110,6 +112,7 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
     creerOffre,
     annulerOffre,
     importStockMachines,
+    appliquerEtatParc,
     updateVncValues,
     refreshExpertiseMontants,
   } = useMachinesFiltered(showArchived);
@@ -149,6 +152,10 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
   const [importingStock, setImportingStock] = useState(false);
   // 🔎 Simulation d'import VOG (rapport à blanc avant écriture)
   const [stockSimulation, setStockSimulation] = useState<VogSimulation | null>(null);
+  // 📋 Import « état de parc » d'un ou plusieurs sites (fichiers simples : D0, immat, lieu, km, heures, statut)
+  const parcInputRef = useRef<HTMLInputElement>(null);
+  const [parcSimulation, setParcSimulation] = useState<SimulationParc | null>(null);
+  const [applyingParc, setApplyingParc] = useState(false);
   const [stockParsed, setStockParsed] = useState<ParsedStockMachine[]>([]);
   // 💶 Circuit VNC (fichier compta)
   const vncInputRef = useRef<HTMLInputElement>(null);
@@ -551,6 +558,35 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
     }
   }
 
+  async function handleParcFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    try {
+      const lignes = [];
+      for (const f of files) lignes.push(...(await parseEtatParcExcel(f)).lignes);
+      if (!lignes.length) { alert(t("etatParc.vide")); return; }
+      setParcSimulation(simulerEtatParc(lignes, machines));
+    } catch (err: any) {
+      alert(t("etatParc.erreurLecture", { error: err.message }));
+    } finally {
+      if (parcInputRef.current) parcInputRef.current.value = "";
+    }
+  }
+
+  async function handleParcConfirm(options: OptionsParc) {
+    if (!parcSimulation) return;
+    setApplyingParc(true);
+    try {
+      const r = await appliquerEtatParc(parcSimulation, options, userName);
+      setParcSimulation(null);
+      alert(t("etatParc.bilan", { creees: r.creees, reactivees: r.reactivees, sites: r.sites, conflits: r.conflits }) + (r.erreurs.length ? `\n⚠ ${r.erreurs.join(", ")}` : ""));
+    } catch (err: any) {
+      alert(t("etatParc.erreurLecture", { error: err.message }));
+    } finally {
+      setApplyingParc(false);
+    }
+  }
+
   async function handleStockImportConfirm(purgeIds: string[]) {
     // 2️⃣ Import réel — même logique de fusion que la simulation (importVogMerge).
     // purgeIds : machines hors périmètre à ARCHIVER (case cochée explicitement).
@@ -748,6 +784,11 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
               {importingStock ? `⏳ ${t("dispo.importingStock")}` : `📦 ${t("dispo.importStock")}`}
             </button>
           )}
+          {isSuperAdminUser && (
+            <button type="button" className="action-menu-item" onClick={() => parcInputRef.current?.click()} disabled={applyingParc} title={t("etatParc.btnTitle")}>
+              📋 {t("etatParc.btn")}
+            </button>
+          )}
         </ActionMenu>
 
         {/* 🛠 OUTILS (admin / super admin) */}
@@ -794,6 +835,7 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
           style={{ display: "none" }}
           onChange={handleStockFileChange}
         />
+        <input ref={parcInputRef} type="file" accept=".xlsx,.xls" multiple style={{ display: "none" }} onChange={handleParcFiles} />
       </div>
 
       {/* 📊 Synthèse marché internet (admin / super admin) — ouverte depuis la tuile */}
@@ -992,6 +1034,15 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
       )}
 
       {/* 🔎 Simulation d'import VOG : rapport à blanc avant écriture */}
+      {parcSimulation && (
+        <ImportEtatParcModal
+          sim={parcSimulation}
+          applying={applyingParc}
+          onConfirm={handleParcConfirm}
+          onCancel={() => !applyingParc && setParcSimulation(null)}
+        />
+      )}
+
       {stockSimulation && (
         <ImportSimulationModal
           sim={stockSimulation}

@@ -103,7 +103,7 @@ export default function ImportEtatParcModal({ sim, applying, onConfirm, onCancel
         </div>
 
         <div className="modal-footer" style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-          <button className="btn-secondary" onClick={onCancel} disabled={applying}>{t("card.cancel")}</button>
+          <button className="btn-secondary" onClick={onCancel} disabled={applying}>{t("modals.cancel")}</button>
           <button className="btn-primary" onClick={() => onConfirm(opts)} disabled={applying || total === 0}>
             {applying ? "⏳" : "✓"} {t("etatParc.appliquer", { n: total })}
           </button>

@@ -31,7 +31,8 @@ export type SourceHistorique =
   | "reouverture"
   | "creation_manuelle"
   | "webhook_hubspot"
-  | "correction_immat";
+  | "correction_immat"
+  | "import_etat_parc";
 
 export const LIBELLES_SOURCE: Record<SourceHistorique, string> = {
   synchro_ne_retour: "Synchro Nacelle Expert — expertise retour",
@@ -46,6 +47,7 @@ export const LIBELLES_SOURCE: Record<SourceHistorique, string> = {
   creation_manuelle: "Création manuelle (Restitutions)",
   webhook_hubspot: "Webhook HubSpot",
   correction_immat: "Correction de l'immatriculation",
+  import_etat_parc: "Import état de parc (site)",
 };
 
 function utilisateurCourant(): string {

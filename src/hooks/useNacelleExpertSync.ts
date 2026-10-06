@@ -42,6 +42,8 @@ interface NacelleExpertDossier {
     commercialPhotos?: string[];
     rapport_url?: string;
     pdf_url?: string;
+    /** 🚩 Points d'attention vendeurs cochés par l'expert au retour (mêmes clés que Delta VO) */
+    points_attention?: { motifs?: string[]; texte?: string; date?: string; par?: string } | null;
   };
   rapport_url?: string;
   synced_to_delta_vo?: boolean;
@@ -408,6 +410,19 @@ export function useNacelleExpertSync(enabled: boolean = true) {
           
           // ✅ Date demande récupération = date de retour (la machine est arrivée)
           const dateRecup = dossier.retour?.date || dossier.depart?.date || new Date().toISOString().slice(0, 10);
+          // 🚩 POINTS D'ATTENTION posés par l'expert Nacelle Expert au retour (moteur HS,
+          // nacelle HS, véhicule non roulant…) → bandeau vendeurs de Delta VO, mêmes
+          // clés que utils/pointsAttention.ts. Présents = ils remplacent ceux de la fiche
+          // (état constaté le plus récent) ; absents = on ne touche pas à la fiche.
+          const paNE = dossier.retour?.points_attention;
+          const pointsAttentionNE = paNE && ((Array.isArray(paNE.motifs) && paNE.motifs.length) || (paNE.texte || '').trim())
+            ? {
+                motifs: Array.isArray(paNE.motifs) ? paNE.motifs : [],
+                texte: (paNE.texte || '').trim(),
+                date: paNE.date || new Date().toISOString(),
+                par: `${paNE.par || dossier.retour?.agent || 'Expert'} (Nacelle Expert)`,
+              }
+            : null;
           
           const machineVOData: any = {
             // Données de base
@@ -438,6 +453,7 @@ export function useNacelleExpertSync(enabled: boolean = true) {
             devis_a_verifier: dossier.devis_a_verifier === true,
             devis_relances: Array.isArray(dossier.devis_relances) ? dossier.devis_relances.map((r: any) => ({ date: r.date, par: r.par })) : [],
             devis_annule: dossier.devis_annule || null,
+            ...(pointsAttentionNE ? { points_attention: pointsAttentionNE } : {}),
             devis_recu_items: Object.entries(dossier.devis_recu || {}).map(([id, e]) => ({
               // Libellé : mémorisé au chiffrage par NE en priorité (config/tarifs
               // peut ne pas exister tant que le barème par défaut n'a pas été modifié)
@@ -565,6 +581,8 @@ export function useNacelleExpertSync(enabled: boolean = true) {
               devis_a_verifier: machineVOData.devis_a_verifier,
               devis_relances: machineVOData.devis_relances,
               devis_annule: machineVOData.devis_annule,
+              // 🚩 Points d'attention de l'expert (remplacent ceux de la fiche s'il en a coché)
+              ...(pointsAttentionNE ? { points_attention: pointsAttentionNE } : {}),
               // 💶 Résumé d'expertise à jour (total retenue global) — uniquement
               // si présent, pour ne pas écraser un rapport legacy existant
               ...(machineVOData.rapport_expertise ? { rapport_expertise: machineVOData.rapport_expertise } : {}),

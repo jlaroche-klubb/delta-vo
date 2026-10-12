@@ -42,6 +42,11 @@ export default async function handler(req: any, res: any) {
     }
 
     // ─── Interrogation du modèle (réutilisée pour l'auto-contrôle) ───
+    // ─── Interrogation du modèle (réutilisée pour l'auto-contrôle) ───
+    // Formulation « où est le ciel ? » : les modèles de vision confondent
+    // facilement 90° et 270° quand on leur demande un angle ; décrire le côté
+    // du ciel est plus fiable (mesuré sur photos réelles d'expertise, 10/2026).
+    const COTE: Record<string, number> = { HAUT: 0, GAUCHE: 90, BAS: 180, DROITE: 270 };
     const demander = async (imgData: string, imgType: string): Promise<number | null> => {
       const r = await demanderIA({
         modele: "rapide",
@@ -51,11 +56,11 @@ export default async function handler(req: any, res: any) {
           {
             texte:
               "Photo de chantier (camion nacelle, véhicule, extérieur ou habitacle). " +
-              "De combien de degrés faut-il la faire pivoter DANS LE SENS HORAIRE pour " +
-              "qu'elle soit droite (ciel/plafond en haut, sol en bas) ? " +
-              "La plupart des photos sont DÉJÀ droites : dans ce cas réponds 0. " +
-              "Gros plan sans repère fiable (roue, tôle, cadran...) : réponds 0. " +
-              "Réponds UNIQUEMENT par un de ces nombres : 0, 90, 180, 270.",
+              "Regarde où se trouvent le ciel / le plafond / le haut de la scène et où se trouvent " +
+              "le sol / la route / les roues. Réponds UNIQUEMENT par un mot : HAUT si le ciel est en " +
+              "haut de l'image (photo droite), GAUCHE si le ciel est sur le bord gauche, BAS si le ciel " +
+              "est en bas (photo à l'envers), DROITE si le ciel est sur le bord droit. " +
+              "Gros plan sans repère fiable (roue, tôle, cadran...) : HAUT.",
           },
         ],
         timeoutMs: 25_000,
@@ -65,28 +70,32 @@ export default async function handler(req: any, res: any) {
         console.error(`❌ IA orientation (${r.fournisseur})`, r.status, r.detail);
         return null;
       }
-      const found = r.texte.match(/\b(0|90|180|270)\b/);
-      return found ? Number(found[1]) : 0;
+      const m = r.texte.toUpperCase().match(/HAUT|GAUCHE|BAS|DROITE/);
+      return m ? COTE[m[0]] : 0;
     };
 
     const brut = await demander(data, mediaType);
     if (brut === null) return res.status(502).json({ error: "IA indisponible" });
 
     // ─── 🛡 AUTO-CONTRÔLE (anti-hallucination) ───
-    // Le modèle a tendance à répondre « 90 » sur des gros plans pourtant
-    // droits (constaté en production : rafales de rotation=90 sur des photos
-    // correctes). Toute réponse ≠ 0 doit donc être PROUVÉE : on pivote la
-    // miniature de l'angle annoncé et on redemande. Si le modèle ne répond
-    // pas 0 sur l'image pivotée, sa réponse est rejetée (photo inchangée).
-    // Une photo réellement couchée passe ce test ; une hallucination non.
+    // Toute réponse ≠ 0 doit être PROUVÉE : on pivote la miniature de l'angle
+    // annoncé et on redemande ; le modèle doit alors répondre « droite ».
+    // Comme la confusion gauche/droite est l'erreur la plus fréquente, on
+    // essaie aussi l'angle miroir (90 ↔ 270) avant de renoncer. Une photo
+    // réellement couchée passe ce test ; une hallucination non (photo inchangée).
     let rotation = 0;
     if (brut === 90 || brut === 180 || brut === 270) {
       try {
         const sharp = (await import("sharp")).default;
-        const tourne = await sharp(Buffer.from(data, "base64")).rotate(brut).jpeg({ quality: 70 }).toBuffer();
-        const controle = await demander(tourne.toString("base64"), "image/jpeg");
-        if (controle === 0) rotation = brut;
-        console.log(`🤖 rotation brute=${brut} · contrôle après pivot=${controle === null ? "échec" : controle} · final=${rotation}${ctx ? ` · ${ctx}` : ""}`);
+        const candidats = brut === 180 ? [180] : [brut, 360 - brut];
+        const controles: string[] = [];
+        for (const c of candidats) {
+          const tourne = await sharp(Buffer.from(data, "base64")).rotate(c).jpeg({ quality: 70 }).toBuffer();
+          const controle = await demander(tourne.toString("base64"), "image/jpeg");
+          controles.push(`${c}→${controle === null ? "échec" : controle}`);
+          if (controle === 0) { rotation = c; break; }
+        }
+        console.log(`🤖 rotation brute=${brut} · contrôles ${controles.join(", ")} · final=${rotation}${ctx ? ` · ${ctx}` : ""}`);
       } catch (e: any) {
         // sharp indisponible ou image illisible : prudence, on ne pivote pas
         console.error(`⚠ auto-contrôle impossible (${e?.message}) → rotation refusée${ctx ? ` · ${ctx}` : ""}`);

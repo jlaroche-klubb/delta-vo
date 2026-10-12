@@ -12,7 +12,8 @@
 //             lignes: [{ libelle, montant_ht }], confiance: "haute"|"moyenne"|"basse", note }
 // ============================================================
 
-import { cors, exigerUtilisateur, fetchAvecReessai } from "./_lib/auth.js";
+import { cors, exigerUtilisateur } from "./_lib/auth.js";
+import { demanderIA, extraireJSON } from "./_lib/ia.js";
 
 export const maxDuration = 60;
 
@@ -24,12 +25,6 @@ export default async function handler(req: any, res: any) {
   const user = await exigerUtilisateur(req, res, { accepterNE: true });
   if (!user) return;
 
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) {
-    console.error("❌ ANTHROPIC_API_KEY manquante");
-    return res.status(500).json({ error: "Server misconfigured: ANTHROPIC_API_KEY manquante" });
-  }
-
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
     const immat = String(body.immat || "").slice(0, 20);
@@ -37,12 +32,12 @@ export default async function handler(req: any, res: any) {
     let bloc: any;
     if (body.pdfBase64) {
       data = String(body.pdfBase64).replace(/^data:application\/pdf;base64,/, "");
-      bloc = { type: "document", source: { type: "base64", media_type: "application/pdf", data } };
+      bloc = { pdf: { data } };
     } else if (body.imageBase64) {
       const m = String(body.imageBase64).match(/^data:image\/(jpeg|jpg|png|webp);base64,(.+)$/);
       const mediaType = m ? (m[1] === "jpg" ? "image/jpeg" : `image/${m[1]}`) : "image/jpeg";
       data = m ? m[2] : String(body.imageBase64);
-      bloc = { type: "image", source: { type: "base64", media_type: mediaType, data } };
+      bloc = { image: { mediaType, data } };
     } else {
       return res.status(400).json({ error: "pdfBase64 ou imageBase64 manquant" });
     }
@@ -66,33 +61,13 @@ export default async function handler(req: any, res: any) {
       "Règles : le montant_ht est le TOTAL HT (après remise éventuelle, hors TVA). Si seul un TTC est lisible, " +
       "renseigne montant_ttc et laisse montant_ht à null. N'invente aucune valeur.";
 
-    const resp = await fetchAvecReessai(
-      "https://api.anthropic.com/v1/messages",
-      {
-        method: "POST",
-        headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: process.env.DEVIS_MODEL || "claude-sonnet-4-5",
-          max_tokens: 1200,
-          messages: [{ role: "user", content: [bloc, { type: "text", text: consigne }] }],
-        }),
-      },
-      { timeoutMs: 45_000, essais: 2 }
-    );
-    if (!resp.ok) {
-      const detail = await resp.text();
-      console.error("❌ Anthropic lire-devis", resp.status, detail.slice(0, 300));
+    const r0 = await demanderIA({ modele: "rapide", maxTokens: 1500, json: true, parties: [bloc, { texte: consigne }], timeoutMs: 45_000, essais: 2 });
+    if (!r0.ok) {
+      console.error(`❌ IA lire-devis (${r0.fournisseur})`, r0.status, r0.detail);
       return res.status(502).json({ error: "IA indisponible — saisissez le montant à la main" });
     }
-    const out: any = await resp.json();
-    const text: string = out?.content?.map((c: any) => c.text || "").join("") || "";
-    const json = text.match(/\{[\s\S]*\}/)?.[0];
-    let r: any = {};
-    try {
-      r = json ? JSON.parse(json) : {};
-    } catch {
-      console.warn("⚠ lire-devis : JSON illisible", text.slice(0, 200));
-    }
+    const r: any = extraireJSON(r0.texte) || {};
+    if (!Object.keys(r).length) console.warn("⚠ lire-devis : JSON illisible", r0.texte.slice(0, 200));
     const num = (v: any) => {
       if (v == null || v === "") return null;
       const n = Number(String(v).replace(/\s/g, "").replace(",", "."));

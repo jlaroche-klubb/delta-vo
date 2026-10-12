@@ -11,11 +11,12 @@
 // photo, avec une MINIATURE (≈384 px) pour un coût de quelques
 // centièmes de centime par photo.
 //
-// PRÉREQUIS Vercel (projet delta-vo) : ANTHROPIC_API_KEY.
-// Optionnel : ORIENTATION_MODEL (défaut claude-haiku-4-5).
+// IA : Gemini (Vertex AI, compte de service Firebase) via api/_lib/ia.ts —
+// retour arrière possible avec IA_FOURNISSEUR=anthropic.
 // ============================================================
 
-import { cors, exigerUtilisateur, fetchAvecReessai } from "./_lib/auth.js";
+import { cors, exigerUtilisateur } from "./_lib/auth.js";
+import { demanderIA } from "./_lib/ia.js";
 
 export const maxDuration = 60;
 
@@ -25,12 +26,6 @@ export default async function handler(req: any, res: any) {
   // 🔐 Jeton Firebase obligatoire (voir api/_lib/auth.ts)
   const user = await exigerUtilisateur(req, res, { accepterNE: true });
   if (!user) return;
-
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) {
-    console.error("❌ ANTHROPIC_API_KEY manquante (variables Vercel du projet delta-vo)");
-    return res.status(500).json({ error: "Server misconfigured: ANTHROPIC_API_KEY manquante" });
-  }
 
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
@@ -48,44 +43,29 @@ export default async function handler(req: any, res: any) {
 
     // ─── Interrogation du modèle (réutilisée pour l'auto-contrôle) ───
     const demander = async (imgData: string, imgType: string): Promise<number | null> => {
-      const resp = await fetchAvecReessai("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "x-api-key": key,
-          "anthropic-version": "2023-06-01",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: process.env.ORIENTATION_MODEL || "claude-haiku-4-5",
-          max_tokens: 10,
-          messages: [
-            {
-              role: "user",
-              content: [
-                { type: "image", source: { type: "base64", media_type: imgType, data: imgData } },
-                {
-                  type: "text",
-                  text:
-                    "Photo de chantier (camion nacelle, véhicule, extérieur ou habitacle). " +
-                    "De combien de degrés faut-il la faire pivoter DANS LE SENS HORAIRE pour " +
-                    "qu'elle soit droite (ciel/plafond en haut, sol en bas) ? " +
-                    "La plupart des photos sont DÉJÀ droites : dans ce cas réponds 0. " +
-                    "Gros plan sans repère fiable (roue, tôle, cadran...) : réponds 0. " +
-                    "Réponds UNIQUEMENT par un de ces nombres : 0, 90, 180, 270.",
-                },
-              ],
-            },
-          ],
-        }),
-      }, { timeoutMs: 25_000, essais: 3 });
-      if (!resp.ok) {
-        const detail = await resp.text();
-        console.error("❌ Anthropic", resp.status, detail.slice(0, 300));
+      const r = await demanderIA({
+        modele: "rapide",
+        maxTokens: 16,
+        parties: [
+          { image: { mediaType: imgType, data: imgData } },
+          {
+            texte:
+              "Photo de chantier (camion nacelle, véhicule, extérieur ou habitacle). " +
+              "De combien de degrés faut-il la faire pivoter DANS LE SENS HORAIRE pour " +
+              "qu'elle soit droite (ciel/plafond en haut, sol en bas) ? " +
+              "La plupart des photos sont DÉJÀ droites : dans ce cas réponds 0. " +
+              "Gros plan sans repère fiable (roue, tôle, cadran...) : réponds 0. " +
+              "Réponds UNIQUEMENT par un de ces nombres : 0, 90, 180, 270.",
+          },
+        ],
+        timeoutMs: 25_000,
+        essais: 3,
+      });
+      if (!r.ok) {
+        console.error(`❌ IA orientation (${r.fournisseur})`, r.status, r.detail);
         return null;
       }
-      const out: any = await resp.json();
-      const text: string = out?.content?.[0]?.text || "";
-      const found = text.match(/\b(0|90|180|270)\b/);
+      const found = r.texte.match(/\b(0|90|180|270)\b/);
       return found ? Number(found[1]) : 0;
     };
 

@@ -12,11 +12,12 @@
 // Critères de comparaison, par importance : hauteur de travail, déport,
 // km, heures, année.
 //
-// PRÉREQUIS Vercel (projet delta-vo) : ANTHROPIC_API_KEY (déjà en place).
-// Optionnel : ETUDE_MODEL (défaut claude-sonnet-4-5).
+// IA : Gemini (Vertex AI) avec recherche Google via api/_lib/ia.ts —
+// retour arrière possible avec IA_FOURNISSEUR=anthropic.
 // ============================================================
 
-import { cors, exigerUtilisateur, fetchAvecReessai } from "./_lib/auth.js";
+import { cors, exigerUtilisateur } from "./_lib/auth.js";
+import { demanderIA, extraireJSON } from "./_lib/ia.js";
 
 export const maxDuration = 60; // les recherches web prennent 20-50 s
 
@@ -30,12 +31,6 @@ export default async function handler(req: any, res: any) {
   // 🔐 Jeton Firebase obligatoire (voir api/_lib/auth.ts)
   const user = await exigerUtilisateur(req, res, { roles: ["admin", "superadmin"] });
   if (!user) return;
-
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) {
-    console.error("❌ ANTHROPIC_API_KEY manquante");
-    return res.status(500).json({ error: "Server misconfigured: ANTHROPIC_API_KEY manquante" });
-  }
 
   try {
     const b = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
@@ -65,45 +60,15 @@ export default async function handler(req: any, res: any) {
       `Les montants sont en euros HT quand précisé, sinon tels qu'affichés. ` +
       `La fourchette exclut les valeurs aberrantes (annonce très au-dessus/en-dessous du lot).`;
 
-    const resp = await fetchAvecReessai("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: process.env.ETUDE_MODEL || "claude-sonnet-4-5",
-        max_tokens: 3000,
-        tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 8 }],
-        messages: [{ role: "user", content: prompt }],
-      }),
-    }, { timeoutMs: 50_000, essais: 2 });
-
-    if (!resp.ok) {
-      const detail = await resp.text();
-      console.error("❌ Anthropic (étude marché)", resp.status, detail.slice(0, 400));
-      return res.status(502).json({ error: "IA indisponible", status: resp.status });
+    const r0 = await demanderIA({ modele: "fort", maxTokens: 3000, rechercheWeb: true, parties: [{ texte: prompt }], timeoutMs: 50_000, essais: 2 });
+    if (!r0.ok) {
+      console.error(`❌ IA étude marché (${r0.fournisseur})`, r0.status, r0.detail);
+      return res.status(502).json({ error: "IA indisponible", status: r0.status });
     }
-
-    const out: any = await resp.json();
-    // Le texte final peut être réparti sur plusieurs blocs — on concatène
-    const text = (out?.content || [])
-      .filter((c: any) => c.type === "text")
-      .map((c: any) => c.text)
-      .join("\n");
-    const start = text.indexOf("{");
-    const end = text.lastIndexOf("}");
-    if (start === -1 || end === -1) {
-      console.error("❌ Étude marché : pas de JSON dans la réponse", text.slice(0, 300));
+    const etude: any = extraireJSON(r0.texte);
+    if (!etude) {
+      console.error("❌ Étude marché : pas de JSON dans la réponse", r0.texte.slice(0, 300));
       return res.status(502).json({ error: "Réponse IA illisible" });
-    }
-    let etude: any;
-    try {
-      etude = JSON.parse(text.slice(start, end + 1));
-    } catch (e) {
-      console.error("❌ Étude marché : JSON invalide", text.slice(start, start + 300));
-      return res.status(502).json({ error: "Réponse IA illisible (JSON)" });
     }
 
     // Nettoyage défensif

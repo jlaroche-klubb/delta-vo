@@ -358,6 +358,9 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             // 💶 Trace de l'outil « chiffrage à zéro » (même oubli de lecture)
             chiffrage_corrige: data.chiffrage_corrige || undefined,
 
+            // 🌐 Annonce web : machine sélectionnée pour l'export XML des annonces
+            annonce_web: data.annonce_web === true,
+
             // 🗄️ Archivage (purge base VOG, machines hors périmètre) — récupérable
             archived: data.archived ?? false,
             archived_at: data.archived_at || undefined,

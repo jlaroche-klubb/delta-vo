@@ -143,6 +143,8 @@ interface MachinesContextType {
   updatePhotosInternes: (machineId: string, photos: PhotoSupplementaire[]) => void; // 🔒 super admin
   updateShareToken: (machineId: string, token: string | null) => void;
   updateLocalite: (machineId: string, localite: string) => void;
+  /** 🌐 Sélection d'une machine pour le flux d'annonces web (admin) */
+  updateAnnonceWeb: (machineId: string, actif: boolean) => void;
   /** 🔧 Corrige une immatriculation erronée : la fiche (et le dossier NE) changent d'identifiant */
   corrigerImmat: (ancienId: string, nouvelleImmat: string, par: string) => Promise<{ ok: boolean; error?: string; nouvelId?: string }>;
   /** 🚩 Points d'attention vendeurs — null = effacer */
@@ -355,6 +357,9 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             hors_vente_manuel_date: data.hors_vente_manuel_date || undefined,
             // 💶 Trace de l'outil « chiffrage à zéro » (même oubli de lecture)
             chiffrage_corrige: data.chiffrage_corrige || undefined,
+
+            // 🌐 Annonce web : machine sélectionnée pour l'export XML des annonces
+            annonce_web: data.annonce_web === true,
 
             // 🗄️ Archivage (purge base VOG, machines hors périmètre) — récupérable
             archived: data.archived ?? false,
@@ -1811,6 +1816,26 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // 🌐 Annonce web : machine publiée (ou non) dans le flux XML des annonces
+  async function updateAnnonceWeb(machineId: string, actif: boolean) {
+    if (isFirebaseMachine(machineId)) {
+      try {
+        await updateDoc(doc(db, "machines_vo", machineId), {
+          annonce_web: actif,
+          updatedAt: new Date().toISOString(),
+        });
+      } catch (err) {
+        console.error("❌ Erreur Firebase annonce_web:", err);
+      }
+    } else {
+      setMockMachines((prev) =>
+        prev.map((m) =>
+          m.id === machineId ? { ...m, annonce_web: actif, updatedAt: new Date().toISOString() } : m
+        )
+      );
+    }
+  }
+
   // 🚩 Points d'attention vendeurs (moteur HS, vendu en l'état…) — null = effacer
   async function updatePointsAttention(machineId: string, points: PointsAttention | null) {
     if (isFirebaseMachine(machineId)) {
@@ -2137,6 +2162,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       updatePhotosInternes,
       updateShareToken,
       updateLocalite,
+      updateAnnonceWeb,
       updatePointsAttention,
       corrigerImmat,
       updateDocumentsVO,

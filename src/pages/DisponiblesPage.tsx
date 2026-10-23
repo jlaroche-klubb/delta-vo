@@ -43,6 +43,7 @@ import { runNacelleExpertRattrapage } from "../hooks/useNacelleExpertSync";
 import { useTranslation } from "react-i18next";
 import { generateFichePdf } from "../utils/generateFichePdf";
 import { exportListePrix } from "../utils/exportListePrix";
+import { exportAnnoncesXml, machinesPubliables } from "../utils/exportAnnoncesXml";
 import { horsVenteVog } from "../utils/nacelles";
 import {
   canExportExcelPricing,
@@ -106,6 +107,7 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
     rouvrirRestitution,
     updateShareToken,
     updateLocalite,
+    updateAnnonceWeb,
     updatePointsAttention,
     attribuerNumeroFiche,
     deleteMachine,
@@ -212,7 +214,11 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
         (m) =>
           m.immat.toLowerCase().includes(q) ||
           m.modele_porteur.toLowerCase().includes(q) ||
-          m.type_nacelle.toLowerCase().includes(q)
+          m.type_nacelle.toLowerCase().includes(q) ||
+          // 🗂 Recherche par N° de dossier D0xxxx (demande J. Laroche, 23/10/2026)
+          (m.numero_dossier || "").toLowerCase().includes(q) ||
+          // 🏷️ ... et par N° occasion (même logique : identifiants internes)
+          (m.numero_occasion || "").toLowerCase().includes(q)
       );
     }
     result = applyDispoFilters(result, filters, userRole, SEUIL_REPRICER);
@@ -270,6 +276,14 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
       return;
     }
     exportListePrix(filtered, userRole as any);
+  }
+
+  // 🌐 Export XML des annonces web (machines sélectionnées via « Annonce web »)
+  function handleExportAnnoncesXml() {
+    const nb = exportAnnoncesXml(baseDispo);
+    if (nb === 0) {
+      alert(t("dispo.annoncesVide"));
+    }
   }
 
   function handleImportClick() {
@@ -765,6 +779,14 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
               🧾 {t("dispo.exportVnc")}
             </button>
           )}
+          {isAdmin && (
+            <button type="button" className="action-menu-item" onClick={handleExportAnnoncesXml} title={t("dispo.exportAnnoncesTitle")}>
+              🌐 {t("dispo.exportAnnonces")}
+              {machinesPubliables(baseDispo).length > 0 && (
+                <span className="tb-badge">{machinesPubliables(baseDispo).length}</span>
+              )}
+            </button>
+          )}
         </ActionMenu>
 
         {/* ⬆ IMPORTS */}
@@ -882,6 +904,8 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
                 onViewExpertise={setExpertiseMachine}
                 onViewNacelleExpert={setNeMachine}
                 onLocaliteChange={updateLocalite}
+                canAnnonceWeb={isAdmin}
+                onToggleAnnonceWeb={updateAnnonceWeb}
                 canManagePhotos={canManagePhotos}
                 onManagePhotos={setPhotosMachine}
                 canInternalPhotos={isSuperAdminUser}
@@ -932,6 +956,8 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
                 onViewExpertise={setExpertiseMachine}
                 onViewNacelleExpert={setNeMachine}
                 onLocaliteChange={updateLocalite}
+                canAnnonceWeb={isAdmin}
+                onToggleAnnonceWeb={updateAnnonceWeb}
                 canManagePhotos={canManagePhotos}
                 onManagePhotos={setPhotosMachine}
                 canInternalPhotos={isSuperAdminUser}
@@ -976,6 +1002,8 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
                 onViewExpertise={setExpertiseMachine}
                 onViewNacelleExpert={setNeMachine}
                 onLocaliteChange={updateLocalite}
+                canAnnonceWeb={isAdmin}
+                onToggleAnnonceWeb={updateAnnonceWeb}
                 canManagePhotos={canManagePhotos}
                 onManagePhotos={setPhotosMachine}
                 canInternalPhotos={isSuperAdminUser}

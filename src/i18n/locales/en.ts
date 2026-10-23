@@ -53,7 +53,7 @@ const en: TranslationSchema = {
     statShown: "shown",
     statToPrice: "to price",
     statToReprice: "to reprice",
-    searchPlaceholder: "Search by registration, model, type...",
+    searchPlaceholder: "Search by registration, model, type, file no. D0, stock no....",
     exportPricingPdg: "CEO pricing export",
     exportVnc: "Fleet export (VOG)",
     exportVncTitle: "Fleet file in VOG format: NBV filled by accounting, prices by the CEO, used-unit numbers by back office — re-import via the VOG stock import (also emailed automatically every 2 weeks)",

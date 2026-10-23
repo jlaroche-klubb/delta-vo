@@ -55,7 +55,7 @@ const es = {
     statShown: "mostradas",
     statToPrice: "pendientes de precio",
     statToReprice: "por ajustar precio",
-    searchPlaceholder: "Buscar por matrícula, modelo, tipo...",
+    searchPlaceholder: "Buscar por matrícula, modelo, tipo, n.º expediente D0, n.º ocasión...",
     exportPricingPdg: "Exportar Pricing PDG",
     exportVnc: "Exportar parque (VOG)",
     exportVncTitle: "Archivo del parque en formato VOG: VNC a completar por contabilidad, precios por el PDG, n.º de ocasión de las máquinas nuevas por el ADV — se reimporta mediante «Importar stock VOG» (envío automático a contabilidad cada 15 días por otra parte)",

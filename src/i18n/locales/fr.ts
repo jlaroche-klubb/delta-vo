@@ -52,7 +52,7 @@ const fr = {
     statShown: "affichées",
     statToPrice: "à pricer",
     statToReprice: "à repricer",
-    searchPlaceholder: "Rechercher par immatriculation, modèle, type...",
+    searchPlaceholder: "Rechercher par immatriculation, modèle, type, n° dossier D0, n° occasion...",
     exportPricingPdg: "Export Pricing PDG",
     exportVnc: "Export parc (VOG)",
     exportVncTitle: "Fichier du parc au format VOG : VNC à compléter par la compta, prix par le PDG, N° occasion des nouvelles machines par l'ADV — se réimporte via « Import du stock VOG » (envoi automatique à la compta tous les 15 jours par ailleurs)",

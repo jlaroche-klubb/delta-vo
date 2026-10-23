@@ -212,7 +212,11 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
         (m) =>
           m.immat.toLowerCase().includes(q) ||
           m.modele_porteur.toLowerCase().includes(q) ||
-          m.type_nacelle.toLowerCase().includes(q)
+          m.type_nacelle.toLowerCase().includes(q) ||
+          // 🗂 Recherche par N° de dossier D0xxxx (demande J. Laroche, 23/10/2026)
+          (m.numero_dossier || "").toLowerCase().includes(q) ||
+          // 🏷️ ... et par N° occasion (même logique : identifiants internes)
+          (m.numero_occasion || "").toLowerCase().includes(q)
       );
     }
     result = applyDispoFilters(result, filters, userRole, SEUIL_REPRICER);

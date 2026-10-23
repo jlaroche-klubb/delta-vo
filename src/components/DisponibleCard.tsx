@@ -42,6 +42,9 @@ interface DisponibleCardProps {
   /** 🚩 Points d'attention vendeurs : saisie (admin/secrétaire/atelier) */
   canEditAttention?: boolean;
   onEditAttention?: (machine: Machine) => void;
+  /** 🌐 Annonce web : sélection pour le flux XML (admin) */
+  canAnnonceWeb?: boolean;
+  onToggleAnnonceWeb?: (machineId: string, actif: boolean) => void;
 }
 
 export default function DisponibleCard({
@@ -77,6 +80,8 @@ export default function DisponibleCard({
   onAnnulerOffre,
   canEditAttention = false,
   onEditAttention,
+  canAnnonceWeb = false,
+  onToggleAnnonceWeb,
 }: DisponibleCardProps) {
   const age = machine.date_mise_stock ? calculAgeStock(machine.date_mise_stock) : 0;
   const ageInfo = getAgeStockColor(age, seuilRepricer);
@@ -342,6 +347,16 @@ export default function DisponibleCard({
               {canEditAttention && onEditAttention && (
                 <button type="button" className="action-menu-item" onClick={() => onEditAttention(machine)} title={t("attention.editTitle")}>
                   🚩 {attention ? t("attention.edit") : t("attention.add")}
+                </button>
+              )}
+              {canAnnonceWeb && onToggleAnnonceWeb && (
+                <button
+                  type="button"
+                  className={`action-menu-item ${machine.annonce_web ? "checked" : ""}`}
+                  onClick={() => onToggleAnnonceWeb(machine.id, !machine.annonce_web)}
+                  title={t("card.annonceWebTitle")}
+                >
+                  {machine.annonce_web ? `✓ 🌐 ${t("card.annonceWebOn")}` : `🌐 ${t("card.annonceWebOff")}`}
                 </button>
               )}
               {canDiagnostic && onRouvrirRestitution && machine.statut === "disponible" && machine.expertise_recue && (

@@ -237,6 +237,10 @@ export interface Machine {
     lot?: string;
   };
 
+  // 🌐 Annonce web : machine sélectionnée à la main (admin) pour le flux
+  // d'annonces XML envoyé aux plateformes (Via Mobilis…) — J. Laroche, 23/10/2026
+  annonce_web?: boolean;
+
   photos_commerciales?: {
     av_droit?: string;
     av_gauche?: string;

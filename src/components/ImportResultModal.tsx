@@ -65,6 +65,9 @@ export default function ImportResultModal({ result, onClose }: ImportResultModal
                       {s.prixDealer !== undefined && (
                         <span>Dealer: <strong>{s.prixDealer.toLocaleString("fr-FR")} €</strong></span>
                       )}
+                      {s.vnc !== undefined && (
+                        <span>VNC: <strong>{s.vnc.toLocaleString("fr-FR")} €</strong></span>
+                      )}
                     </span>
                   </div>
                 ))}

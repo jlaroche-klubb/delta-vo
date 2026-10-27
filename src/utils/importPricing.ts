@@ -13,6 +13,8 @@ export interface ImportSuccess {
   immat: string;
   prixFr?: number;
   prixDealer?: number;
+  /** 💶 VNC (valeur nette comptable) renseignée / corrigée dans le fichier PDG */
+  vnc?: number;
   source: string;
 }
 
@@ -130,22 +132,30 @@ function processRow(
 
   const prixFr = parsePrice(row["Prix France HT (€)"]);
   const prixDealer = parsePrice(row["Prix Dealer HT (€)"]);
+  // 💶 VNC : la colonne « VNC (€) » du fichier PDG est aussi relue — si la
+  // compta/le PDG l'a renseignée ou corrigée, elle est mise à jour (27/10/2026).
+  const vnc = parsePrice(row["VNC (€)"]);
 
-  if (prixFr === null && prixDealer === null) {
+  if (prixFr === null && prixDealer === null && vnc === null) {
     errors.push({
       immat: machine.immat,
-      raison: "Aucun nouveau prix renseigné — ligne ignorée",
+      raison: "Aucun nouveau prix ni VNC renseigné — ligne ignorée",
       source: SOURCE,
     });
     return;
   }
 
   // ♻️ Fichier renvoyé avec les prix déjà faits pré-remplis : une ligne dont
-  // les prix n'ont pas bougé n'est ni une mise à jour ni une erreur.
+  // les prix (et la VNC) n'ont pas bougé n'est ni une mise à jour ni une erreur.
   const memeFr = prixFr === null || prixFr === (machine.prix_fr ?? null);
   const memeDealer = prixDealer === null || prixDealer === (machine.prix_dealer ?? null);
-  if (memeFr && memeDealer) {
+  const memeVnc = vnc === null || vnc === (machine.vr_vnc ?? null);
+  if (memeFr && memeDealer && memeVnc) {
     stats.inchangees++;
+    return;
+  }
+  if (vnc !== null && vnc < 0) {
+    errors.push({ immat: machine.immat, raison: "VNC négative", source: SOURCE });
     return;
   }
 
@@ -165,6 +175,7 @@ function processRow(
     // Seuls les prix réellement modifiés sont appliqués
     prixFr: memeFr ? undefined : prixFr!,
     prixDealer: memeDealer ? undefined : prixDealer!,
+    vnc: memeVnc ? undefined : vnc!,
     source: SOURCE,
   });
 }

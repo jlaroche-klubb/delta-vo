@@ -514,12 +514,16 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
     setImporting(true);
     try {
       const result = await importPricingFromExcel({ file, machines });
+      let nbPrix = 0;
+      const vncs: { immat: string; nouvelle: number }[] = [];
       if (result.success.length > 0) {
         result.success.forEach((s) => {
           const machine = machines.find(
             (m) => m.immat.toUpperCase() === s.immat.toUpperCase()
           );
-          if (machine) {
+          if (!machine) return;
+          if (s.prixFr !== undefined || s.prixDealer !== undefined) {
+            nbPrix++;
             updatePrice(
               machine.id,
               s.prixFr !== undefined ? s.prixFr : machine.prix_fr,
@@ -528,8 +532,11 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
               false
             );
           }
+          // 💶 VNC renseignée / corrigée dans le fichier PDG → mise à jour aussi
+          if (s.vnc !== undefined) vncs.push({ immat: machine.immat, nouvelle: s.vnc });
         });
       }
+      const nbVnc = vncs.length ? await updateVncValues(vncs) : 0;
       setImportResult(result);
       // 🔔 Alerte super admin (imports faits par les autres admins)
       notifyImportAdmin({
@@ -537,7 +544,8 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
         par: userName,
         email: user?.email || "",
         resume: [
-          `${result.success.length} prix mis à jour`,
+          `${nbPrix} prix mis à jour`,
+          ...(nbVnc ? [`${nbVnc} VNC mise(s) à jour`] : []),
           `${result.totalRows} lignes lues`,
         ],
         erreurs: result.errors.map((er) => `${er.immat} : ${er.raison}`),

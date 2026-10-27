@@ -1430,6 +1430,26 @@ button {
     margin-top: 2px;
   }
   
+  /* 💶 Bandeau VNC (admin / super admin) sous les prix */
+  .dispo-vnc {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    margin-top: 8px;
+    padding: 10px 20px;
+    border-radius: 6px;
+    background: #eef1f8;
+    border: 1px solid #c9d2ea;
+    color: #1a2a6e;
+  }
+  .dispo-vnc-missing { background: #fff7e6; border-color: #f0c37a; color: #8a5a00; }
+  .dispo-vnc-neg { background: #fdf2f0; border-color: #e8b4ac; color: #a93226; }
+  .vnc-block { flex: 1; text-align: center; }
+  .vnc-value { font-family: 'Courier New', monospace; font-size: 18px; font-weight: 700; letter-spacing: 1px; }
+  .vnc-pct { font-size: 13px; font-weight: 600; opacity: 0.85; }
+  .vnc-date { font-size: 11px; opacity: 0.7; white-space: nowrap; }
+  @media (max-width: 700px) { .dispo-vnc { flex-direction: column; gap: 8px; } }
+
   .manual-override-banner {
     margin-top: 12px;
     padding: 8px 14px;

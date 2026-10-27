@@ -529,12 +529,6 @@ export default function DisponibleCard({
       {/* 💶 Outil super admin : chiffrage à zéro (rattrapage) */}
       <ChiffrageZeroTools machine={machine} />
 
-      {/* 💶 VR/VNC (valeur résiduelle/comptable) — réservé aux admins */}
-      {isAdmin && machine.vr_vnc != null && machine.vr_vnc > 0 && (
-        <div style={{ fontSize: 12, color: "#666", padding: "2px 0" }}>
-          🔒 {t("card.vrVnc")} : <b>{machine.vr_vnc.toLocaleString("fr-FR")} €</b>
-        </div>
-      )}
 
       <div className="dispo-prices">
         {hasPrice ? (
@@ -571,6 +565,34 @@ export default function DisponibleCard({
           </div>
         )}
       </div>
+
+      {/* 💶 VNC (valeur nette comptable) — admin et super admin uniquement
+          (demande Jonathan, 27/10/2026) : bandeau dédié sous les prix, toujours
+          affiché, avec l'écart prix FR − VNC pour décider du prix. */}
+      {isAdmin && (() => {
+        const vnc = machine.vr_vnc != null && machine.vr_vnc > 0 ? machine.vr_vnc : null;
+        const prix = machine.prix_fr != null && machine.prix_fr > 0 ? machine.prix_fr : null;
+        const ecart = vnc != null && prix != null ? prix - vnc : null;
+        const pct = ecart != null && vnc ? Math.round((ecart / vnc) * 100) : null;
+        return (
+          <div className={`dispo-vnc ${vnc == null ? "dispo-vnc-missing" : ecart != null && ecart < 0 ? "dispo-vnc-neg" : ""}`}>
+            <div className="vnc-block">
+              <div className="price-label">🔒 {t("card.vnc")}</div>
+              <div className="vnc-value">{vnc != null ? vnc.toLocaleString("fr-FR") + " €" : t("card.vncMissing")}</div>
+            </div>
+            {ecart != null && (
+              <div className="vnc-block">
+                <div className="price-label">{t("card.vncEcart")}</div>
+                <div className="vnc-value">
+                  {(ecart >= 0 ? "+" : "−") + Math.abs(ecart).toLocaleString("fr-FR") + " €"}
+                  {pct != null && <span className="vnc-pct"> ({ecart >= 0 ? "+" : "−"}{Math.abs(pct)} %)</span>}
+                </div>
+              </div>
+            )}
+            {machine.vnc_maj_le && <div className="vnc-date">{t("card.vncMaj")} {formatDate(machine.vnc_maj_le)}</div>}
+          </div>
+        );
+      })()}
 
       {machine.prix_modifie_manuellement && machine.prix_modifie_par && (
         <div className="manual-override-banner">

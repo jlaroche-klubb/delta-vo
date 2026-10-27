@@ -11,11 +11,12 @@
 // photo, avec une MINIATURE (≈384 px) pour un coût de quelques
 // centièmes de centime par photo.
 //
-// PRÉREQUIS Vercel (projet delta-vo) : ANTHROPIC_API_KEY.
-// Optionnel : ORIENTATION_MODEL (défaut claude-haiku-4-5).
+// IA : Gemini (Vertex AI, compte de service Firebase) via api/_lib/ia.ts —
+// retour arrière possible avec IA_FOURNISSEUR=anthropic.
 // ============================================================
 
-import { cors, exigerUtilisateur, fetchAvecReessai } from "./_lib/auth.js";
+import { cors, exigerUtilisateur } from "./_lib/auth.js";
+import { demanderIA } from "./_lib/ia.js";
 
 export const maxDuration = 60;
 
@@ -25,12 +26,6 @@ export default async function handler(req: any, res: any) {
   // 🔐 Jeton Firebase obligatoire (voir api/_lib/auth.ts)
   const user = await exigerUtilisateur(req, res, { accepterNE: true });
   if (!user) return;
-
-  const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) {
-    console.error("❌ ANTHROPIC_API_KEY manquante (variables Vercel du projet delta-vo)");
-    return res.status(500).json({ error: "Server misconfigured: ANTHROPIC_API_KEY manquante" });
-  }
 
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
@@ -47,66 +42,60 @@ export default async function handler(req: any, res: any) {
     }
 
     // ─── Interrogation du modèle (réutilisée pour l'auto-contrôle) ───
+    // ─── Interrogation du modèle (réutilisée pour l'auto-contrôle) ───
+    // Formulation « où est le ciel ? » : les modèles de vision confondent
+    // facilement 90° et 270° quand on leur demande un angle ; décrire le côté
+    // du ciel est plus fiable (mesuré sur photos réelles d'expertise, 10/2026).
+    const COTE: Record<string, number> = { HAUT: 0, GAUCHE: 90, BAS: 180, DROITE: 270 };
     const demander = async (imgData: string, imgType: string): Promise<number | null> => {
-      const resp = await fetchAvecReessai("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "x-api-key": key,
-          "anthropic-version": "2023-06-01",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: process.env.ORIENTATION_MODEL || "claude-haiku-4-5",
-          max_tokens: 10,
-          messages: [
-            {
-              role: "user",
-              content: [
-                { type: "image", source: { type: "base64", media_type: imgType, data: imgData } },
-                {
-                  type: "text",
-                  text:
-                    "Photo de chantier (camion nacelle, véhicule, extérieur ou habitacle). " +
-                    "De combien de degrés faut-il la faire pivoter DANS LE SENS HORAIRE pour " +
-                    "qu'elle soit droite (ciel/plafond en haut, sol en bas) ? " +
-                    "La plupart des photos sont DÉJÀ droites : dans ce cas réponds 0. " +
-                    "Gros plan sans repère fiable (roue, tôle, cadran...) : réponds 0. " +
-                    "Réponds UNIQUEMENT par un de ces nombres : 0, 90, 180, 270.",
-                },
-              ],
-            },
-          ],
-        }),
-      }, { timeoutMs: 25_000, essais: 3 });
-      if (!resp.ok) {
-        const detail = await resp.text();
-        console.error("❌ Anthropic", resp.status, detail.slice(0, 300));
+      const r = await demanderIA({
+        modele: "rapide",
+        maxTokens: 16,
+        parties: [
+          { image: { mediaType: imgType, data: imgData } },
+          {
+            texte:
+              "Photo de chantier (camion nacelle, véhicule, extérieur ou habitacle). " +
+              "Regarde où se trouvent le ciel / le plafond / le haut de la scène et où se trouvent " +
+              "le sol / la route / les roues. Réponds UNIQUEMENT par un mot : HAUT si le ciel est en " +
+              "haut de l'image (photo droite), GAUCHE si le ciel est sur le bord gauche, BAS si le ciel " +
+              "est en bas (photo à l'envers), DROITE si le ciel est sur le bord droit. " +
+              "Gros plan sans repère fiable (roue, tôle, cadran...) : HAUT.",
+          },
+        ],
+        timeoutMs: 25_000,
+        essais: 3,
+      });
+      if (!r.ok) {
+        console.error(`❌ IA orientation (${r.fournisseur})`, r.status, r.detail);
         return null;
       }
-      const out: any = await resp.json();
-      const text: string = out?.content?.[0]?.text || "";
-      const found = text.match(/\b(0|90|180|270)\b/);
-      return found ? Number(found[1]) : 0;
+      const m = r.texte.toUpperCase().match(/HAUT|GAUCHE|BAS|DROITE/);
+      return m ? COTE[m[0]] : 0;
     };
 
     const brut = await demander(data, mediaType);
     if (brut === null) return res.status(502).json({ error: "IA indisponible" });
 
     // ─── 🛡 AUTO-CONTRÔLE (anti-hallucination) ───
-    // Le modèle a tendance à répondre « 90 » sur des gros plans pourtant
-    // droits (constaté en production : rafales de rotation=90 sur des photos
-    // correctes). Toute réponse ≠ 0 doit donc être PROUVÉE : on pivote la
-    // miniature de l'angle annoncé et on redemande. Si le modèle ne répond
-    // pas 0 sur l'image pivotée, sa réponse est rejetée (photo inchangée).
-    // Une photo réellement couchée passe ce test ; une hallucination non.
+    // Toute réponse ≠ 0 doit être PROUVÉE : on pivote la miniature de l'angle
+    // annoncé et on redemande ; le modèle doit alors répondre « droite ».
+    // Comme la confusion gauche/droite est l'erreur la plus fréquente, on
+    // essaie aussi l'angle miroir (90 ↔ 270) avant de renoncer. Une photo
+    // réellement couchée passe ce test ; une hallucination non (photo inchangée).
     let rotation = 0;
     if (brut === 90 || brut === 180 || brut === 270) {
       try {
         const sharp = (await import("sharp")).default;
-        const tourne = await sharp(Buffer.from(data, "base64")).rotate(brut).jpeg({ quality: 70 }).toBuffer();
-        const controle = await demander(tourne.toString("base64"), "image/jpeg");
-        if (controle === 0) rotation = brut;
-        console.log(`🤖 rotation brute=${brut} · contrôle après pivot=${controle === null ? "échec" : controle} · final=${rotation}${ctx ? ` · ${ctx}` : ""}`);
+        const candidats = brut === 180 ? [180] : [brut, 360 - brut];
+        const controles: string[] = [];
+        for (const c of candidats) {
+          const tourne = await sharp(Buffer.from(data, "base64")).rotate(c).jpeg({ quality: 70 }).toBuffer();
+          const controle = await demander(tourne.toString("base64"), "image/jpeg");
+          controles.push(`${c}→${controle === null ? "échec" : controle}`);
+          if (controle === 0) { rotation = c; break; }
+        }
+        console.log(`🤖 rotation brute=${brut} · contrôles ${controles.join(", ")} · final=${rotation}${ctx ? ` · ${ctx}` : ""}`);
       } catch (e: any) {
         // sharp indisponible ou image illisible : prudence, on ne pivote pas
         console.error(`⚠ auto-contrôle impossible (${e?.message}) → rotation refusée${ctx ? ` · ${ctx}` : ""}`);

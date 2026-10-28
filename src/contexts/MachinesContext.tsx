@@ -1,3 +1,4 @@
+import { annulerDevisVente } from "../services/devisVenteService";
 import { createContext, useContext, useState, useEffect, ReactNode, useMemo } from "react";
 import { collection, onSnapshot, doc, getDoc, updateDoc, setDoc, deleteDoc, Timestamp, deleteField } from "firebase/firestore";
 import { db, dbNacelleExpert } from "../firebase";
@@ -1489,6 +1490,16 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       contrat_sortie: deleteField(),
       email_sortie: deleteField(),
       date_mise_dispo_lld: null,
+      // 🧾 La vente est annulée : l'offre / le devis ne restent pas affichés sur la carte
+      // (le devis signé reste dans l'historique des devis)
+      offre_en_cours: false,
+      client_offre: null,
+      montant_offre: null,
+      date_offre: null,
+      devis_vente_numero: null,
+      devis_vente_url: null,
+      devis_vente_signe_le: null,
+      devis_vente_validation: null,
       updatedAt: new Date().toISOString(),
     };
     
@@ -1496,6 +1507,9 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       try {
         await updateDoc(doc(db, 'machines_vo', machineId), updates as any);
         console.log(`✅ Machine ${machineId} remise en disponible (annulation prépa)`);
+        if (mAvant?.devis_vente_numero) {
+          annulerDevisVente(mAvant.devis_vente_numero, `préparation annulée (${mAvant.immat})`).catch(() => undefined);
+        }
       } catch (err) {
         console.error('❌ Erreur cancelEnCours Firebase:', err);
       }

@@ -300,7 +300,8 @@ export default function DisponibleCard({
                 🚩 {attention ? t("attention.edit") : t("attention.add")}
               </button>
             )}
-            {!isAdmin && canOffre && hasPrice && onTogglePanier && (
+            {/* 🧾 Ajout au devis : visible pour tout le monde, admins compris (demande Jonathan 28/10) */}
+            {canOffre && hasPrice && onTogglePanier && (
               <button
                 onClick={() => onTogglePanier(machine)}
                 title={isInPanier ? t("card.removeOfferTitle") : t("card.addOfferTitle")}
@@ -342,16 +343,6 @@ export default function DisponibleCard({
               {canLld && onLld && (
                 <button type="button" className="action-menu-item" onClick={() => onLld(machine)} title={t("card.lldTitle")}>
                   🔁 {t("card.lld")}
-                </button>
-              )}
-              {canOffre && hasPrice && onTogglePanier && (
-                <button
-                  type="button"
-                  className={`action-menu-item ${isInPanier ? "checked" : ""}`}
-                  onClick={() => onTogglePanier(machine)}
-                  title={isInPanier ? t("card.removeOfferTitle") : t("card.addOfferTitle")}
-                >
-                  {isInPanier ? `✓ ${t("card.inOffer")}` : `➕ ${t("card.addOffer")}`}
                 </button>
               )}
               {canEditAttention && onEditAttention && (

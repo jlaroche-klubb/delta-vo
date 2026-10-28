@@ -123,6 +123,8 @@ export function creerDevisVente(d: {
   validite_jours: number;
   conditions: string;
   langue: LangueDevis;
+  type_prepa: "normale" | "en_etat";
+  date_livraison: string;
 }): Promise<{ numero: string; commercial: DevisVente["commercial"]; total_ht: number; tva: number; total_ttc: number }> {
   return appel({ action: "creer", ...d });
 }

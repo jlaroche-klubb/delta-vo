@@ -67,6 +67,9 @@ export default function DevisModal({ machines, prixDealer, onClose, onCree }: Pr
   const [exoneration, setExoneration] = useState(() => TEXTES_DEVIS[langue].exonerationDefaut);
   const [acompte, setAcompte] = useState<AcompteDevis>(30);
   const [validite, setValidite] = useState(30);
+  // 🔧 À la signature, les nacelles passent seules en préparation avec ces choix
+  const [typePrepa, setTypePrepa] = useState<"normale" | "en_etat">("normale");
+  const [dateLivraison, setDateLivraison] = useState(() => new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10));
   const [conditions, setConditions] = useState("");
   const [enCours, setEnCours] = useState<"" | "pdf" | "email" | "signature">("");
   const [docusign, setDocusign] = useState(false);
@@ -139,7 +142,7 @@ export default function DevisModal({ machines, prixDealer, onClose, onCree }: Pr
     if (!cfg) return;
     setEnCours(mode);
     try {
-      const r = await creerDevisVente({ client, lignes, tva_taux: tva, exoneration: tva === 0 ? exoneration : "", acompte_pct: acompte, validite_jours: validite, conditions, langue });
+      const r = await creerDevisVente({ client, lignes, tva_taux: tva, exoneration: tva === 0 ? exoneration : "", acompte_pct: acompte, validite_jours: validite, conditions, langue, type_prepa: typePrepa, date_livraison: dateLivraison });
       const now = new Date();
       const dv: DevisVente = {
         numero: r.numero,
@@ -287,6 +290,17 @@ export default function DevisModal({ machines, prixDealer, onClose, onCree }: Pr
                 </div>
                 <div><label style={LABEL}>Validité (jours)</label><input style={CHAMP} type="number" min={1} max={180} value={validite} onChange={(e) => setValidite(Number(e.target.value) || 30)} /></div>
               </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 4 }}>
+                <div>
+                  <label style={LABEL}>Préparation si le devis est signé</label>
+                  <select style={CHAMP} value={typePrepa} onChange={(e) => setTypePrepa(e.target.value as "normale" | "en_etat")}>
+                    <option value="normale">Normale (lavage, CT, VGP, carrosserie, révision, photos)</option>
+                    <option value="en_etat">En l'état (lavage + photos)</option>
+                  </select>
+                </div>
+                <div><label style={LABEL}>Livraison souhaitée</label><input style={CHAMP} type="date" value={dateLivraison} onChange={(e) => setDateLivraison(e.target.value)} /></div>
+              </div>
+              <div style={{ fontSize: 11, color: "#888", marginBottom: 10 }}>🔧 Dès que le client signe, la ou les nacelles passent automatiquement en préparation (vente) et les préparateurs du site sont prévenus.</div>
               {tva === 0 && (
                 <div style={{ marginBottom: 10 }}><label style={LABEL}>Mention d'exonération (imprimée sur le devis)</label><input style={CHAMP} value={exoneration} onChange={(e) => setExoneration(e.target.value)} /></div>
               )}

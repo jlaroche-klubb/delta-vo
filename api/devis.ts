@@ -33,6 +33,7 @@ import {
   envoyerPourSignature, pdfSigne, secretWebhook, statutEnveloppe,
 } from "./_lib/docusign.js";
 import { signerPdf } from "./_lib/signatureDevis.js";
+import { mettreEnPreparationDevis } from "./_lib/preparationAuto.js";
 
 export const maxDuration = 30;
 
@@ -157,12 +158,20 @@ async function apresSignature(db: admin.firestore.Firestore, dv: any, url: strin
     const m = (await mref.get()).data();
     if (m?.devis_vente_numero === numero) await mref.update({ devis_vente_url: url, devis_vente_signe_le: date, updatedAt: now });
   }
+  // 🔧 Mise en préparation automatique (décision Jonathan 28/10/2026)
+  const prepa = await mettreEnPreparationDevis(appAdmin(), dv, date, `Devis ${numero} signé (${source})`);
+  await db.collection("devis_vente").doc(numero).update({
+    preparation_auto: prepa,
+    historique: admin.firestore.FieldValue.arrayUnion({ date: now, action: `mise en préparation : ${prepa.map((p) => `${p.reference} ${p.ok ? "✅" : "⚠ " + p.detail}`).join(", ")}`, par: "Delta VO" }),
+  }).catch(() => undefined);
+  const enEchec = prepa.filter((p) => !p.ok);
   const T = MAIL[langueOk(dv.langue)];
   await emailBrevo({ email: dv.commercial?.email, name: dv.commercial?.nom }, T.signeSujet(numero, dv.client?.raison_sociale || "le client"),
     `<p>Bonjour,</p><p>Le devis <b>${esc(numero)}</b> a été <b>signé électroniquement</b> (${esc(source)}) par ${esc(signataire || dv.client?.contact_nom || "le client")} (${esc(dv.client?.raison_sociale || "")}).</p>` +
     `<ul>${(dv.lignes || []).map((l: any) => `<li>${esc(l.reference)} — ${esc(l.designation)} : <b>${eur(l.prix_ht)} HT</b></li>`).join("")}</ul>` +
     `<p>Total : <b>${eur(dv.total_ht)} HT</b>${dv.acompte_pct ? ` · acompte ${dv.acompte_pct} % : ${eur(dv.acompte_ttc)} TTC` : " · financement bancaire"}</p>` +
-    `<p>📄 <a href="${url}">Devis signé (PDF + certificat de signature)</a></p><p>Prochaine étape : passer la ou les nacelles en préparation dans <a href="https://delta-vo.vercel.app">Delta VO</a>.</p>`);
+    `<p>📄 <a href="${url}">Devis signé (PDF + certificat de signature)</a></p><p><b>🔧 Mise en préparation automatique :</b></p><ul>${prepa.map((p) => `<li>${esc(p.reference)} : ${p.ok ? "✅ " : "⚠ <b>non basculée</b> — "}${esc(p.detail)}</li>`).join("")}</ul>` +
+    `${enEchec.length ? `<p>⚠ Pour ${enEchec.length > 1 ? "ces nacelles" : "cette nacelle"}, faites la mise en préparation à la main dans <a href="https://delta-vo.vercel.app">Delta VO</a>.</p>` : `<p>La nacelle est dans l'onglet « En préparation » de <a href="https://delta-vo.vercel.app">Delta VO</a> : il reste à valider la fiche de préparation (les préparateurs sont prévenus à ce moment-là, comme d'habitude).</p>`}`);
 }
 
 /** Lien public « Accepter et signer » */
@@ -397,6 +406,10 @@ export default async function handler(req: any, res: any) {
           acompte_ttc: Math.round(totalTtc * acompte) / 100,
           conditions: str(body.conditions, 3000),
           langue: langueOk(body.langue),
+          preparation: {
+            type_prepa: body.type_prepa === "en_etat" ? "en_etat" : "normale",
+            date_livraison: /^\d{4}-\d{2}-\d{2}$/.test(String(body.date_livraison || "")) ? String(body.date_livraison) : "",
+          },
           commercial,
           cree_par_uid: user.uid,
           historique: [{ date: now.toISOString(), action: "création", par: commercial.nom }],

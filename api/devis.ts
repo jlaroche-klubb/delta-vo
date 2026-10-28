@@ -346,7 +346,7 @@ async function envoyerRapportHebdo(opts: { force: boolean; destinataires?: strin
   const apiKey = process.env.BREVO_API_KEY;
   const sender = process.env.BREVO_SENDER_EMAIL;
   if (!apiKey || !sender) return { ok: false, detail: "Brevo non configuré" };
-  const resp = await fetchAvecReessai("https://api.brevo.com/v3/smtp/email", {
+  const envoi = (planifie: boolean) => fetchAvecReessai("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
     headers: { "api-key": apiKey, "Content-Type": "application/json", accept: "application/json" },
     body: JSON.stringify({
@@ -355,9 +355,12 @@ async function envoyerRapportHebdo(opts: { force: boolean; destinataires?: strin
       subject: r.sujet,
       htmlContent: r.html,
       attachment: [{ name: r.nomCsv, content: Buffer.from(r.csv, "utf8").toString("base64") }],
-      ...(programme ? { scheduledAt: sem.lundi8hUtc.toISOString() } : {}),
+      ...(planifie ? { scheduledAt: sem.lundi8hUtc.toISOString() } : {}),
     }),
   }, { timeoutMs: 20_000, essais: 1 });
+  let resp = await envoi(programme);
+  // Programmation refusée par Brevo → envoi immédiat plutôt que pas de rapport
+  if (!resp.ok && programme && resp.status === 400) resp = await envoi(false);
   if (!resp.ok) {
     const t = (await resp.text()).slice(0, 300);
     console.error("❌ Rapport hebdo Brevo", resp.status, t);

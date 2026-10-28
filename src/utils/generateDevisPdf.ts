@@ -14,6 +14,9 @@ const BLEU: [number, number, number] = [31, 66, 130];
 const GRIS: [number, number, number] = [90, 90, 90];
 const dateFr = (iso: string) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
 
+/** Espaces insécables / fines (format numérique français) → espace simple : la police PDF ne les connaît pas */
+const nettoie = (t: string) => String(t ?? "").replace(/[\u00a0\u2007\u202f]/g, " ");
+
 export function genererDevisPdf(dv: DevisVente, cfg: ConfigDevis): { base64: string; blob: Blob; filename: string } {
   const lg = langueDevis(dv.langue);
   const T = TEXTES_DEVIS[lg];
@@ -30,18 +33,11 @@ export function genererDevisPdf(dv: DevisVente, cfg: ConfigDevis): { base64: str
   soc.forEach((l, i) => pdf.text(l, W - M, y + 3 + i * 4, { align: "right" }));
   y += 26;
 
-  // ── Bandeau bleu : titre, client, références ──
-  const hBand = 52;
-  pdf.setFillColor(...BLEU).rect(0, y, W, hBand, "F");
-  pdf.setTextColor(255, 255, 255).setFont("helvetica", "bold").setFontSize(18);
-  pdf.text(`${T.devis} ${dv.numero}`, M, y + 11);
-  pdf.setFontSize(9.5).setFont("helvetica", "bold");
+  // ── Bandeau bleu : titre, client, références (hauteur ajustée au contenu) ──
   const c = dv.client;
-  pdf.text(c.raison_sociale, M, y + 20);
-  pdf.setFont("helvetica", "normal");
   const cl: string[] = [c.adresse || "", [c.cp, c.ville].filter(Boolean).join(" "), c.siren ? `${T.siren} ${c.siren}` : "", "",
     c.contact_nom || "", c.contact_email || "", c.contact_tel || ""].filter((l, i, a) => l || (i === 3 && a.slice(4).some(Boolean)));
-  cl.forEach((l, i) => pdf.text(l, M, y + 25 + i * 4.3));
+  if (cl[0] === "") cl.shift(); // pas d'adresse : pas de ligne vide en tête
   const sep = lg === "fr" ? " : " : ": ";
   const refs = [
     `${T.date}${sep}${dateFr(dv.date)}`,
@@ -50,6 +46,14 @@ export function genererDevisPdf(dv: DevisVente, cfg: ConfigDevis): { base64: str
     dv.commercial.email,
     dv.commercial.tel || "",
   ].filter(Boolean);
+  const hBand = Math.max(20 + (cl.length + 1) * 4.3, 20 + refs.length * 4.3) + 6;
+  pdf.setFillColor(...BLEU).rect(0, y, W, hBand, "F");
+  pdf.setTextColor(255, 255, 255).setFont("helvetica", "bold").setFontSize(18);
+  pdf.text(`${T.devis} ${dv.numero}`, M, y + 11);
+  pdf.setFontSize(9.5).setFont("helvetica", "bold");
+  pdf.text(pdf.splitTextToSize(c.raison_sociale, 100)[0], M, y + 20);
+  pdf.setFont("helvetica", "normal");
+  cl.forEach((l, i) => pdf.text(l, M, y + 24.3 + i * 4.3));
   refs.forEach((l, i) => pdf.text(l, W - M, y + 20 + i * 4.3, { align: "right" }));
   y += hBand + 10;
 
@@ -64,9 +68,9 @@ export function genererDevisPdf(dv: DevisVente, cfg: ConfigDevis): { base64: str
   y += 5;
   pdf.setFont("helvetica", "normal").setFontSize(9);
   for (const l of dv.lignes) {
-    const des = pdf.splitTextToSize(l.designation || "—", colPrix - colDes - 30);
+    const des = pdf.splitTextToSize(nettoie(l.designation) || "—", colPrix - colDes - 30);
     if (y + des.length * 4.2 > 265) { pdf.addPage(); y = 20; }
-    pdf.setFont("helvetica", "bold").text(l.reference || "—", colRef, y);
+    pdf.setFont("helvetica", "bold").text(nettoie(l.reference) || "—", colRef, y);
     pdf.setFont("helvetica", "normal").text(des, colDes, y);
     pdf.text(eur(l.prix_ht), colPrix, y, { align: "right" });
     y += Math.max(des.length * 4.2, 5) + 3;
@@ -109,7 +113,7 @@ export function genererDevisPdf(dv: DevisVente, cfg: ConfigDevis): { base64: str
   // ── Conditions + règlement ──
   const bloc = (titre: string, texte: string) => {
     if (!texte.trim()) return;
-    const lignes = pdf.splitTextToSize(texte, W - 2 * M);
+    const lignes = pdf.splitTextToSize(nettoie(texte), W - 2 * M);
     if (y + 6 + lignes.length * 4 > 262) { pdf.addPage(); y = 20; }
     pdf.setFont("helvetica", "bold").setFontSize(9.5).setTextColor(...BLEU).text(titre, M, y);
     pdf.setFont("helvetica", "normal").setFontSize(8.8).setTextColor(40, 40, 40).text(lignes, M, y + 5);
@@ -124,7 +128,7 @@ export function genererDevisPdf(dv: DevisVente, cfg: ConfigDevis): { base64: str
     cfg.iban ? `IBAN${sep}${cfg.iban}${cfg.bic ? `   BIC${sep}${cfg.bic}` : ""}` : "",
   ].filter(Boolean).join("\n");
   bloc(T.reglementTitre, reglement);
-  bloc(T.conditions, dv.conditions || "");
+  bloc(T.conditions, nettoie(dv.conditions || ""));
 
   // ── Bon pour accord ──
   if (y + 38 > 275) { pdf.addPage(); y = 20; }

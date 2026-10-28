@@ -20,7 +20,7 @@ const ETAPES_NORMALE = [
 const ETAPES_EN_ETAT = [
   { label: "Lavage / nettoyage", has_na: false }, { label: "Photos commerciales", has_na: false },
 ];
-const creerEtapesPrepa = (type: "normale" | "en_etat") =>
+export const creerEtapesPrepa = (type: "normale" | "en_etat") =>
   (type === "normale" ? ETAPES_NORMALE : ETAPES_EN_ETAT).map((e, i) => ({ id: `etape-${i + 1}`, label: e.label, done: false, non_necessaire: false, has_na: e.has_na }));
 
 const DELTA_VO_URL = "https://delta-vo.vercel.app";
@@ -45,7 +45,21 @@ async function jetonService(app: admin.app.App): Promise<string> {
   return jeton.valeur;
 }
 
-async function archiverHubspot(app: admin.app.App, immat: string): Promise<void> {
+/** Remet le produit dans le catalogue HubSpot (nacelle revenue en vente) — même fonction serveur que l'appli */
+export async function publierHubspot(app: admin.app.App, immat: string, modele: string | undefined, prix: number): Promise<void> {
+  try {
+    await fetch(`${DELTA_VO_URL}/api/hubspot-sync-product`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${await jetonService(app)}` },
+      body: JSON.stringify({ action: "upsert", immat, modele, prix }),
+      signal: AbortSignal.timeout(20_000),
+    });
+  } catch (e: any) {
+    console.warn(`HubSpot upsert ${immat} non synchronisé :`, e?.message || e);
+  }
+}
+
+export async function archiverHubspot(app: admin.app.App, immat: string): Promise<void> {
   try {
     await fetch(`${DELTA_VO_URL}/api/hubspot-sync-product`, {
       method: "POST",
@@ -69,7 +83,7 @@ function site(raw?: string | null): string {
 }
 
 /** 📧 Préparateurs du site prévenus — même fonction serveur que l'appli (best-effort) */
-async function notifierPreparateurs(app: admin.app.App, d: any, typePrepa: "normale" | "en_etat", acheteur: string, commercial: string, livraison: string, par: string): Promise<string> {
+export async function notifierPreparateurs(app: admin.app.App, d: any, typePrepa: "normale" | "en_etat", acheteur: string, commercial: string, livraison: string, par: string): Promise<string> {
   const s = site(d.localite);
   if (!s) return "site inconnu : préparateurs non prévenus";
   try {
@@ -119,7 +133,8 @@ export async function mettreEnPreparationDevis(app: admin.app.App, dv: any, date
         if (!d) return { ok: false, detail: "fiche introuvable" };
         const st = d.statut || "restitution";
         if (d.archived) return { ok: false, detail: "fiche archivée" };
-        if (d.devis_vente_numero !== dv.numero) return { ok: false, detail: "l'offre a été retirée de la fiche" };
+        const porteDevis = d.devis_vente_numero === dv.numero || (Array.isArray(d.devis_ouverts) && d.devis_ouverts.some((o: any) => o?.numero === dv.numero));
+        if (!porteDevis) return { ok: false, detail: "l'offre a été retirée de la fiche" };
         if (st === "en_cours" || st === "cloturee" || st === "louee_lld") return { ok: false, detail: `déjà ${st === "en_cours" ? "en préparation" : st === "cloturee" ? "vendue" : "louée"}` };
         if (st === "restitution" && !(d.expertise_recue ?? true)) return { ok: false, detail: "expertise Nacelle Expert pas encore reçue (machine non vendable)" };
         const now = new Date().toISOString();

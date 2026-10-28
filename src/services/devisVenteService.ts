@@ -220,6 +220,17 @@ export function envoyerRapportVentes(moi: boolean): Promise<{ ok: boolean; detai
   return appel({ action: "rapport_test", moi });
 }
 
+// ───────── 🔁 Changer de nacelle sur un devis signé (admin) + re-signature ─────────
+export function lireDevisAdmin(numero: string): Promise<{ devis: DevisVente & { statut: string; echanges?: any[] } }> {
+  return appel({ action: "lire", numero });
+}
+export function changerNacelle(numero: string, ancienneId: string, nouvelleId: string): Promise<{ ancienne: string; nouvelle: string; retour: string; preparateurs: string }> {
+  return appel({ action: "changer_nacelle", numero, ancienne_id: ancienneId, nouvelle_id: nouvelleId });
+}
+export function resignerDevis(numero: string, pdfBase64: string, zoneSignature?: ZoneSignature): Promise<{ to: string; pdf_url: string }> {
+  return appel({ action: "resigner", numero, pdfBase64, zone_signature: zoneSignature });
+}
+
 export function annulerDevisVente(numero: string, motif?: string): Promise<void> {
   return appel({ action: "annuler", numero, motif });
 }

@@ -28,6 +28,9 @@ interface EnCoursCardProps {
   onOpenDocuments?: (machine: Machine) => void;
   onAddEtape?: (machineId: string, label: string) => void;
   onRemoveEtape?: (machineId: string, etapeId: string) => void;
+  /** 🔁 Admin : changer la nacelle d'une vente signée / renvoyer le devis pour re-signature */
+  onChangerNacelle?: (machine: Machine) => void;
+  onResigner?: (machine: Machine) => void;
 }
 
 export default function EnCoursCard({
@@ -46,6 +49,8 @@ export default function EnCoursCard({
   onOpenDocuments,
   onAddEtape,
   onRemoveEtape,
+  onChangerNacelle,
+  onResigner,
 }: EnCoursCardProps) {
   const [newEtapeLabel, setNewEtapeLabel] = useState("");
   const { t } = useTranslation();
@@ -425,9 +430,27 @@ export default function EnCoursCard({
         </>
       )}
       
+      {/* 🔁 Nacelle changée sur un devis signé : rappel tant que le client n'a pas re-signé */}
+      {machine.devis_vente_a_resigner && (
+        <div style={{ marginTop: 10, padding: "6px 10px", borderRadius: 4, background: "#fff6e5", color: "#8a5a00", fontSize: 12, fontWeight: 700 }}>
+          🔁 Devis {machine.devis_vente_numero} : nacelle changée — {machine.devis_vente_a_resigner === "envoye" ? "renvoyé au client, en attente de re-signature" : "à re-signer par le client"}
+        </div>
+      )}
       {/* ✅ Bouton Admin : Annuler la mise en préparation */}
       {canCancel && onCancel && (
-        <div className="encours-admin-actions" style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #e5e5e5' }}>
+        <div className="encours-admin-actions" style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid #e5e5e5', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {onChangerNacelle && machine.devis_vente_numero && machine.devis_vente_signe_le && (
+            <button onClick={() => onChangerNacelle(machine)} title="Remplacer cette nacelle par une autre sur le devis signé (prix inchangé)"
+              style={{ background: 'white', color: '#1a73e8', border: '1px solid #1a73e8', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
+              🔁 Changer de nacelle
+            </button>
+          )}
+          {onResigner && machine.devis_vente_a_resigner === true && (
+            <button onClick={() => onResigner(machine)} title="Nacelle définitive : envoyer le devis à jour au client pour re-signature"
+              style={{ background: '#1e8e3e', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
+              ✍️ Envoyer pour re-signature
+            </button>
+          )}
           <button
             onClick={() => {
               if (window.confirm(`⚠️ Annuler la mise en préparation de ${machine.immat} ?\n\nLa machine retournera dans les "Disponibles" et toutes les données de vente/LLD seront effacées.`)) {

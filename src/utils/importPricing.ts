@@ -46,11 +46,35 @@ export async function importPricingFromExcel({
   // désormais « Prix à faire » et « Prix à revoir » (l'ancien format mono-feuille
   // « Pricing PDG » reste accepté).
   const rows: any[] = [];
+  // 👔 Format du PDG (onglet « PDG » de l'export, ou son propre tableau « Prix - JJ.MM.AA ») :
+  // colonnes Immatriculation … VNC (€), prix. Ses valeurs l'emportent sur l'onglet « Pricing PDG ».
+  const pdg = new Map<string, { prix: any; vnc: any }>();
   for (const sheetName of wb.SheetNames) {
     // 📊 La feuille « Marché internet » est une synthèse (pas de machines)
     if (/^march/i.test(sheetName.trim())) continue;
-    rows.push(...XLSX.utils.sheet_to_json<any>(wb.Sheets[sheetName]));
+    const lignes = XLSX.utils.sheet_to_json<any>(wb.Sheets[sheetName]);
+    const cle = (r: any, nom: RegExp) => Object.keys(r).find((k) => nom.test(k.trim()));
+    const formatPdg = lignes.some((r) => cle(r, /^immatriculation$/i) && cle(r, /^prix$/i)) && !lignes.some((r) => "Prix France HT (€)" in r);
+    if (formatPdg) {
+      for (const r of lignes) {
+        const immat = String(r[cle(r, /^immatriculation$/i) || ""] || "").trim().toUpperCase();
+        if (!immat) continue;
+        pdg.set(immat, { prix: r[cle(r, /^prix$/i) || ""], vnc: r[cle(r, /^vnc/i) || ""] });
+      }
+      continue;
+    }
+    rows.push(...lignes);
   }
+  const vide = (v: any) => v === undefined || v === null || String(v).trim() === "";
+  for (const r of rows) {
+    const p = pdg.get(String(r["Immatriculation"] || "").trim().toUpperCase());
+    if (!p) continue;
+    if (!vide(p.prix)) r["Prix France HT (€)"] = p.prix;
+    if (!vide(p.vnc)) r["VNC (€)"] = p.vnc;
+    pdg.delete(String(r["Immatriculation"]).trim().toUpperCase());
+  }
+  // Tableau du PDG seul (ou nacelles absentes de l'onglet Pricing PDG) : importé tel quel
+  for (const [immat, p] of pdg) rows.push({ Immatriculation: immat, "Prix France HT (€)": p.prix, "VNC (€)": p.vnc });
 
   const success: ImportSuccess[] = [];
   const errors: ImportError[] = [];
@@ -64,7 +88,7 @@ export async function importPricingFromExcel({
     });
     if (!aLesColonnes) {
       throw new Error(
-        "Le fichier ne correspond pas au modèle Pricing PDG (colonnes « Prix France HT (€) » / « Prix Dealer HT (€) » introuvables). Utilisez le fichier exporté depuis « Export Pricing PDG »."
+        "Le fichier ne correspond pas au modèle Pricing PDG (colonnes « Prix France HT (€) » / « Prix Dealer HT (€) », ou « Immatriculation » + « prix » du tableau PDG, introuvables). Utilisez le fichier exporté depuis « Export Pricing PDG »."
       );
     }
   }
@@ -149,7 +173,8 @@ function processRow(
   // les prix (et la VNC) n'ont pas bougé n'est ni une mise à jour ni une erreur.
   const memeFr = prixFr === null || prixFr === (machine.prix_fr ?? null);
   const memeDealer = prixDealer === null || prixDealer === (machine.prix_dealer ?? null);
-  const memeVnc = vnc === null || vnc === (machine.vr_vnc ?? null);
+  // VNC compta à centimes : comparée à l'euro près (sinon chaque réimport « modifie » la VNC)
+  const memeVnc = vnc === null || (machine.vr_vnc != null && vnc === Math.round(machine.vr_vnc));
   if (memeFr && memeDealer && memeVnc) {
     stats.inchangees++;
     return;

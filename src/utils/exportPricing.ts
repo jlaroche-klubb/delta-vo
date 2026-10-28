@@ -178,6 +178,41 @@ export function exportPricingToExcel({ machines, seuilRepricer = 60 }: ExportPri
   wsPricing["!autofilter"] = { ref: `A1:${XLSX.utils.encode_col(HEADERS.length - 1)}${aoa.length}` } as any;
   XLSX.utils.book_append_sheet(wb, wsPricing, "Pricing PDG");
 
+  // 👔 Onglet « PDG » : le tableau au format du PDG (« Prix - JJ.MM.AA »), dont
+  // chaque cellule renvoie à la même ligne de « Pricing PDG » (formules). Le PDG
+  // corrige ses prix / VNC ici ; à l'import, ses valeurs l'emportent.
+  const PDG_COLS: { titre: string; col: string; nombre?: boolean }[] = [
+    { titre: "Immatriculation", col: "D" },
+    { titre: "Type nacelle", col: "B" },
+    { titre: "Modèle porteur", col: "F" },
+    { titre: "Mise en circulation", col: "G" },
+    { titre: "Heures nacelle", col: "H", nombre: true },
+    { titre: "Km porteur", col: "I", nombre: true },
+    { titre: "Localisation", col: "J" },
+    { titre: "VNC (€)", col: "M", nombre: true },
+    { titre: "prix", col: "R", nombre: true },
+  ];
+  const wsPdg: XLSX.WorkSheet = {};
+  PDG_COLS.forEach((c, j) => { wsPdg[XLSX.utils.encode_cell({ r: 0, c: j })] = { t: "s", v: c.titre }; });
+  for (let i = 1; i < aoa.length; i++) {
+    const ligne = i + 1; // ligne Excel (1 = en-tête)
+    PDG_COLS.forEach((c, j) => {
+      const src = `'Pricing PDG'!${c.col}${ligne}`;
+      const valeur = aoa[i][XLSX.utils.decode_col(c.col)];
+      const vide = valeur === "" || valeur === undefined || valeur === null;
+      // valeur en cache = celle de la ligne source (lisible même sans recalcul d'Excel)
+      wsPdg[XLSX.utils.encode_cell({ r: i, c: j })] = vide
+        ? { t: "s", v: "", f: `IF(${src}="","",${src})` }
+        : typeof valeur === "number"
+          ? { t: "n", v: valeur, f: `IF(${src}="","",${src})`, ...(c.titre === "VNC (€)" || c.titre === "prix" || c.titre === "Km porteur" ? { z: "#,##0" } : {}) }
+          : { t: "s", v: String(valeur), f: `IF(${src}="","",${src})` };
+    });
+  }
+  wsPdg["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: aoa.length - 1, c: PDG_COLS.length - 1 } });
+  wsPdg["!cols"] = [{ wch: 18 }, { wch: 14 }, { wch: 22 }, { wch: 18 }, { wch: 14 }, { wch: 12 }, { wch: 13 }, { wch: 12 }, { wch: 10 }];
+  wsPdg["!autofilter"] = { ref: `A1:I${aoa.length}` } as any;
+  XLSX.utils.book_append_sheet(wb, wsPdg, "PDG");
+
   // 📊 Feuille « Marché internet » : synthèse des études de marché IA par type
   // de nacelle (ligne de tête, toutes années) puis par tranche d'âge, et
   // « Toutes nacelles » en pied. Ignorée par l'import Pricing.

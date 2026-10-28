@@ -404,6 +404,10 @@ export default function AdminPage() {
                   {ligne("validite_jours", "Validité par défaut (jours)")}
                   {ligne("conditions_defaut", "Conditions pré-remplies sur chaque devis", 4)}
                   {ligne("cgv", "Conditions générales de vente (page jointe au devis si renseignées)", 6)}
+                  {ligne("conditions_defaut_en", "🇬🇧 Conditions — devis en anglais (vide = texte standard traduit)", 4)}
+                  {ligne("conditions_defaut_es", "🇪🇸 Conditions — devis en espagnol (vide = texte standard traduit)", 4)}
+                  {ligne("cgv_en", "🇬🇧 CGV en anglais (page jointe aux devis EN si renseignées)", 6)}
+                  {ligne("cgv_es", "🇪🇸 CGV en espagnol (page jointe aux devis ES si renseignées)", 6)}
                 </div>
               );
             })()}

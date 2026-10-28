@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Machine } from "../types/machine";
 import { referenceCommerciale } from "../utils/reference";
 import {
@@ -12,6 +13,7 @@ import {
   type LigneDevis,
 } from "../services/devisVenteService";
 import { genererDevisPdf } from "../utils/generateDevisPdf";
+import { LANGUES_DEVIS, TEXTES_DEVIS, langueDevis, nombreDevis, type LangueDevis } from "../utils/devisLangues";
 
 /**
  * 🧾 Création d'un DEVIS DE VENTE dans Delta VO (remplace l'offre HubSpot,
@@ -31,17 +33,20 @@ const CHAMP: React.CSSProperties = { width: "100%", boxSizing: "border-box", pad
 const LABEL: React.CSSProperties = { display: "block", fontSize: 12, fontWeight: 600, color: "#444", marginBottom: 4 };
 const eur = (n: number) => n.toLocaleString("fr-FR", { maximumFractionDigits: 2 }) + " €";
 
-function designation(m: Machine): string {
+function designation(m: Machine, lg: LangueDevis): string {
+  const T = TEXTES_DEVIS[lg];
   const an = (m.annee_circulation || "").match(/(19|20)\d{2}/)?.[0];
-  const tete = [m.type_nacelle && `Nacelle ${m.type_nacelle}`, m.modele_porteur && `sur ${m.modele_porteur}`, an && `(${an})`].filter(Boolean).join(" ");
+  const tete = [m.type_nacelle && `${T.nacelle} ${m.type_nacelle}`, m.modele_porteur && `${T.sur} ${m.modele_porteur}`, an && `(${an})`].filter(Boolean).join(" ");
   const details = [
-    m.km_porteur ? `${Number(m.km_porteur).toLocaleString("fr-FR")} km` : "",
-    m.heures_nacelle ? `${Number(m.heures_nacelle).toLocaleString("fr-FR")} h` : "",
+    m.km_porteur ? `${nombreDevis(Number(m.km_porteur), lg)} km` : "",
+    m.heures_nacelle ? `${nombreDevis(Number(m.heures_nacelle), lg)} h` : "",
   ].filter(Boolean);
   return [tete, ...details].filter(Boolean).join(" · ");
 }
 
 export default function DevisModal({ machines, prixDealer, onClose, onCree }: Props) {
+  const { i18n } = useTranslation();
+  const [langue, setLangue] = useState<LangueDevis>(() => langueDevis(i18n.language));
   const [cfg, setCfg] = useState<ConfigDevis | null>(null);
   const [client, setClient] = useState<ClientDevis>({ raison_sociale: "" });
   const [lignes, setLignes] = useState<LigneDevis[]>(() =>
@@ -49,12 +54,12 @@ export default function DevisModal({ machines, prixDealer, onClose, onCree }: Pr
       machine_id: m.id,
       immat: m.immat,
       reference: referenceCommerciale(m),
-      designation: designation(m),
+      designation: designation(m, langue),
       prix_ht: (prixDealer ? m.prix_dealer ?? m.prix_fr : m.prix_fr ?? m.prix_dealer) ?? 0,
     }))
   );
   const [tva, setTva] = useState<20 | 0>(20);
-  const [exoneration, setExoneration] = useState("Exonération de TVA — livraison intracommunautaire (art. 262 ter I du CGI)");
+  const [exoneration, setExoneration] = useState(() => TEXTES_DEVIS[langue].exonerationDefaut);
   const [acompte, setAcompte] = useState<AcompteDevis>(30);
   const [validite, setValidite] = useState(30);
   const [conditions, setConditions] = useState("");
@@ -64,10 +69,27 @@ export default function DevisModal({ machines, prixDealer, onClose, onCree }: Pr
   useEffect(() => {
     chargerConfigDevis().then((c) => {
       setCfg(c);
-      setConditions(c.conditions_defaut);
+      setConditions(conditionsPour(c, langue));
       setValidite(c.validite_jours || 30);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** Conditions pré-remplies dans la langue du devis (Admin → Paramètres des devis, sinon texte par défaut traduit) */
+  function conditionsPour(c: ConfigDevis, lg: LangueDevis): string {
+    const v = lg === "fr" ? c.conditions_defaut : lg === "en" ? c.conditions_defaut_en : c.conditions_defaut_es;
+    return (v || "").trim() || TEXTES_DEVIS[lg].conditionsDefaut;
+  }
+
+  /** Changement de langue : désignations, mention d'exonération et conditions retraduites */
+  function changerLangue(lg: LangueDevis) {
+    if (lg === langue) return;
+    setLangue(lg);
+    const parId = new Map(machines.map((m) => [m.id, m]));
+    setLignes((ls) => ls.map((l) => { const m = parId.get(l.machine_id); return m ? { ...l, designation: designation(m, lg) } : l; }));
+    setExoneration(TEXTES_DEVIS[lg].exonerationDefaut);
+    if (cfg) setConditions(conditionsPour(cfg, lg));
+  }
 
   const totalHt = useMemo(() => lignes.reduce((s, l) => s + (Number(l.prix_ht) || 0), 0), [lignes]);
   const totalTtc = totalHt * (1 + tva / 100);
@@ -82,7 +104,7 @@ export default function DevisModal({ machines, prixDealer, onClose, onCree }: Pr
     if (!cfg) return;
     setEnCours(mode);
     try {
-      const r = await creerDevisVente({ client, lignes, tva_taux: tva, exoneration: tva === 0 ? exoneration : "", acompte_pct: acompte, validite_jours: validite, conditions });
+      const r = await creerDevisVente({ client, lignes, tva_taux: tva, exoneration: tva === 0 ? exoneration : "", acompte_pct: acompte, validite_jours: validite, conditions, langue });
       const now = new Date();
       const dv: DevisVente = {
         numero: r.numero,
@@ -91,7 +113,7 @@ export default function DevisModal({ machines, prixDealer, onClose, onCree }: Pr
         client, lignes, tva_taux: tva, exoneration: tva === 0 ? exoneration : "",
         total_ht: r.total_ht, tva: r.tva, total_ttc: r.total_ttc,
         acompte_pct: acompte, acompte_ttc: Math.round(r.total_ttc * acompte) / 100,
-        conditions, commercial: r.commercial,
+        conditions, commercial: r.commercial, langue,
       };
       const pdf = genererDevisPdf(dv, cfg);
       const env = await envoyerDevisVente(r.numero, pdf.base64, mode === "email");
@@ -129,6 +151,18 @@ export default function DevisModal({ machines, prixDealer, onClose, onCree }: Pr
         <div style={{ padding: 20, overflowY: "auto", flex: 1 }}>
           {!cfg ? <div>Chargement…</div> : (
             <>
+              {/* Langue du devis */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+                <span style={{ fontWeight: 700, color: "#1a2a6e" }}>Langue du devis</span>
+                {LANGUES_DEVIS.map((l) => (
+                  <button key={l.code} type="button" onClick={() => changerLangue(l.code)}
+                    style={{ padding: "6px 12px", borderRadius: 16, cursor: "pointer", fontSize: 13, fontWeight: 600, border: `2px solid ${langue === l.code ? "#1a73e8" : "#ddd"}`, background: langue === l.code ? "#eef4fd" : "white", color: langue === l.code ? "#1a73e8" : "#444" }}>
+                    {l.libelle}
+                  </button>
+                ))}
+                <span style={{ fontSize: 11, color: "#888" }}>PDF et email au client dans cette langue</span>
+              </div>
+
               {/* Client */}
               <div style={{ fontWeight: 700, color: "#1a2a6e", marginBottom: 8 }}>Client</div>
               <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10, marginBottom: 10 }}>

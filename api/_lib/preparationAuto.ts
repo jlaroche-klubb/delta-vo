@@ -124,7 +124,7 @@ export async function mettreEnPreparationDevis(app: admin.app.App, dv: any, date
         if (st === "restitution" && !(d.expertise_recue ?? true)) return { ok: false, detail: "expertise Nacelle Expert pas encore reçue (machine non vendable)" };
         const now = new Date().toISOString();
         tx.update(ref, {
-          historique: admin.firestore.FieldValue.arrayUnion({ date: now, de: st, vers: "en_cours", source: "devis_signe", par, note: `vente — ${acheteur} (devis ${dv.numero} signé)` }),
+          historique: admin.firestore.FieldValue.arrayUnion({ date: now, de: st, vers: "en_cours", source: "devis_signe", par, note: dv.type === "locfi" ? `location financière ${dv.locfi?.numero_contrat || ""} — ${acheteur} (contrat signé)` : `vente — ${acheteur} (devis ${dv.numero} signé)` }),
           statut: "en_cours",
           type_sortie: "vente",
           type_prepa: typePrepa,
@@ -135,6 +135,7 @@ export async function mettreEnPreparationDevis(app: admin.app.App, dv: any, date
           date_mise_en_cours: now,
           etapes_prepa: creerEtapesPrepa(typePrepa),
           ...(dv.client?.contact_email ? { email_sortie: dv.client.contact_email } : {}),
+          ...(dv.type === "locfi" ? { contrat_sortie: dv.locfi?.numero_contrat || "", mode_vente: "location_financiere" } : {}),
           updatedAt: now,
         });
         return { ok: true, detail: `en préparation (${typePrepa === "normale" ? "préparation normale" : "en l'état"}, livraison ${livraison.split("-").reverse().join("/")})`, machine: { ...d, _id: l.machine_id, immat: d.immat || l.machine_id } };

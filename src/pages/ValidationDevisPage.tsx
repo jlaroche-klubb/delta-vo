@@ -51,7 +51,7 @@ export default function ValidationDevisPage() {
       <div style={{ maxWidth: 760, margin: "0 auto", padding: "20px 16px 40px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
           <img src={DELTA_LOGO_BASE64} alt="Delta Services" style={{ height: 40 }} />
-          <span style={{ fontWeight: 700, color: BLEU }}>🔒 Validation de remise</span>
+          <span style={{ fontWeight: 700, color: BLEU }}>🔒 Validation (dérogation)</span>
         </div>
         {etat === "charge" && <div style={carte}>Chargement…</div>}
         {etat === "invalide" && <div style={carte}><h2 style={{ marginTop: 0, color: "#c0392b" }}>Lien de validation invalide</h2><p>Ouvrez le lien complet reçu par email.</p></div>}
@@ -60,7 +60,7 @@ export default function ValidationDevisPage() {
             {!enAttente && (
               <div style={{ ...carte, borderLeft: `5px solid ${dv.validation.statut === "validee" ? "#1e8e3e" : "#c0392b"}` }}>
                 <h2 style={{ marginTop: 0, color: dv.validation.statut === "validee" ? "#1e8e3e" : "#c0392b" }}>
-                  {dv.validation.statut === "validee" ? "✅ Remise validée" : dv.validation.statut === "refusee" ? "❌ Remise refusée" : "Demande déjà traitée"}
+                  {dv.validation.statut === "validee" ? "✅ Validé" : dv.validation.statut === "refusee" ? "❌ Refusé" : "Demande déjà traitée"}
                 </h2>
                 {dv.validation.par && <p>Par {dv.validation.par} le {dfr(dv.validation.le)}{dv.validation.motif ? ` — « ${dv.validation.motif} »` : ""}</p>}
                 {resultat && <p><b>{resultat}</b></p>}
@@ -96,6 +96,12 @@ export default function ValidationDevisPage() {
                 <b>Total proposé{dv.lot ? ` (lot de ${dv.lignes.length})` : ""}</b><b style={{ textAlign: "right" }}>{eur(dv.total_ht)} HT</b>
                 <b style={{ color: "#c0392b" }}>Remise totale</b><b style={{ textAlign: "right", color: "#c0392b" }}>{eur(dv.remise_totale)}</b>
               </div>
+              {dv.type === "locfi" && dv.locfi && (
+                <div style={{ marginTop: 10, fontSize: 14, padding: "8px 10px", background: "#f5f9fd", borderRadius: 6 }}>
+                  📄 <b>Location financière {dv.locfi.numero_contrat}</b> — {dv.locfi.duree_mois} mois : 1er loyer majoré <b>{eur(dv.locfi.premier_loyer_ht)} HT</b> ({dv.total_ht ? Math.round((dv.locfi.premier_loyer_ht / dv.total_ht) * 1000) / 10 : 0} %)
+                  {dv.locfi.duree_mois > 1 ? <>, puis {dv.locfi.duree_mois - 1} × {eur(dv.locfi.loyer_mensuel_ht)} HT</> : null}
+                </div>
+              )}
               {dv.motifs.length > 0 && <div style={{ marginTop: 10, fontSize: 13, color: "#7a4b00" }}>🔒 {dv.motifs.join(" ; ")}</div>}
               <div style={{ marginTop: 10, fontSize: 13, color: "#555" }}>
                 Acompte : {dv.acompte_pct ? `${dv.acompte_pct} %` : "financement bancaire"} · Après validation : {dv.envoi_prevu === "email" ? "envoi automatique au client par email" : dv.envoi_prevu === "signature" ? "envoi automatique pour signature DocuSign" : "le commercial récupère le PDF"}
@@ -110,7 +116,7 @@ export default function ValidationDevisPage() {
                 {erreur && <div style={{ color: "#c0392b", fontWeight: 600, marginTop: 8 }}>⚠ {erreur}</div>}
                 <div style={{ display: "flex", gap: 10, marginTop: 14, flexWrap: "wrap" }}>
                   <button onClick={() => decider("valider")} disabled={!!envoi} style={{ flex: "1 1 200px", padding: "14px", fontSize: 16, fontWeight: 700, border: "none", borderRadius: 8, background: "#1e8e3e", color: "white", cursor: "pointer" }}>
-                    {envoi === "valider" ? "⏳ …" : "✅ Valider la remise"}
+                    {envoi === "valider" ? "⏳ …" : "✅ Valider"}
                   </button>
                   <button onClick={() => decider("refuser")} disabled={!!envoi} style={{ flex: "1 1 200px", padding: "14px", fontSize: 16, fontWeight: 700, border: "2px solid #c0392b", borderRadius: 8, background: "white", color: "#c0392b", cursor: "pointer" }}>
                     {envoi === "refuser" ? "⏳ …" : "❌ Refuser"}

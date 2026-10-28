@@ -51,7 +51,12 @@ export interface DevisVente {
   langue?: LangueDevis;
   /** 📦 Vente en lot : un prix global, prix par nacelle non imprimés */
   lot?: boolean;
+  /** 📄 Location financière (contrat DSLOCFI) */
+  type?: "vente" | "locfi";
+  locfi?: LocFi;
 }
+
+export interface LocFi { numero_contrat: string; duree_mois: number; premier_loyer_ht: number; loyer_mensuel_ht: number }
 
 /** Paramètres société affichés sur les devis (Admin → Paramètres des devis) */
 export interface ConfigDevis {
@@ -70,6 +75,8 @@ export interface ConfigDevis {
   cgv_en?: string;
   cgv_es?: string;
   validite_jours: number;
+  /** 👩‍💼 Assistante de chaque commercial, prévenue à la signature : une ligne « email commercial = email assistante » */
+  assistantes_commerciaux?: string;
   /** 🔒 Valideurs des remises > 1 000 € / nacelle (emails séparés par des virgules) */
   valideurs_emails?: string;
   /** 📊 Rapport hebdo des ventes (lundi 8 h) : emails séparés par des virgules */
@@ -93,6 +100,15 @@ export const CONFIG_DEVIS_DEFAUT: ConfigDevis = {
   conditions_defaut_es: "",
   cgv_en: "",
   cgv_es: "",
+  assistantes_commerciaux: [
+    "flarronde@klubb.com = anebotsaudin@delta-services.fr",
+    "flouis@klubb.com = bzucchi@delta-services.fr",
+    "lpotier@klubb.com = bzucchi@delta-services.fr",
+    "fmailleret@klubb.com = gcloarec@delta-services.fr",
+    "dcoulet@klubb.com = gcloarec@delta-services.fr",
+  ].join("\n"),
+  valideurs_emails: "jlaroche@klubb.com, nneguy@klubb.com",
+  rapport_ventes_destinataires: "jlaroche@klubb.com",
   validite_jours: 30,
 };
 
@@ -121,6 +137,8 @@ async function appel(corps: Record<string, any>): Promise<any> {
 }
 
 export function creerDevisVente(d: {
+  type?: "vente" | "locfi";
+  locfi?: { duree_mois: number; premier_loyer_ht: number };
   client: ClientDevis;
   lignes: LigneDevis[];
   lot?: boolean;
@@ -132,7 +150,7 @@ export function creerDevisVente(d: {
   langue: LangueDevis;
   type_prepa: "normale" | "en_etat";
   date_livraison: string;
-}): Promise<{ numero: string; commercial: DevisVente["commercial"]; total_ht: number; tva: number; total_ttc: number; validation_requise?: boolean; motifs_validation?: string[] }> {
+}): Promise<{ numero: string; commercial: DevisVente["commercial"]; total_ht: number; tva: number; total_ttc: number; validation_requise?: boolean; motifs_validation?: string[]; locfi?: LocFi }> {
   return appel({ action: "creer", ...d });
 }
 
@@ -146,6 +164,8 @@ export interface DevisPublic {
   statut: "a_signer" | "signe" | "expire" | "annule";
   client: { raison_sociale: string; contact_nom: string };
   lot?: boolean;
+  type?: "vente" | "locfi";
+  locfi?: LocFi | null;
   lignes: { reference: string; designation: string; prix_ht: number | null }[];
   tva_taux: number; total_ht: number; tva: number; total_ttc: number;
   acompte_pct: number; acompte_ttc: number; conditions: string;
@@ -163,6 +183,7 @@ async function appelPublic(corps: Record<string, any>): Promise<any> {
 // ───────── Page de validation des remises (lien personnel du valideur) ─────────
 export interface DevisAValider {
   numero: string; statut: string; client: string; commercial: string; lot: boolean;
+  type?: "vente" | "locfi"; locfi?: LocFi | null;
   lignes: { reference: string; designation: string; catalogue: number | null; propose: number; remise: number | null }[];
   total_ht: number; total_catalogue: number; remise_totale: number; motifs: string[]; acompte_pct: number;
   pdf_url?: string; envoi_prevu?: "email" | "pdf" | "signature";

@@ -6,6 +6,8 @@ import {
   chargerConfigDevis,
   creerDevisVente,
   envoyerDevisVente,
+  signatureDisponible,
+  signerDevisVente,
   type AcompteDevis,
   type ClientDevis,
   type ConfigDevis,
@@ -66,10 +68,13 @@ export default function DevisModal({ machines, prixDealer, onClose, onCree }: Pr
   const [acompte, setAcompte] = useState<AcompteDevis>(30);
   const [validite, setValidite] = useState(30);
   const [conditions, setConditions] = useState("");
-  const [enCours, setEnCours] = useState<"" | "pdf" | "email">("");
+  const [enCours, setEnCours] = useState<"" | "pdf" | "email" | "signature">("");
+  const [docusign, setDocusign] = useState(false);
+  const [consentement, setConsentement] = useState("");
   const [erreur, setErreur] = useState("");
 
   useEffect(() => {
+    signatureDisponible().then(setDocusign);
     chargerConfigDevis().then((c) => {
       setCfg(c);
       setConditions(conditionsPour(c, langue));
@@ -123,11 +128,13 @@ export default function DevisModal({ machines, prixDealer, onClose, onCree }: Pr
   const setC = (k: keyof ClientDevis, v: string) => setClient((c) => ({ ...c, [k]: v }));
   const setL = (i: number, k: keyof LigneDevis, v: any) => setLignes((ls) => ls.map((l, j) => (j === i ? { ...l, [k]: v } : l)));
 
-  async function valider(mode: "pdf" | "email") {
+  async function valider(mode: "pdf" | "email" | "signature") {
     setErreur("");
+    setConsentement("");
     setTente(true);
     if (Object.keys(manquants).length) return; // message affiché en direct sous le formulaire
-    if (mode === "email" && !emailValide(client.contact_email)) return setErreur("Indiquez l'email du contact pour l'envoi.");
+    if (mode !== "pdf" && !emailValide(client.contact_email)) return setErreur(mode === "signature" ? "Indiquez l'email du contact : c'est lui qui recevra la demande de signature." : "Indiquez l'email du contact pour l'envoi.");
+    if (mode === "signature" && !(client.contact_nom || "").trim()) return setErreur("Indiquez le nom du contact (signataire).");
     if (lignes.some((l) => !(Number(l.prix_ht) > 0))) return setErreur("Chaque nacelle doit avoir un prix HT.");
     if (!cfg) return;
     setEnCours(mode);
@@ -144,7 +151,9 @@ export default function DevisModal({ machines, prixDealer, onClose, onCree }: Pr
         conditions, commercial: r.commercial, langue,
       };
       const pdf = genererDevisPdf(dv, cfg);
-      const env = await envoyerDevisVente(r.numero, pdf.base64, mode === "email");
+      const env = mode === "signature"
+        ? await signerDevisVente(r.numero, pdf.base64)
+        : await envoyerDevisVente(r.numero, pdf.base64, mode === "email");
       if (mode === "pdf") {
         const a = document.createElement("a");
         a.href = URL.createObjectURL(pdf.blob);
@@ -158,10 +167,15 @@ export default function DevisModal({ machines, prixDealer, onClose, onCree }: Pr
         montants: Object.fromEntries(lignes.map((l) => [l.machine_id, Number(l.prix_ht) || 0])),
         pdfUrl: env.pdf_url,
       });
-      alert(mode === "email" ? `✅ Devis ${r.numero} envoyé à ${env.to} (copie à vous-même).` : `✅ Devis ${r.numero} créé et téléchargé.`);
+      alert(
+        mode === "signature" ? `✍️ Devis ${r.numero} envoyé pour signature électronique à ${env.to}.\nVous recevrez un email dès qu'il est signé (ou refusé).`
+        : mode === "email" ? `✅ Devis ${r.numero} envoyé à ${env.to} (copie à vous-même).`
+        : `✅ Devis ${r.numero} créé et téléchargé.`
+      );
       onClose();
     } catch (e: any) {
       setErreur(e?.message || "Erreur lors de la création du devis");
+      if (e?.details?.consentement_url) setConsentement(e.details.consentement_url);
     } finally {
       setEnCours("");
     }
@@ -302,6 +316,11 @@ export default function DevisModal({ machines, prixDealer, onClose, onCree }: Pr
               {tente && Object.keys(manquants).length > 0 && (
                 <div style={{ marginTop: 10, color: "#c0392b", fontWeight: 600 }}>⚠ {france ? "Client en France : " : ""}indiquez {Object.values(manquants).join(", ")}.</div>
               )}
+              {consentement && (
+                <div style={{ marginTop: 6, fontSize: 13 }}>
+                  👉 <a href={consentement} target="_blank" rel="noopener noreferrer">Autoriser Delta VO dans DocuSign</a> (une seule fois, avec le compte DocuSign de l'entreprise), puis recommencez.
+                </div>
+              )}
               {erreur && <div style={{ marginTop: 10, color: "#c0392b", fontWeight: 600 }}>⚠ {erreur}</div>}
             </>
           )}
@@ -315,6 +334,12 @@ export default function DevisModal({ machines, prixDealer, onClose, onCree }: Pr
           <button onClick={() => valider("email")} disabled={!cfg || !!enCours} style={{ padding: "10px 16px", borderRadius: 6, border: "none", background: "#1a73e8", color: "white", fontWeight: 600, cursor: "pointer" }}>
             {enCours === "email" ? "⏳ Envoi…" : "📧 Créer et envoyer au client"}
           </button>
+          {docusign && (
+            <button onClick={() => valider("signature")} disabled={!cfg || !!enCours} title="Le client reçoit un email DocuSign et signe en ligne ; vous êtes prévenu dès la signature"
+              style={{ padding: "10px 16px", borderRadius: 6, border: "none", background: "#1e8e3e", color: "white", fontWeight: 600, cursor: "pointer" }}>
+              {enCours === "signature" ? "⏳ Envoi DocuSign…" : "✍️ Créer et envoyer pour signature"}
+            </button>
+          )}
         </div>
       </div>
     </div>

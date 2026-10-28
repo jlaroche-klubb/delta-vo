@@ -460,6 +460,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             offre_en_cours: data.offre_en_cours || undefined,
             devis_vente_numero: data.devis_vente_numero || undefined,
             devis_vente_url: data.devis_vente_url || undefined,
+            devis_vente_signe_le: data.devis_vente_signe_le || undefined,
             client_offre: data.client_offre || undefined,
             montant_offre: data.montant_offre ?? undefined,
             hubspot_deal_id: data.hubspot_deal_id || undefined,
@@ -2092,6 +2093,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       if (devis) {
         updates.devis_vente_numero = devis.numero;
         updates.devis_vente_url = devis.pdfUrl || null;
+        updates.devis_vente_signe_le = null;
       }
 
       if (isFirebaseMachine(machineId)) {
@@ -2118,6 +2120,7 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       hubspot_deal_id: null,
       devis_vente_numero: null,
       devis_vente_url: null,
+      devis_vente_signe_le: null,
       updatedAt: new Date().toISOString(),
     };
 

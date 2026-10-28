@@ -141,10 +141,10 @@ export default function DisponibleCard({
               href={machine.devis_vente_url || undefined}
               target="_blank"
               rel="noopener noreferrer"
-              title="Ouvrir le PDF du devis"
+              title={machine.devis_vente_signe_le ? "Ouvrir le devis signé (PDF + certificat DocuSign)" : "Ouvrir le PDF du devis"}
               style={{ color: "#1a73e8", textDecoration: "none", flex: 1, cursor: machine.devis_vente_url ? "pointer" : "default" }}
             >
-              🧾 Devis {machine.devis_vente_numero}{machine.client_offre ? ` — ${machine.client_offre}` : ""}{machine.devis_vente_url ? " 📄" : ""}
+              {machine.devis_vente_signe_le ? "✍️" : "🧾"} Devis {machine.devis_vente_numero}{machine.client_offre ? ` — ${machine.client_offre}` : ""}{machine.devis_vente_signe_le ? <span style={{ color: "#1e8e3e" }}> · signé le {machine.devis_vente_signe_le.slice(0, 10).split("-").reverse().join("/")}</span> : null}{machine.devis_vente_url ? " 📄" : ""}
             </a>
           ) : machine.hubspot_deal_id ? (
             <a

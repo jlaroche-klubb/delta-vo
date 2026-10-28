@@ -138,6 +138,10 @@ export function genererDevisPdf(dv: DevisVente, cfg: ConfigDevis): { base64: str
   pdf.setFont("helvetica", "normal").setFontSize(8).setTextColor(...GRIS);
   pdf.text(T.signature1, W - M - 82, y + 11);
   pdf.text(T.signature2, W - M - 82, y + 15);
+  // Ancres invisibles (texte blanc) : emplacement de la signature et de la date DocuSign
+  pdf.setFontSize(6).setTextColor(255, 255, 255);
+  pdf.text("\\s1\\", W - M - 82, y + 26);
+  pdf.text("\\d1\\", W - M - 30, y + 30);
 
   // ── Pied de page : mentions légales + pagination ──
   const pages = pdf.getNumberOfPages();

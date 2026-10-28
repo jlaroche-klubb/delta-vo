@@ -130,6 +130,16 @@ export function envoyerDevisVente(numero: string, pdfBase64: string, envoyerEmai
   return appel({ action: "envoyer", numero, pdfBase64, envoyer_email: envoyerEmail });
 }
 
+/** Signature électronique disponible ? (variables DocuSign renseignées dans Vercel) */
+export async function signatureDisponible(): Promise<boolean> {
+  try { return !!(await appel({ action: "config" })).docusign; } catch { return false; }
+}
+
+/** Envoi pour signature électronique DocuSign (le client reçoit l'email DocuSign) */
+export function signerDevisVente(numero: string, pdfBase64: string): Promise<{ pdf_url: string; envelope_id: string; to: string }> {
+  return appel({ action: "signer", numero, pdfBase64 });
+}
+
 export function annulerDevisVente(numero: string, motif?: string): Promise<void> {
   return appel({ action: "annuler", numero, motif });
 }

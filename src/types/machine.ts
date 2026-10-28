@@ -328,6 +328,8 @@ export interface Machine {
   /** 🧾 Devis de vente Delta VO (collection devis_vente) */
   devis_vente_numero?: string;
   devis_vente_url?: string;
+  /** ✍️ Date de signature électronique (DocuSign) — devis_vente_url pointe alors vers le PDF signé */
+  devis_vente_signe_le?: string;
 
   is_test?: boolean;
   createdAt: string;

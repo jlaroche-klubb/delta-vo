@@ -338,15 +338,15 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
   }
 
 
-  function handleAnnulerOffre(machine: Machine) {
-    const num = machine.devis_vente_numero;
+  function handleAnnulerOffre(machine: Machine, numeroChoisi?: string) {
+    const num = numeroChoisi || machine.devis_vente_numero;
     const signe = !!machine.devis_vente_signe_le;
     if (window.confirm(signe
       ? `⚠️ Le devis ${num} a été SIGNÉ par le client.\nRetirer quand même l'offre de ${machine.immat} ? (le devis reste signé dans l'historique)`
       : `Annuler l'offre en cours sur ${machine.immat}${num ? ` (devis ${num})` : ""} ?`)) {
-      annulerOffre(machine.id);
+      annulerOffre(machine.id, num);
       // 🧾 Dernière nacelle du devis retirée → le devis passe « annulé »
-      if (num && !machines.some((m) => m.id !== machine.id && m.devis_vente_numero === num && m.offre_en_cours)) {
+      if (num && !machines.some((m) => m.id !== machine.id && m.offre_en_cours && (m.devis_vente_numero === num || (m.devis_ouverts || []).some((o) => o.numero === num)))) {
         annulerDevisVente(num, `offre retirée (${machine.immat})`).catch((e) => console.warn("Annulation devis :", e));
       }
     }
@@ -1217,7 +1217,7 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
       {offreModalOpen && panier.length > 0 && (
         <DevisModal
           machines={panier}
-          autresMachines={machines.filter((m) => m.statut === "disponible" && !m.archived && !m.offre_en_cours && (m.prix_fr || m.prix_dealer) && !panier.some((p) => p.id === m.id))}
+          autresMachines={machines.filter((m) => m.statut === "disponible" && !m.archived && !m.devis_vente_signe_le && (m.prix_fr || m.prix_dealer) && !panier.some((p) => p.id === m.id))}
           estAdmin={isAdmin}
           prixDealer={userRole === "dealer"}
           onClose={() => setOffreModalOpen(false)}

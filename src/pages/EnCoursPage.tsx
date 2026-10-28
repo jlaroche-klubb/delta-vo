@@ -7,6 +7,10 @@ import {
 } from "../types/machine";
 import { useMachines } from "../contexts/MachinesContext";
 import EnCoursCard from "../components/EnCoursCard";
+import ChangerNacelleModal from "../components/ChangerNacelleModal";
+import { chargerConfigDevis, lireDevisAdmin, resignerDevis } from "../services/devisVenteService";
+import { genererDevisPdf } from "../utils/generateDevisPdf";
+import { genererContratLocFiPdf } from "../utils/generateContratLocFiPdf";
 import DocumentsModal from "../components/DocumentsModal";
 import { useTranslation } from "react-i18next";
 import ConfigEnCoursModal, {
@@ -180,6 +184,24 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
     }
   }
 
+  // 🔁 Changer de nacelle (devis signé) + re-signature quand c'est définitif
+  const [changerMachine, setChangerMachine] = useState<Machine | null>(null);
+  async function handleResigner(m: Machine) {
+    if (!m.devis_vente_numero) return;
+    if (!window.confirm(`Envoyer le devis ${m.devis_vente_numero} à jour au client pour re-signature ?\n\nÀ faire seulement quand la nacelle est définitive : le client reçoit le nouveau devis avec le bouton « Accepter et signer ».`)) return;
+    try {
+      const { devis } = await lireDevisAdmin(m.devis_vente_numero);
+      const cfg = await chargerConfigDevis();
+      const pdf = devis.type === "locfi" && devis.locfi
+        ? genererContratLocFiPdf({ ...devis, locfi: devis.locfi }, devis.lignes.map((l) => { const mm = machines.find((x) => x.id === l.machine_id); return { reference: l.reference, type: mm?.type_nacelle, immat: mm?.immat || l.immat }; }))
+        : genererDevisPdf(devis, cfg);
+      const r = await resignerDevis(m.devis_vente_numero, pdf.base64, pdf.zoneSignature);
+      alert(`✍️ Devis ${m.devis_vente_numero} renvoyé à ${r.to} pour re-signature.`);
+    } catch (e: any) {
+      alert(`❌ ${e?.message || "Envoi impossible"}`);
+    }
+  }
+
   function handleCancel(machineId: string) {
     cancelEnCours(machineId);
   }
@@ -294,6 +316,8 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
                 onOpenDocuments={setDocsMachine}
                 canCancel={canCancel}
                 onCancel={handleCancel}
+                onChangerNacelle={canCancel ? setChangerMachine : undefined}
+                onResigner={canCancel ? handleResigner : undefined}
               />
             ))}
           </div>
@@ -329,6 +353,8 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
                 onLivree={handleLivree}
                 canCancel={canCancel}
                 onCancel={handleCancel}
+                onChangerNacelle={canCancel ? setChangerMachine : undefined}
+                onResigner={canCancel ? handleResigner : undefined}
               />
             ))}
           </div>
@@ -364,6 +390,8 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
                 onLivree={handleLivree}
                 canCancel={canCancel}
                 onCancel={handleCancel}
+                onChangerNacelle={canCancel ? setChangerMachine : undefined}
+                onResigner={canCancel ? handleResigner : undefined}
               />
             ))}
           </div>
@@ -394,6 +422,13 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
         />
       )}
 
+      {changerMachine && (
+        <ChangerNacelleModal
+          machine={changerMachine}
+          disponibles={machines.filter((x) => x.statut === "disponible" && !x.archived && !x.devis_vente_signe_le)}
+          onClose={() => setChangerMachine(null)}
+        />
+      )}
       {docsMachine && (
         <DocumentsModal
           machine={docsMachine}

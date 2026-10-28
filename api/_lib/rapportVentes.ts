@@ -69,7 +69,12 @@ export async function collecterVentes(db: admin.firestore.Firestore, s: Semaine)
   const devis = dsnap.docs.map((x) => x.data() as any).filter((d) => String(d.date || "").slice(0, 10) <= s.fin);
   const signes = (await db.collection("devis_vente").where("signe_le", ">=", s.debut).get()).docs
     .map((x) => x.data() as any).filter((d) => d.statut === "signe" && String(d.signe_le || "").slice(0, 10) <= s.fin);
+  // 🔁 Ventes dont la nacelle a été changée et que le client n'a pas encore re-signées
+  const aResigner = (await db.collection("devis_vente").where("statut", "in", ["a_resigner", "envoye"]).get()).docs
+    .map((x) => x.data() as any).filter((d) => (d.echanges || []).length > 0)
+    .map((d) => ({ numero: d.numero, client: d.client?.raison_sociale || "", commercial: d.commercial?.nom || "", envoye: d.statut === "envoye", refs: (d.lignes || []).map((l: any) => l.reference).join(", ") }));
   return {
+    aResigner,
     ventes,
     devisEnvoyes: devis.filter((d) => ["envoye", "signature", "signe", "genere"].includes(d.statut) || d.envoye_le).length,
     devisSignes: signes.map((d) => ({ numero: d.numero, client: d.client?.raison_sociale || "", total_ht: d.total_ht, nb: (d.lignes || []).length })),
@@ -107,6 +112,9 @@ export function construireRapport(s: Semaine, r: Awaited<ReturnType<typeof colle
       : `<p style="color:#666">Aucune vente enregistrée cette semaine-là.</p>`) +
     (parCommercial.size > 1 || (parCommercial.size === 1 && !parCommercial.has("—"))
       ? `<h3 style="color:#1f4282;margin:20px 0 6px;font-size:15px">Par commercial</h3><ul style="margin:0;padding-left:18px">${[...parCommercial.entries()].sort((a, b) => b[1].ca - a[1].ca).map(([k, c]) => `<li>${esc(k)} : ${c.nb} nacelle${c.nb > 1 ? "s" : ""} — ${c.ca > 0 ? eur(c.ca) + " HT" : "prix non renseigné"}</li>`).join("")}</ul>`
+      : "") +
+    (r.aResigner.length
+      ? `<h3 style="color:#b26a00;margin:20px 0 6px;font-size:15px">🔁 Nacelle changée — à re-signer</h3><ul style="margin:0;padding-left:18px">${r.aResigner.map((d) => `<li>${esc(d.numero)} — ${esc(d.client)} (${esc(d.commercial)}) : ${esc(d.refs)} · ${d.envoye ? "renvoyé au client, en attente de signature" : "pas encore renvoyé au client"}</li>`).join("")}</ul>`
       : "") +
     (r.devisSignes.length
       ? `<h3 style="color:#1f4282;margin:20px 0 6px;font-size:15px">Devis signés</h3><ul style="margin:0;padding-left:18px">${r.devisSignes.map((d) => `<li>${esc(d.numero)} — ${esc(d.client)} : ${d.nb} nacelle${d.nb > 1 ? "s" : ""}, ${eur(d.total_ht)} HT</li>`).join("")}</ul>`

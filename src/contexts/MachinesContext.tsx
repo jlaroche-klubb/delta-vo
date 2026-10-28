@@ -1,6 +1,6 @@
 import { annulerDevisVente } from "../services/devisVenteService";
 import { createContext, useContext, useState, useEffect, ReactNode, useMemo } from "react";
-import { collection, onSnapshot, doc, getDoc, updateDoc, setDoc, deleteDoc, Timestamp, deleteField } from "firebase/firestore";
+import { collection, onSnapshot, doc, getDoc, updateDoc, setDoc, deleteDoc, Timestamp, deleteField, arrayUnion } from "firebase/firestore";
 import { db, dbNacelleExpert } from "../firebase";
 import { traceStatut } from "../utils/historique";
 import {
@@ -166,7 +166,7 @@ interface MachinesContextType {
   }) => void;
   deleteMachine: (machineId: string) => void;
   creerOffre: (machineIds: string[], clientOffre: string, montants: Record<string, number>, hubspotDealId?: string, devis?: { numero: string; pdfUrl?: string; enValidation?: boolean }) => Promise<void>;
-  annulerOffre: (machineId: string) => void;
+  annulerOffre: (machineId: string, numero?: string) => void;
 }
 
 const MachinesContext = createContext<MachinesContextType | undefined>(undefined);
@@ -463,6 +463,8 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             devis_vente_url: data.devis_vente_url || undefined,
             devis_vente_signe_le: data.devis_vente_signe_le || undefined,
             devis_vente_validation: data.devis_vente_validation || undefined,
+            devis_ouverts: Array.isArray(data.devis_ouverts) ? data.devis_ouverts : undefined,
+            devis_vente_a_resigner: data.devis_vente_a_resigner || undefined,
             client_offre: data.client_offre || undefined,
             montant_offre: data.montant_offre ?? undefined,
             hubspot_deal_id: data.hubspot_deal_id || undefined,
@@ -2110,6 +2112,8 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
         updates.devis_vente_url = devis.pdfUrl || null;
         updates.devis_vente_signe_le = null;
         updates.devis_vente_validation = devis.enValidation ? "en_attente" : null;
+        // Plusieurs devis possibles sur une même nacelle : le premier qui signe gagne
+        updates.devis_ouverts = arrayUnion({ numero: devis.numero, client: clientOffre, url: devis.pdfUrl || "" });
       }
 
       if (isFirebaseMachine(machineId)) {
@@ -2127,8 +2131,21 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function annulerOffre(machineId: string) {
+  async function annulerOffre(machineId: string, numero?: string) {
+    // Plusieurs devis ouverts : on ne retire que celui-là
+    const mm = machines.find((x) => x.id === machineId);
+    const ouverts = mm?.devis_ouverts || [];
+    if (numero && ouverts.filter((o) => o.numero !== numero).length > 0) {
+      const reste = ouverts.filter((o) => o.numero !== numero);
+      const dernier = reste[reste.length - 1];
+      const part: any = { devis_ouverts: reste, updatedAt: new Date().toISOString() };
+      if (mm?.devis_vente_numero === numero) Object.assign(part, { devis_vente_numero: dernier.numero, devis_vente_url: dernier.url || null, client_offre: dernier.client || null, devis_vente_signe_le: null, devis_vente_validation: null });
+      if (isFirebaseMachine(machineId)) await updateDoc(doc(db, "machines_vo", machineId), part).catch((e) => console.error("❌ annulerOffre :", e));
+      return;
+    }
     const updates: any = {
+      devis_ouverts: [],
+      devis_vente_a_resigner: null,
       offre_en_cours: false,
       client_offre: null,
       montant_offre: null,

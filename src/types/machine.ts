@@ -332,6 +332,10 @@ export interface Machine {
   devis_vente_signe_le?: string;
   /** 🔒 Remise > 1 000 € / nacelle en attente de validation (Jonathan / Nathalie) */
   devis_vente_validation?: "en_attente";
+  /** 🧾 Tous les devis ouverts sur la nacelle (plusieurs clients possibles : le premier qui signe gagne) */
+  devis_ouverts?: { numero: string; client?: string; commercial?: string; url?: string }[];
+  /** 🔁 Nacelle changée sur un devis signé : à re-signer (true) / renvoyé pour re-signature ("envoye") */
+  devis_vente_a_resigner?: true | "envoye";
 
   is_test?: boolean;
   createdAt: string;

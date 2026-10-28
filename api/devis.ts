@@ -33,7 +33,7 @@ import {
   envoyerPourSignature, pdfSigne, secretWebhook, statutEnveloppe,
 } from "./_lib/docusign.js";
 import { signerPdf } from "./_lib/signatureDevis.js";
-import { mettreEnPreparationDevis } from "./_lib/preparationAuto.js";
+import { archiverHubspot, creerEtapesPrepa, mettreEnPreparationDevis, notifierPreparateurs, publierHubspot } from "./_lib/preparationAuto.js";
 import { collecterVentes, construireRapport, semainePrecedente } from "./_lib/rapportVentes.js";
 
 export const maxDuration = 30;
@@ -377,14 +377,7 @@ async function actionValidation(req: any, res: any, body: any) {
     }
   } else {
     // Refus : l'offre est retirée des nacelles
-    for (const l of dv.lignes || []) {
-      if (!l.machine_id) continue;
-      const mref = db.collection("machines_vo").doc(l.machine_id);
-      const m: any = (await mref.get()).data();
-      if (m?.devis_vente_numero === numero) {
-        await mref.update({ offre_en_cours: false, client_offre: null, montant_offre: null, date_offre: null, devis_vente_numero: null, devis_vente_url: null, devis_vente_validation: null, devis_vente_signe_le: null, updatedAt: now });
-      }
-    }
+    await retirerDevisDesMachines(db, dv);
     resultat = "le devis n'est pas envoyé et l'offre est retirée des nacelles";
   }
   await emailBrevo({ email: dv.commercial?.email, name: dv.commercial?.nom },
@@ -394,6 +387,73 @@ async function actionValidation(req: any, res: any, body: any) {
   const d3: any = (await ref.get()).data();
   Object.assign(dv, d3);
   return res.status(200).json({ ok: true, resultat, devis: vue() });
+}
+
+const STATUTS_OUVERTS = ["brouillon", "genere", "envoye", "signature", "a_valider", "valide"];
+
+/** Retire un devis des fiches de ses nacelles (bandeau, liste des devis ouverts) */
+async function retirerDevisDesMachines(db: admin.firestore.Firestore, dv: any) {
+  const now = new Date().toISOString();
+  for (const l of dv.lignes || []) {
+    if (!l.machine_id) continue;
+    const mref = db.collection("machines_vo").doc(l.machine_id);
+    await db.runTransaction(async (tx) => {
+      const m: any = (await tx.get(mref)).data();
+      if (!m) return;
+      const reste = (Array.isArray(m.devis_ouverts) ? m.devis_ouverts : []).filter((o: any) => o?.numero && o.numero !== dv.numero);
+      const u: Record<string, any> = { devis_ouverts: reste, updatedAt: now };
+      if (m.devis_vente_numero === dv.numero) {
+        const dernier = reste.at(-1);
+        Object.assign(u, dernier
+          ? { devis_vente_numero: dernier.numero, devis_vente_url: dernier.url || null, client_offre: dernier.client || null, devis_vente_signe_le: null, devis_vente_validation: null }
+          : { offre_en_cours: false, client_offre: null, montant_offre: null, date_offre: null, devis_vente_numero: null, devis_vente_url: null, devis_vente_signe_le: null, devis_vente_validation: null });
+      }
+      tx.update(mref, u);
+    });
+  }
+}
+
+/** 🏁 Un devis vient d'être signé : les autres devis ouverts sur les mêmes nacelles sont annulés */
+async function annulerDevisConcurrents(db: admin.firestore.Firestore, dvSigne: any) {
+  const vus = new Set<string>();
+  for (const l of dvSigne.lignes || []) {
+    if (!l.machine_id) continue;
+    const q = await db.collection("devis_vente").where("machine_ids", "array-contains", l.machine_id).get();
+    for (const doc of q.docs) {
+      const autre: any = doc.data();
+      if (autre.numero === dvSigne.numero || vus.has(autre.numero) || !STATUTS_OUVERTS.includes(autre.statut)) continue;
+      vus.add(autre.numero);
+      const now = new Date().toISOString();
+      const motif = `${l.reference} vendue à ${dvSigne.client?.raison_sociale || "un autre client"} (devis ${dvSigne.numero} signé)`;
+      await doc.ref.update({ statut: "annule", annule_le: now, motif_annulation: motif,
+        historique: admin.firestore.FieldValue.arrayUnion({ date: now, action: `annulé automatiquement — ${motif}`, par: "Delta VO" }) });
+      if (autre.docusign?.envelope_id && autre.docusign.statut === "sent" && docusignConfigure()) await annulerEnveloppe(autre.docusign.envelope_id, "Nacelle vendue à un autre client");
+      await retirerDevisDesMachines(db, autre);
+      await emailBrevo({ email: autre.commercial?.email, name: autre.commercial?.nom }, `⚠ Devis ${autre.numero} annulé — ${l.reference} vendue à un autre client`,
+        `<p>Bonjour,</p><p>La nacelle <b>${esc(l.reference)}</b> de votre devis <b>${esc(autre.numero)}</b> (${esc(autre.client?.raison_sociale || "")}) vient d'être vendue : un autre devis a été signé en premier${dvSigne.commercial?.nom ? ` (${esc(dvSigne.commercial.nom)})` : ""}.</p>` +
+        `<p>Votre devis est <b>annulé</b> : son lien de signature n'est plus valable. Pensez à prévenir votre client${autre.client?.contact_nom ? ` (${esc(autre.client.contact_nom)})` : ""} et, si besoin, à lui proposer une autre nacelle.</p><p><a href="https://delta-vo.vercel.app">Delta VO</a></p>`);
+      console.log(`🏁 Devis ${autre.numero} annulé : ${motif}`);
+    }
+  }
+}
+
+/** Désignation d'une nacelle pour une ligne de devis (même format que la fenêtre du devis) */
+function designationNacelle(d: any, lg: Langue): string {
+  const T = { fr: ["Nacelle", "sur"], en: ["Aerial platform", "on"], es: ["Plataforma elevadora", "sobre"] }[lg];
+  const an = String(d.annee_circulation || "").match(/(19|20)\d{2}/)?.[0];
+  const loc = LOCALE[lg];
+  const tete = [d.type_nacelle && `${T[0]} ${d.type_nacelle}`, d.modele_porteur && `${T[1]} ${d.modele_porteur}`, an && `(${an})`].filter(Boolean).join(" ");
+  const det = [d.km_porteur ? `${Number(d.km_porteur).toLocaleString(loc)} km` : "", d.heures_nacelle ? `${Number(d.heures_nacelle).toLocaleString(loc)} h` : ""].filter(Boolean);
+  return [tete, ...det].filter(Boolean).join(" · ").replace(/[\u00a0\u202f]/g, " ");
+}
+
+function referenceDe(d: any): string {
+  const brut = String(d.numero_occasion || "").trim().toUpperCase();
+  if (!brut) return "VO";
+  let prop = String(d.proprietaire || "DS").trim().toUpperCase();
+  const x = brut.match(/^([A-Z]{2})?[\s-]*(\d+)[\s-]*([A-Z]{2})?$/);
+  if (x) { prop = x[1] || x[3] || prop; return `${prop}${x[2]}`; }
+  return brut.startsWith(prop) ? brut : `${prop}${brut}`;
 }
 
 /** Après une signature (DocuSign ou en ligne) : fiches machines + email au commercial */
@@ -447,12 +507,32 @@ async function prevenirAssistante(db: admin.firestore.Firestore, dv: any, url: s
 async function apresSignature(db: admin.firestore.Firestore, dv: any, url: string, signataire: string, date: string, source: string) {
   const numero = dv.numero;
   const now = new Date().toISOString();
-  // Fiches machines encore rattachées à ce devis : lien vers le PDF signé
+  // Fiches machines rattachées à ce devis : il devient LE devis de la nacelle (lien vers le PDF signé)
   for (const l of dv.lignes || []) {
     if (!l.machine_id) continue;
     const mref = db.collection("machines_vo").doc(l.machine_id);
-    const m = (await mref.get()).data();
-    if (m?.devis_vente_numero === numero) await mref.update({ devis_vente_url: url, devis_vente_signe_le: date, updatedAt: now });
+    const m: any = (await mref.get()).data();
+    const porte = m && (m.devis_vente_numero === numero || (Array.isArray(m.devis_ouverts) && m.devis_ouverts.some((o: any) => o?.numero === numero)));
+    if (porte) {
+      await mref.update({
+        offre_en_cours: true, client_offre: dv.client?.raison_sociale || "", montant_offre: l.prix_ht ?? null,
+        devis_vente_numero: numero, devis_vente_url: url, devis_vente_signe_le: date, devis_vente_validation: null, devis_vente_a_resigner: null,
+        devis_ouverts: [{ numero, client: dv.client?.raison_sociale || "", commercial: dv.commercial?.nom || "", url }],
+        updatedAt: now,
+      });
+    }
+  }
+  // 🏁 Premier qui signe gagne : les autres devis ouverts sur ces nacelles sont annulés, leurs commerciaux prévenus
+  await annulerDevisConcurrents(db, dv).catch((e) => console.warn("Devis concurrents :", e?.message || e));
+  // ✍️ Re-signature après changement de nacelle : la vente est déjà en préparation
+  if (dv.echanges?.length) {
+    await emailBrevo({ email: dv.commercial?.email, name: dv.commercial?.nom }, `✍️ Devis ${numero} re-signé après changement de nacelle — ${dv.client?.raison_sociale || ""}`,
+      `<p>Bonjour,</p><p>Le client a <b>re-signé</b> le devis <b>${esc(numero)}</b> avec ${(dv.lignes || []).map((l: any) => esc(l.reference)).join(", ")}.</p><p>📄 <a href="${url}">Devis re-signé (PDF)</a></p>`);
+    const cfgA: any = (await db.collection("config").doc("devis").get()).data() || {};
+    const toA = assistantesDe(cfgA, dv.commercial?.email);
+    if (toA.length) await emailBrevo({ email: toA[0] }, `✍️ Devis ${numero} re-signé (nacelle changée) — ${dv.client?.raison_sociale || ""}`,
+      `<p>Bonjour,</p><p>Le devis <b>${esc(numero)}</b> a été re-signé après changement de nacelle : ${(dv.lignes || []).map((l: any) => `<b>${esc(l.reference)}</b> (${esc(l.immat || "")})`).join(", ")}. Le prix est inchangé.</p><p>📄 <a href="${url}">Devis re-signé (PDF)</a> — remplace le précédent dans le dossier client.</p>`);
+    return;
   }
   // 🔧 Mise en préparation automatique (décision Jonathan 28/10/2026)
   const prepa = await mettreEnPreparationDevis(appAdmin(), dv, date, `Devis ${numero} signé (${source})`);
@@ -787,6 +867,7 @@ export default async function handler(req: any, res: any) {
           conditions: str(body.conditions, 3000),
           langue: estLocFi ? "fr" : langueOk(body.langue),
           lot: estLot,
+          machine_ids: [...new Set(lignes.map((l: any) => l.machine_id).filter(Boolean))],
           validation,
           type: estLocFi ? "locfi" : "vente",
           ...(estLocFi ? { locfi: { numero_contrat: numeroContrat, duree_mois: dureeMois, premier_loyer_ht: premierLoyer, loyer_mensuel_ht: loyerMensuel } } : {}),
@@ -864,6 +945,134 @@ export default async function handler(req: any, res: any) {
       if (!["admin", "superadmin"].includes(String(profil.role || ""))) return res.status(403).json({ error: "Réservé aux administrateurs" });
       const r = await envoyerRapportHebdo({ force: true, destinataires: body.moi ? [user.email] : undefined });
       return res.status(r.ok ? 200 : 502).json(r);
+    }
+
+    // ───────────── LIRE (admin) : devis complet pour régénérer son PDF ─────────────
+    if (action === "lire") {
+      if (!["admin", "superadmin"].includes(String(profil.role || ""))) return res.status(403).json({ error: "Réservé aux administrateurs" });
+      const d = (await db.collection("devis_vente").doc(str(body.numero, 20)).get()).data();
+      if (!d) return res.status(404).json({ error: "Devis introuvable" });
+      const { signature_jeton, validation, ...visible } = d as any;
+      return res.status(200).json({ ok: true, devis: { ...visible, validation: validation ? { statut: validation.statut } : undefined } });
+    }
+
+    // ───────────── 🔁 CHANGER DE NACELLE sur un devis signé (admin / super admin) ─────────────
+    // Prix inchangé ; la nouvelle nacelle reprend la vente, l'ancienne revient en stock ;
+    // le devis passe « à re-signer » (envoi au client quand c'est définitif : action « resigner »).
+    if (action === "changer_nacelle") {
+      if (!["admin", "superadmin"].includes(String(profil.role || ""))) return res.status(403).json({ error: "Réservé aux administrateurs" });
+      const numero = str(body.numero, 20);
+      const ancId = str(body.ancienne_id, 40), nouvId = str(body.nouvelle_id, 40);
+      if (!ancId || !nouvId || ancId === nouvId) return res.status(400).json({ error: "Nacelles à préciser" });
+      const dref = db.collection("devis_vente").doc(numero);
+      const aref = db.collection("machines_vo").doc(ancId), nref = db.collection("machines_vo").doc(nouvId);
+      const now = new Date().toISOString();
+      let resume: any = null;
+      try {
+        resume = await db.runTransaction(async (tx) => {
+          const [ds, as_, ns] = await Promise.all([tx.get(dref), tx.get(aref), tx.get(nref)]);
+          const dv: any = ds.data(), a: any = as_.data(), n: any = ns.data();
+          if (!dv) throw new Error("Devis introuvable");
+          const resignatureEnCours = dv.statut === "envoye" && (dv.echanges || []).length > 0;
+          if (!["signe", "a_resigner"].includes(dv.statut) && !resignatureEnCours) throw new Error("Seul un devis signé peut changer de nacelle");
+          const idx = (dv.lignes || []).findIndex((l: any) => l.machine_id === ancId);
+          if (idx < 0) throw new Error("Cette nacelle n'est pas sur le devis");
+          if (!a || a.statut !== "en_cours" || a.devis_vente_numero !== numero) throw new Error(`${ancId} n'est plus en préparation pour ce devis`);
+          if (!n) throw new Error("Nacelle de remplacement introuvable");
+          if (n.archived) throw new Error(`${nouvId} est archivée`);
+          const stN = n.statut || "restitution";
+          if (stN === "en_cours" || stN === "cloturee" || stN === "louee_lld") throw new Error(`${nouvId} est déjà vendue ou en préparation`);
+          if (stN === "restitution" && !(n.expertise_recue ?? true)) throw new Error(`${nouvId} : expertise Nacelle Expert pas encore reçue (non vendable)`);
+          const lg = langueOk(dv.langue);
+          const ligne = dv.lignes[idx];
+          const nouvelleLigne = { ...ligne, machine_id: nouvId, immat: n.immat || nouvId, reference: referenceDe(n), designation: designationNacelle(n, lg) };
+          const lignes = dv.lignes.map((l: any, i: number) => (i === idx ? nouvelleLigne : l));
+          const typePrepa: "normale" | "en_etat" = a.type_prepa === "en_etat" ? "en_etat" : "normale";
+          // Nouvelle nacelle : reprend la vente (mêmes client, commercial, dates, prix), étapes de préparation neuves
+          tx.update(nref, {
+            historique: admin.firestore.FieldValue.arrayUnion({ date: now, de: stN, vers: "en_cours", source: "echange_nacelle", par: commercial.nom, note: `remplace ${a.immat || ancId} — vente ${a.acheteur || ""} (devis ${numero})` }),
+            statut: "en_cours", type_sortie: a.type_sortie || "vente", type_prepa: typePrepa, acheteur: a.acheteur || dv.client?.raison_sociale || "",
+            commercial_vendeur: a.commercial_vendeur || dv.commercial?.nom || "", date_vente: a.date_vente || now.slice(0, 10), date_livraison_prevue: a.date_livraison_prevue || null,
+            date_mise_en_cours: now, etapes_prepa: creerEtapesPrepa(typePrepa),
+            ...(a.email_sortie ? { email_sortie: a.email_sortie } : {}), ...(a.contrat_sortie ? { contrat_sortie: a.contrat_sortie } : {}), ...(a.mode_vente ? { mode_vente: a.mode_vente } : {}),
+            offre_en_cours: true, client_offre: dv.client?.raison_sociale || "", montant_offre: ligne.prix_ht ?? null, date_offre: now,
+            devis_vente_numero: numero, devis_vente_url: a.devis_vente_url || dv.pdf_signe_url || null, devis_vente_signe_le: a.devis_vente_signe_le || dv.signe_le || null,
+            devis_vente_a_resigner: true, devis_ouverts: [{ numero, client: dv.client?.raison_sociale || "", commercial: dv.commercial?.nom || "", url: dv.pdf_signe_url || "" }],
+            updatedAt: now,
+          });
+          // Ancienne nacelle : retour en stock (Restitutions si frais Nacelle Expert non réglés — R3)
+          const fraisImpayes = !!(a.expertise_recue ?? true) && !(a.facture_reglee_ok ?? false);
+          const vers = fraisImpayes ? "restitution" : "disponible";
+          tx.update(aref, {
+            historique: admin.firestore.FieldValue.arrayUnion({ date: now, de: "en_cours", vers, source: "echange_nacelle", par: commercial.nom, note: `remplacée par ${n.immat || nouvId} sur le devis ${numero}` }),
+            statut: vers, type_sortie: null, type_prepa: null, acheteur: null, commercial_vendeur: null, date_vente: null, date_livraison_prevue: null, date_mise_en_cours: null,
+            etapes_prepa: null, client_lld: null, contrat_sortie: admin.firestore.FieldValue.delete(), email_sortie: admin.firestore.FieldValue.delete(), mode_vente: admin.firestore.FieldValue.delete(), date_mise_dispo_lld: null,
+            offre_en_cours: false, client_offre: null, montant_offre: null, date_offre: null, devis_vente_numero: null, devis_vente_url: null, devis_vente_signe_le: null,
+            devis_vente_validation: null, devis_vente_a_resigner: null, devis_ouverts: [], updatedAt: now,
+          });
+          tx.update(dref, {
+            lignes, statut: "a_resigner", signature_jeton: admin.firestore.FieldValue.delete(), machine_ids: [...new Set(lignes.map((l: any) => l.machine_id).filter(Boolean))],
+            echanges: admin.firestore.FieldValue.arrayUnion({ date: now, ancienne: { machine_id: ancId, immat: a.immat || ancId, reference: ligne.reference }, nouvelle: { machine_id: nouvId, immat: n.immat || nouvId, reference: nouvelleLigne.reference }, par: commercial.nom }),
+            historique: admin.firestore.FieldValue.arrayUnion({ date: now, action: `nacelle ${ligne.reference} (${a.immat || ancId}) remplacée par ${nouvelleLigne.reference} (${n.immat || nouvId}) — prix inchangé, à re-signer`, par: commercial.nom }),
+          });
+          return { dv: { ...dv, lignes }, a, n, ancienne: ligne, nouvelle: nouvelleLigne, typePrepa, vers };
+        });
+      } catch (e: any) {
+        return res.status(409).json({ error: e?.message || "Changement impossible" });
+      }
+      // Hors transaction (best-effort) : devis concurrents sur la remplaçante, HubSpot, préparateurs, emails
+      await annulerDevisConcurrents(db, { ...resume.dv, lignes: [resume.nouvelle] }).catch((e) => console.warn("Devis concurrents :", e?.message || e));
+      const app = appAdmin();
+      await archiverHubspot(app, resume.n.immat || nouvId);
+      if (resume.vers === "disponible" && Number(resume.a.prix_fr) > 0) {
+        await publierHubspot(app, resume.a.immat || ancId, [resume.a.type_nacelle, resume.a.modele].filter(Boolean).join(" ") || undefined, Number(resume.a.prix_fr));
+      }
+      const prepNotif = await notifierPreparateurs(app, { ...resume.n, _id: nouvId, immat: resume.n.immat || nouvId }, resume.typePrepa, resume.a.acheteur || "", resume.a.commercial_vendeur || "", resume.a.date_livraison_prevue || "", commercial.nom);
+      const dv = resume.dv;
+      const corps = `<p>Bonjour,</p><p>Sur le devis signé <b>${esc(numero)}</b> (${esc(dv.client?.raison_sociale || "")}), la nacelle <b>${esc(resume.ancienne.reference)}</b> (${esc(resume.a.immat || ancId)}) est remplacée par <b>${esc(resume.nouvelle.reference)}</b> (${esc(resume.n.immat || nouvId)}), par ${esc(commercial.nom)}. <b>Prix inchangé</b> : ${eur(resume.ancienne.prix_ht)} HT.</p>` +
+        `<p>${esc(resume.nouvelle.reference)} est en préparation (${esc(prepNotif)}). ${esc(resume.ancienne.reference)} est revenue en ${resume.vers === "disponible" ? "Disponibles" : "Restitutions (frais Nacelle Expert non réglés)"}.</p>` +
+        `<p>Le devis est <b>à re-signer</b> : il sera renvoyé au client quand la nacelle sera définitive.</p>`;
+      await emailBrevo({ email: dv.commercial?.email, name: dv.commercial?.nom }, `🔁 Devis ${numero} : nacelle changée (${resume.ancienne.reference} → ${resume.nouvelle.reference})`, corps);
+      const cfgA: any = (await db.collection("config").doc("devis").get()).data() || {};
+      const toA = assistantesDe(cfgA, dv.commercial?.email);
+      if (toA.length) await emailBrevo({ email: toA[0] }, `🔁 Devis ${numero} : nacelle changée (${resume.ancienne.reference} → ${resume.nouvelle.reference})`, corps);
+      console.log(`🔁 Devis ${numero} : ${ancId} → ${nouvId} (${commercial.nom})`);
+      return res.status(200).json({ ok: true, ancienne: resume.ancienne.reference, nouvelle: resume.nouvelle.reference, retour: resume.vers, preparateurs: prepNotif });
+    }
+
+    // ───────────── ✍️ RE-SIGNATURE après changement de nacelle (admin) ─────────────
+    if (action === "resigner") {
+      if (!["admin", "superadmin"].includes(String(profil.role || ""))) return res.status(403).json({ error: "Réservé aux administrateurs" });
+      const numero = str(body.numero, 20);
+      const ref = db.collection("devis_vente").doc(numero);
+      const dv: any = (await ref.get()).data();
+      if (!dv) return res.status(404).json({ error: "Devis introuvable" });
+      if (dv.statut !== "a_resigner") return res.status(409).json({ error: "Ce devis n'attend pas de re-signature" });
+      const pdf = String(body.pdfBase64 || "").replace(/^data:application\/pdf;base64,/, "");
+      if (!pdf || pdf.length > 8_000_000) return res.status(400).json({ error: "PDF manquant ou trop volumineux" });
+      const dest = str(dv.client?.contact_email, 120);
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(dest)) return res.status(400).json({ error: "Email du client manquant sur le devis" });
+      // Le PDF signé précédent est conservé (versionné) avant d'être remplacé
+      const bucket = admin.storage(appAdmin()).bucket(BUCKET);
+      const n = (dv.echanges || []).length;
+      try { await bucket.file(`devis_vente/${numero}_signe.pdf`).copy(bucket.file(`devis_vente/${numero}_signe_avant_echange_${n}.pdf`)); } catch { /* pas de PDF signé précédent */ }
+      const pdfUrl = await sauverPdf(`devis_vente/${numero}.pdf`, Buffer.from(pdf, "base64"));
+      const z = body.zone_signature || {};
+      const zone = [z.page, z.x, z.y, z.w, z.h].every((v: any) => Number.isFinite(Number(v))) ? { page: Number(z.page), x: Number(z.x), y: Number(z.y), w: Number(z.w), h: Number(z.h) } : null;
+      const jeton = crypto.randomBytes(16).toString("hex"); // nouveau lien : l'ancien ne permet plus de signer
+      const hote = String(req.headers["x-forwarded-host"] || req.headers.host || "delta-vo.vercel.app");
+      const e = await envoyerEmailClient(dv, numero, pdf, lienSignature(hote, numero, jeton), dest);
+      if (!e.ok) return res.status(e.status).json({ error: e.error });
+      const now = new Date().toISOString();
+      await ref.update({
+        pdf_url: pdfUrl, signature_jeton: jeton, ...(zone ? { zone_signature: zone } : {}),
+        statut: "envoye", envoye_le: now, envoye_a: dest, signe_le: admin.firestore.FieldValue.delete(), signature_en_ligne: admin.firestore.FieldValue.delete(),
+        historique: admin.firestore.FieldValue.arrayUnion({ date: now, action: `renvoyé au client pour re-signature (${dest})`, par: commercial.nom }),
+      });
+      for (const l of dv.lignes || []) {
+        if (l.machine_id) await db.collection("machines_vo").doc(l.machine_id).update({ devis_vente_a_resigner: "envoye", updatedAt: now }).catch(() => undefined);
+      }
+      return res.status(200).json({ ok: true, to: dest, pdf_url: pdfUrl });
     }
 
     // ───────────── CONFIG ─────────────

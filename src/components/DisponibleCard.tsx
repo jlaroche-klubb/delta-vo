@@ -38,7 +38,7 @@ interface DisponibleCardProps {
   canOffre?: boolean;
   isInPanier?: boolean;
   onTogglePanier?: (machine: Machine) => void;
-  onAnnulerOffre?: (machine: Machine) => void;
+  onAnnulerOffre?: (machine: Machine, numero?: string) => void;
   /** 🚩 Points d'attention vendeurs : saisie (admin/secrétaire/atelier) */
   canEditAttention?: boolean;
   onEditAttention?: (machine: Machine) => void;
@@ -120,7 +120,24 @@ export default function DisponibleCard({
       className={`dispo-card ${!hasPrice ? "no-price" : ""}`}
       style={isInPanier ? { outline: "3px solid #1a73e8", outlineOffset: 2 } : undefined}
     >
-      {offreEnCours && (
+      {/* 🧾 Plusieurs devis ouverts sur la nacelle (le premier qui signe gagne) */}
+      {offreEnCours && (machine.devis_ouverts?.length || 0) > 1 && !machine.devis_vente_signe_le && (
+        <div style={{ background: "#e8f0fe", color: "#1a73e8", padding: "6px 10px", borderRadius: 4, fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
+          <div style={{ marginBottom: 2 }}>🧾 {machine.devis_ouverts!.length} devis en cours — le premier client qui signe l'emporte</div>
+          {machine.devis_ouverts!.map((o) => (
+            <div key={o.numero} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontWeight: 600 }}>
+              <a href={o.url || undefined} target="_blank" rel="noopener noreferrer" style={{ color: "#1a73e8", textDecoration: "none", flex: 1 }}>
+                · {o.numero}{o.client ? ` — ${o.client}` : ""}{o.url ? " 📄" : ""}
+              </a>
+              {onAnnulerOffre && (
+                <button onClick={(e) => { e.stopPropagation(); onAnnulerOffre(machine, o.numero); }} title={t("card.cancelOfferTitle")}
+                  style={{ background: "transparent", border: "none", color: "#1a73e8", cursor: "pointer", fontWeight: 700, fontSize: 13, marginLeft: 8 }}>✕</button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {offreEnCours && !((machine.devis_ouverts?.length || 0) > 1 && !machine.devis_vente_signe_le) && (
         <div
           style={{
             background: "#e8f0fe",

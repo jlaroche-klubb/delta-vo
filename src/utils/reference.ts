@@ -13,8 +13,14 @@ import { Machine } from "../types/machine";
 export function referenceCommerciale(
   m: Pick<Machine, "numero_occasion" | "proprietaire">
 ): string {
-  const num = String(m.numero_occasion || "").trim();
-  if (!num) return "VO";
-  const prop = String(m.proprietaire || "DS").trim().toUpperCase();
-  return `${prop}${num}`;
+  const brut = String(m.numero_occasion || "").trim().toUpperCase();
+  if (!brut) return "VO";
+  let prop = String(m.proprietaire || "DS").trim().toUpperCase();
+  // N° saisi avec les initiales (« 1240DS », « DS 1240 ») : pas de doublon « DS1240DS »
+  const x = brut.match(/^([A-Z]{2})?[\s-]*(\d+)[\s-]*([A-Z]{2})?$/);
+  if (x) {
+    prop = x[1] || x[3] || prop;
+    return `${prop}${x[2]}`;
+  }
+  return brut.startsWith(prop) ? brut : `${prop}${brut}`;
 }

@@ -40,7 +40,55 @@ const num = (v: any) => {
   return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0;
 };
 const esc = (s: any) => String(s ?? "").replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", '"': "&quot;" }[c] as string));
-const eur = (n: number) => n.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " €";
+type Langue = "fr" | "en" | "es";
+const langueOk = (v: any): Langue => (v === "en" || v === "es" ? v : "fr");
+const LOCALE: Record<Langue, string> = { fr: "fr-FR", en: "en-GB", es: "es-ES" };
+const eur = (n: number, lg: Langue = "fr") =>
+  (Number(n) || 0).toLocaleString(LOCALE[lg], { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// Textes de l'email au client, dans la langue du devis
+const MAIL: Record<Langue, {
+  sujet: (n: string) => string; bonjour: string; joint: (n: string, nb: number) => string; ht: string; ttc: string;
+  total: string; financement: string; acompte: (p: number, m: string) => string; valable: (d: string) => string;
+  accepter: string; cordialement: string; fichier: string;
+}> = {
+  fr: {
+    sujet: (n) => `Devis ${n} — Delta Services`,
+    bonjour: "Bonjour",
+    joint: (n, nb) => `Veuillez trouver ci-joint notre devis <b>${n}</b> pour ${nb > 1 ? `${nb} nacelles` : "la nacelle"} :`,
+    ht: "HT", ttc: "TTC", total: "Total",
+    financement: "Financement bancaire : aucun acompte demandé.",
+    acompte: (p, m) => `Acompte à la commande : ${p} % (${m} TTC).`,
+    valable: (d) => `Devis valable jusqu'au ${d}.`,
+    accepter: "Pour l'accepter, retournez-le daté et signé avec la mention « Bon pour accord » en réponse à cet email.",
+    cordialement: "Cordialement,",
+    fichier: "Devis",
+  },
+  en: {
+    sujet: (n) => `Quotation ${n} — Delta Services`,
+    bonjour: "Dear",
+    joint: (n, nb) => `Please find attached our quotation <b>${n}</b> for ${nb > 1 ? `${nb} aerial platforms` : "the aerial platform"}:`,
+    ht: "excl. VAT", ttc: "incl. VAT", total: "Total",
+    financement: "Bank financing: no deposit required.",
+    acompte: (p, m) => `Deposit on order: ${p} % (${m} incl. VAT).`,
+    valable: (d) => `This quotation is valid until ${d}.`,
+    accepter: "To accept it, please return it dated and signed with the words “Approved and accepted” in reply to this email.",
+    cordialement: "Kind regards,",
+    fichier: "Quotation",
+  },
+  es: {
+    sujet: (n) => `Presupuesto ${n} — Delta Services`,
+    bonjour: "Estimado/a",
+    joint: (n, nb) => `Le adjuntamos nuestro presupuesto <b>${n}</b> para ${nb > 1 ? `${nb} plataformas elevadoras` : "la plataforma elevadora"}:`,
+    ht: "sin IVA", ttc: "IVA incl.", total: "Total",
+    financement: "Financiación bancaria: no se requiere anticipo.",
+    acompte: (p, m) => `Anticipo al realizar el pedido: ${p} % (${m} IVA incl.).`,
+    valable: (d) => `Presupuesto válido hasta el ${d}.`,
+    accepter: "Para aceptarlo, devuélvanoslo fechado y firmado con la mención «Conforme» en respuesta a este correo.",
+    cordialement: "Atentamente,",
+    fichier: "Presupuesto",
+  },
+};
 
 export default async function handler(req: any, res: any) {
   if (cors(req, res)) return;
@@ -116,6 +164,7 @@ export default async function handler(req: any, res: any) {
           acompte_pct: acompte,
           acompte_ttc: Math.round(totalTtc * acompte) / 100,
           conditions: str(body.conditions, 3000),
+          langue: langueOk(body.langue),
           commercial,
           cree_par_uid: user.uid,
           historique: [{ date: now.toISOString(), action: "création", par: commercial.nom }],
@@ -154,17 +203,18 @@ export default async function handler(req: any, res: any) {
         const apiKey = process.env.BREVO_API_KEY;
         const sender = process.env.BREVO_SENDER_EMAIL;
         if (!apiKey || !sender) return res.status(500).json({ error: "Brevo non configuré" });
-        const acompteTxt = dv.acompte_pct === 0
-          ? "Financement bancaire : aucun acompte demandé."
-          : `Acompte à la commande : ${dv.acompte_pct} % (${eur(dv.acompte_ttc)} TTC).`;
+        const lg = langueOk(dv.langue);
+        const T = MAIL[lg];
+        const sepFr = lg === "fr" ? " " : "";
+        const acompteTxt = dv.acompte_pct === 0 ? T.financement : T.acompte(dv.acompte_pct, eur(dv.acompte_ttc, lg));
         const html =
-          `<p>Bonjour${dv.client?.contact_nom ? " " + esc(dv.client.contact_nom) : ""},</p>` +
-          `<p>Veuillez trouver ci-joint notre devis <b>${esc(numero)}</b> pour ${dv.lignes.length > 1 ? `${dv.lignes.length} nacelles` : "la nacelle"} :</p>` +
-          `<ul>${dv.lignes.map((l: any) => `<li>${esc(l.reference)} — ${esc(l.designation)} : <b>${eur(l.prix_ht)} HT</b></li>`).join("")}</ul>` +
-          `<p>Total : <b>${eur(dv.total_ht)} HT</b>${dv.tva_taux ? ` · ${eur(dv.total_ttc)} TTC` : ""}<br/>${esc(acompteTxt)}<br/>` +
-          `Devis valable jusqu'au ${esc(String(dv.date_expiration).split("-").reverse().join("/"))}.</p>` +
-          `<p>Pour l'accepter, retournez-le daté et signé avec la mention « Bon pour accord » en réponse à cet email.</p>` +
-          `<p>Cordialement,<br/>${esc(dv.commercial?.nom || "")}<br/>Delta Services${dv.commercial?.tel ? "<br/>" + esc(dv.commercial.tel) : ""}<br/>${esc(dv.commercial?.email || "")}</p>`;
+          `<p>${T.bonjour}${dv.client?.contact_nom ? " " + esc(dv.client.contact_nom) : ""},</p>` +
+          `<p>${T.joint(esc(numero), dv.lignes.length)}</p>` +
+          `<ul>${dv.lignes.map((l: any) => `<li>${esc(l.reference)} — ${esc(l.designation)}${sepFr}: <b>${eur(l.prix_ht, lg)} ${T.ht}</b></li>`).join("")}</ul>` +
+          `<p>${T.total}${sepFr}: <b>${eur(dv.total_ht, lg)} ${T.ht}</b>${dv.tva_taux ? ` · ${eur(dv.total_ttc, lg)} ${T.ttc}` : ""}<br/>${esc(acompteTxt)}<br/>` +
+          `${esc(T.valable(String(dv.date_expiration).split("-").reverse().join("/")))}</p>` +
+          `<p>${esc(T.accepter)}</p>` +
+          `<p>${T.cordialement}<br/>${esc(dv.commercial?.nom || "")}<br/>Delta Services${dv.commercial?.tel ? "<br/>" + esc(dv.commercial.tel) : ""}<br/>${esc(dv.commercial?.email || "")}</p>`;
         const r = await fetchAvecReessai("https://api.brevo.com/v3/smtp/email", {
           method: "POST",
           headers: { "api-key": apiKey, "Content-Type": "application/json", accept: "application/json" },
@@ -173,9 +223,9 @@ export default async function handler(req: any, res: any) {
             to: [{ email: dest, ...(dv.client?.contact_nom ? { name: dv.client.contact_nom } : {}) }],
             cc: dv.commercial?.email && dv.commercial.email !== dest ? [{ email: dv.commercial.email }] : undefined,
             replyTo: dv.commercial?.email ? { email: dv.commercial.email, name: dv.commercial.nom } : undefined,
-            subject: `Devis ${numero} — Delta Services`,
+            subject: T.sujet(numero),
             htmlContent: html,
-            attachment: [{ name: `Devis_${numero}.pdf`, content: pdf }],
+            attachment: [{ name: `${T.fichier}_${numero}.pdf`, content: pdf }],
           }),
         }, { timeoutMs: 20_000, essais: 1 });
         if (!r.ok) {

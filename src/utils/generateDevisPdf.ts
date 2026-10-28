@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import { DELTA_LOGO_BASE64 } from "../assets/deltaLogo";
 import type { ConfigDevis, DevisVente } from "../services/devisVenteService";
+import { TEXTES_DEVIS, eurDevis, langueDevis } from "./devisLangues";
 
 /**
  * 🧾 PDF du devis de vente Delta VO (A4, texte vectoriel — pas de capture
@@ -11,11 +12,13 @@ import type { ConfigDevis, DevisVente } from "../services/devisVenteService";
 
 const BLEU: [number, number, number] = [31, 66, 130];
 const GRIS: [number, number, number] = [90, 90, 90];
-const eur = (n: number) =>
-  n.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).replace(/ | /g, " ") + " €";
 const dateFr = (iso: string) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "—");
 
 export function genererDevisPdf(dv: DevisVente, cfg: ConfigDevis): { base64: string; blob: Blob; filename: string } {
+  const lg = langueDevis(dv.langue);
+  const T = TEXTES_DEVIS[lg];
+  const eur = (n: number) => eurDevis(n, lg);
+  const cgv = (lg === "fr" ? cfg.cgv : lg === "en" ? cfg.cgv_en : cfg.cgv_es) || "";
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
   const W = 210, M = 16;
   let y = 12;
@@ -31,18 +34,19 @@ export function genererDevisPdf(dv: DevisVente, cfg: ConfigDevis): { base64: str
   const hBand = 52;
   pdf.setFillColor(...BLEU).rect(0, y, W, hBand, "F");
   pdf.setTextColor(255, 255, 255).setFont("helvetica", "bold").setFontSize(18);
-  pdf.text(`Devis ${dv.numero}`, M, y + 11);
+  pdf.text(`${T.devis} ${dv.numero}`, M, y + 11);
   pdf.setFontSize(9.5).setFont("helvetica", "bold");
   const c = dv.client;
   pdf.text(c.raison_sociale, M, y + 20);
   pdf.setFont("helvetica", "normal");
-  const cl: string[] = [c.adresse || "", [c.cp, c.ville].filter(Boolean).join(" "), c.siren ? `SIREN ${c.siren}` : "", "",
+  const cl: string[] = [c.adresse || "", [c.cp, c.ville].filter(Boolean).join(" "), c.siren ? `${T.siren} ${c.siren}` : "", "",
     c.contact_nom || "", c.contact_email || "", c.contact_tel || ""].filter((l, i, a) => l || (i === 3 && a.slice(4).some(Boolean)));
   cl.forEach((l, i) => pdf.text(l, M, y + 25 + i * 4.3));
+  const sep = lg === "fr" ? " : " : ": ";
   const refs = [
-    `Date : ${dateFr(dv.date)}`,
-    `Valable jusqu'au : ${dateFr(dv.date_expiration)}`,
-    `Établi par : ${dv.commercial.nom}`,
+    `${T.date}${sep}${dateFr(dv.date)}`,
+    `${T.valable}${sep}${dateFr(dv.date_expiration)}`,
+    `${T.etabli}${sep}${dv.commercial.nom}`,
     dv.commercial.email,
     dv.commercial.tel || "",
   ].filter(Boolean);
@@ -52,9 +56,9 @@ export function genererDevisPdf(dv: DevisVente, cfg: ConfigDevis): { base64: str
   // ── Tableau des nacelles ──
   const colRef = M, colDes = M + 30, colPrix = W - M;
   pdf.setTextColor(40, 40, 40).setFont("helvetica", "bold").setFontSize(9);
-  pdf.text("Référence", colRef, y);
-  pdf.text("Désignation", colDes, y);
-  pdf.text("Prix HT", colPrix, y, { align: "right" });
+  pdf.text(T.reference, colRef, y);
+  pdf.text(T.designation, colDes, y);
+  pdf.text(T.prixHt, colPrix, y, { align: "right" });
   y += 2.5;
   pdf.setDrawColor(...BLEU).setLineWidth(0.4).line(M, y, W - M, y);
   y += 5;
@@ -78,21 +82,26 @@ export function genererDevisPdf(dv: DevisVente, cfg: ConfigDevis): { base64: str
     pdf.text(val, W - M, y, { align: "right" });
     y += gras ? 7 : 5.5;
   };
-  ligneTot("Total HT", eur(dv.total_ht));
-  if (dv.tva_taux > 0) ligneTot(`TVA ${dv.tva_taux} %`, eur(dv.tva));
-  ligneTot(dv.tva_taux > 0 ? "TOTAL TTC" : "TOTAL", eur(dv.total_ttc), true);
+  ligneTot(T.totalHt, eur(dv.total_ht));
+  if (dv.tva_taux > 0) ligneTot(`${T.tva} ${dv.tva_taux} %`, eur(dv.tva));
+  ligneTot(dv.tva_taux > 0 ? T.totalTtc : T.total, eur(dv.total_ttc), true);
   if (dv.tva_taux === 0) {
     pdf.setFont("helvetica", "italic").setFontSize(8).setTextColor(...GRIS);
-    pdf.text(dv.exoneration || "Exonération de TVA", W - M, y - 2, { align: "right" });
+    const exo = pdf.splitTextToSize(dv.exoneration || T.exonerationCourte, 120);
+    pdf.text(exo, W - M, y - 2, { align: "right" });
     pdf.setTextColor(40, 40, 40);
-    y += 3;
+    y += 3 + (exo.length - 1) * 3.5;
   }
-  pdf.setFillColor(238, 243, 251).rect(xL - 3, y - 4, 70 + 3, 9, "F");
+  // Encadré acompte élargi si le libellé est long (anglais / espagnol)
   pdf.setFont("helvetica", "bold").setFontSize(9.5);
+  const libAcompte = dv.acompte_pct === 0 ? T.financement : T.acompte(dv.acompte_pct);
+  const largAcompte = pdf.getTextWidth(libAcompte) + (dv.acompte_pct === 0 ? 0 : pdf.getTextWidth(eur(dv.acompte_ttc)) + 6);
+  const xA = Math.min(xL, W - M - largAcompte);
+  pdf.setFillColor(238, 243, 251).rect(xA - 3, y - 4, W - M - xA + 3, 9, "F");
   if (dv.acompte_pct === 0) {
-    pdf.text("Financement bancaire — sans acompte", W - M, y + 1.5, { align: "right" });
+    pdf.text(T.financement, W - M, y + 1.5, { align: "right" });
   } else {
-    pdf.text(`Acompte à la commande (${dv.acompte_pct} %)`, xL, y + 1.5);
+    pdf.text(libAcompte, xA, y + 1.5);
     pdf.text(eur(dv.acompte_ttc), W - M, y + 1.5, { align: "right" });
   }
   y += 14;
@@ -108,23 +117,23 @@ export function genererDevisPdf(dv: DevisVente, cfg: ConfigDevis): { base64: str
   };
   const reglement = [
     dv.acompte_pct === 0
-      ? "Financement bancaire : aucun acompte demandé, règlement de la totalité par l'organisme de financement avant livraison."
+      ? T.reglementFinancement
       : dv.acompte_pct === 100
-        ? "Règlement de la totalité à la commande, par virement."
-        : `Acompte de ${dv.acompte_pct} % à la commande par virement, solde avant livraison ou enlèvement.`,
-    cfg.iban ? `IBAN : ${cfg.iban}${cfg.bic ? `   BIC : ${cfg.bic}` : ""}` : "",
+        ? T.reglement100
+        : T.reglementAcompte(dv.acompte_pct),
+    cfg.iban ? `IBAN${sep}${cfg.iban}${cfg.bic ? `   BIC${sep}${cfg.bic}` : ""}` : "",
   ].filter(Boolean).join("\n");
-  bloc("Règlement", reglement);
-  bloc("Conditions", dv.conditions || "");
+  bloc(T.reglementTitre, reglement);
+  bloc(T.conditions, dv.conditions || "");
 
   // ── Bon pour accord ──
   if (y + 38 > 275) { pdf.addPage(); y = 20; }
   y += 2;
   pdf.setDrawColor(...BLEU).setLineWidth(0.3).rect(W - M - 85, y, 85, 32);
-  pdf.setFont("helvetica", "bold").setFontSize(9).setTextColor(...BLEU).text("Bon pour accord", W - M - 82, y + 6);
+  pdf.setFont("helvetica", "bold").setFontSize(9).setTextColor(...BLEU).text(T.bonPourAccord, W - M - 82, y + 6);
   pdf.setFont("helvetica", "normal").setFontSize(8).setTextColor(...GRIS);
-  pdf.text("Date, nom, signature et cachet du client", W - M - 82, y + 11);
-  pdf.text("précédés de la mention « Bon pour accord »", W - M - 82, y + 15);
+  pdf.text(T.signature1, W - M - 82, y + 11);
+  pdf.text(T.signature2, W - M - 82, y + 15);
 
   // ── Pied de page : mentions légales + pagination ──
   const pages = pdf.getNumberOfPages();
@@ -137,11 +146,11 @@ export function genererDevisPdf(dv: DevisVente, cfg: ConfigDevis): { base64: str
   }
 
   // ── CGV (page à part si renseignées) ──
-  if (cfg.cgv.trim()) {
+  if (cgv.trim()) {
     pdf.addPage();
-    pdf.setFont("helvetica", "bold").setFontSize(11).setTextColor(...BLEU).text("Conditions générales de vente", M, 18);
+    pdf.setFont("helvetica", "bold").setFontSize(11).setTextColor(...BLEU).text(T.cgv, M, 18);
     pdf.setFont("helvetica", "normal").setFontSize(7.2).setTextColor(40, 40, 40);
-    const l = pdf.splitTextToSize(cfg.cgv, W - 2 * M);
+    const l = pdf.splitTextToSize(cgv, W - 2 * M);
     let yy = 25;
     for (const ligne of l) {
       if (yy > 282) { pdf.addPage(); yy = 18; }
@@ -154,6 +163,6 @@ export function genererDevisPdf(dv: DevisVente, cfg: ConfigDevis): { base64: str
   return {
     base64: dataUri.split(",")[1] || "",
     blob: pdf.output("blob"),
-    filename: `Devis_${dv.numero}.pdf`,
+    filename: `${lg === "en" ? "Quotation" : lg === "es" ? "Presupuesto" : "Devis"}_${dv.numero}.pdf`,
   };
 }

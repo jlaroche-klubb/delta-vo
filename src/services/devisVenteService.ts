@@ -1,6 +1,7 @@
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { apiFetch } from "./apiFetch";
+import type { LangueDevis } from "../utils/devisLangues";
 
 /**
  * 🧾 Devis de vente faits dans Delta VO (plus de devis HubSpot — décision
@@ -44,6 +45,8 @@ export interface DevisVente {
   acompte_ttc: number;
   conditions: string;
   commercial: { nom: string; email: string; tel?: string };
+  /** Langue du devis (PDF + email au client) — défaut fr */
+  langue?: LangueDevis;
 }
 
 /** Paramètres société affichés sur les devis (Admin → Paramètres des devis) */
@@ -57,6 +60,11 @@ export interface ConfigDevis {
   bic: string;
   conditions_defaut: string; // texte « Conditions » pré-rempli
   cgv: string; // conditions générales de vente (page 2 du PDF si renseignées)
+  // Versions anglaise / espagnole (devis EN / ES). Vides → texte par défaut traduit (conditions) / pas de page CGV
+  conditions_defaut_en?: string;
+  conditions_defaut_es?: string;
+  cgv_en?: string;
+  cgv_es?: string;
   validite_jours: number;
 }
 
@@ -73,6 +81,10 @@ export const CONFIG_DEVIS_DEFAUT: ConfigDevis = {
     "Livraison ou enlèvement après encaissement de la totalité du prix. " +
     "Le transfert de propriété intervient au paiement intégral.",
   cgv: "",
+  conditions_defaut_en: "",
+  conditions_defaut_es: "",
+  cgv_en: "",
+  cgv_es: "",
   validite_jours: 30,
 };
 
@@ -108,6 +120,7 @@ export function creerDevisVente(d: {
   acompte_pct: AcompteDevis;
   validite_jours: number;
   conditions: string;
+  langue: LangueDevis;
 }): Promise<{ numero: string; commercial: DevisVente["commercial"]; total_ht: number; tva: number; total_ttc: number }> {
   return appel({ action: "creer", ...d });
 }

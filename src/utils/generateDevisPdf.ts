@@ -75,9 +75,18 @@ export function genererDevisPdf(dv: DevisVente, cfg: ConfigDevis): { base64: str
     if (y + des.length * 4.2 > 265) { pdf.addPage(); y = 20; }
     pdf.setFont("helvetica", "bold").text(nettoie(l.reference) || "—", colRef, y);
     pdf.setFont("helvetica", "normal").text(des, colDes, y);
-    pdf.text(eur(l.prix_ht), colPrix, y, { align: "right" });
+    if (!dv.lot) pdf.text(eur(l.prix_ht), colPrix, y, { align: "right" });
     y += Math.max(des.length * 4.2, 5) + 3;
     pdf.setDrawColor(225, 225, 225).setLineWidth(0.2).line(M, y - 2, W - M, y - 2);
+  }
+  // 📦 Vente en lot : un seul prix pour l'ensemble
+  if (dv.lot) {
+    y += 2.5;
+    if (y > 262) { pdf.addPage(); y = 20; }
+    pdf.setFont("helvetica", "bold").setFontSize(9.5).text(T.lot(dv.lignes.length), colDes, y);
+    pdf.text(eur(dv.total_ht), colPrix, y, { align: "right" });
+    pdf.setFont("helvetica", "normal").setFontSize(9);
+    y += 7;
   }
 
   // ── Totaux ──

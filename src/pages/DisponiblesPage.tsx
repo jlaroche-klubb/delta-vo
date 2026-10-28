@@ -331,7 +331,7 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
   // 🧾 Devis de vente créé dans Delta VO (plus de deal/devis HubSpot à
   // l'offre — HubSpot ne reçoit les infos qu'à la livraison, décision 28/10/2026)
   async function handleDevisCree(r: { numero: string; client: string; montants: Record<string, number>; pdfUrl?: string }) {
-    const ids = panier.map((m) => m.id);
+    const ids = Object.keys(r.montants); // nacelles du devis (panier + ajoutées dans la fenêtre)
     await creerOffre(ids, r.client, r.montants, undefined, { numero: r.numero, pdfUrl: r.pdfUrl });
     setPanier([]);
     setOffreModalOpen(false);
@@ -340,7 +340,10 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
 
   function handleAnnulerOffre(machine: Machine) {
     const num = machine.devis_vente_numero;
-    if (window.confirm(`Annuler l'offre en cours sur ${machine.immat}${num ? ` (devis ${num})` : ""} ?`)) {
+    const signe = !!machine.devis_vente_signe_le;
+    if (window.confirm(signe
+      ? `⚠️ Le devis ${num} a été SIGNÉ par le client.\nRetirer quand même l'offre de ${machine.immat} ? (le devis reste signé dans l'historique)`
+      : `Annuler l'offre en cours sur ${machine.immat}${num ? ` (devis ${num})` : ""} ?`)) {
       annulerOffre(machine.id);
       // 🧾 Dernière nacelle du devis retirée → le devis passe « annulé »
       if (num && !machines.some((m) => m.id !== machine.id && m.devis_vente_numero === num && m.offre_en_cours)) {
@@ -1214,6 +1217,7 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
       {offreModalOpen && panier.length > 0 && (
         <DevisModal
           machines={panier}
+          autresMachines={machines.filter((m) => m.statut === "disponible" && !m.archived && !m.offre_en_cours && !panier.some((p) => p.id === m.id))}
           prixDealer={userRole === "dealer"}
           onClose={() => setOffreModalOpen(false)}
           onCree={handleDevisCree}

@@ -10,7 +10,7 @@ import {
   type NotifPrepaConfig,
 } from "../services/preparationNotify";
 import { useTranslation } from "react-i18next";
-import { chargerConfigDevis, enregistrerConfigDevis, type ConfigDevis } from "../services/devisVenteService";
+import { chargerConfigDevis, enregistrerConfigDevis, envoyerRapportVentes, type ConfigDevis } from "../services/devisVenteService";
 
 interface PendingUser {
   id: string;
@@ -64,6 +64,7 @@ export default function AdminPage() {
   const [cfgDevis, setCfgDevis] = useState<ConfigDevis | null>(null);
   const [cfgDevisDirty, setCfgDevisDirty] = useState(false);
   const [cfgDevisSaving, setCfgDevisSaving] = useState(false);
+  const [rapportEnvoi, setRapportEnvoi] = useState(false);
   useEffect(() => { chargerConfigDevis().then(setCfgDevis); }, []);
   const setCD = (k: keyof ConfigDevis, v: any) => { setCfgDevis((c) => (c ? { ...c, [k]: v } : c)); setCfgDevisDirty(true); };
   async function saveCfgDevis() {
@@ -404,6 +405,7 @@ export default function AdminPage() {
                   {ligne("validite_jours", "Validité par défaut (jours)")}
                   {ligne("conditions_defaut", "Conditions pré-remplies sur chaque devis", 4)}
                   {ligne("cgv", "Conditions générales de vente (page jointe au devis si renseignées)", 6)}
+                  {ligne("rapport_ventes_destinataires", "📊 Rapport des ventes chaque lundi à 8 h — destinataires", 2, "jlaroche@klubb.com, direction@…")}
                   {ligne("conditions_defaut_en", "🇬🇧 Conditions — devis en anglais (vide = texte standard traduit)", 4)}
                   {ligne("conditions_defaut_es", "🇪🇸 Conditions — devis en espagnol (vide = texte standard traduit)", 4)}
                   {ligne("cgv_en", "🇬🇧 CGV en anglais (page jointe aux devis EN si renseignées)", 6)}
@@ -416,6 +418,15 @@ export default function AdminPage() {
                 {cfgDevisSaving ? "…" : "💾 Enregistrer"}
               </button>
               {cfgDevisDirty && <span className="section-desc" style={{ fontStyle: "italic" }}>Modifications non enregistrées</span>}
+              <button className="btn-secondary" style={{ marginLeft: "auto" }} disabled={rapportEnvoi}
+                onClick={async () => {
+                  setRapportEnvoi(true);
+                  try { const r = await envoyerRapportVentes(true); alert(`📊 Rapport de la semaine dernière ${r.detail}${r.ventes !== undefined ? ` — ${r.ventes} vente(s)` : ""}`); }
+                  catch (e: any) { alert(`❌ ${e?.message || "Envoi impossible"}`); }
+                  finally { setRapportEnvoi(false); }
+                }}>
+                {rapportEnvoi ? "⏳ …" : "📊 M'envoyer le rapport des ventes maintenant"}
+              </button>
             </div>
           </>
         )}

@@ -27,6 +27,8 @@ import { LANGUES_DEVIS, TEXTES_DEVIS, langueDevis, nombreDevis, type LangueDevis
  */
 interface Props {
   machines: Machine[];
+  /** Autres nacelles disponibles qu'on peut ajouter au devis (vente en lot) */
+  autresMachines?: Machine[];
   prixDealer: boolean; // dealer : prix dealer par défaut
   onClose: () => void;
   /** Appelé une fois le devis créé (machines à marquer « offre en cours ») */
@@ -48,20 +50,44 @@ function designation(m: Machine, lg: LangueDevis): string {
   return [tete, ...details].filter(Boolean).join(" · ");
 }
 
-export default function DevisModal({ machines, prixDealer, onClose, onCree }: Props) {
+export default function DevisModal({ machines, autresMachines = [], prixDealer, onClose, onCree }: Props) {
   const { i18n } = useTranslation();
   const [langue, setLangue] = useState<LangueDevis>(() => langueDevis(i18n.language));
   const [cfg, setCfg] = useState<ConfigDevis | null>(null);
   const [client, setClient] = useState<ClientDevis>({ raison_sociale: "" });
-  const [lignes, setLignes] = useState<LigneDevis[]>(() =>
-    machines.map((m) => ({
-      machine_id: m.id,
-      immat: m.immat,
-      reference: referenceCommerciale(m),
-      designation: designation(m, langue),
-      prix_ht: (prixDealer ? m.prix_dealer ?? m.prix_fr : m.prix_fr ?? m.prix_dealer) ?? 0,
-    }))
-  );
+  const ligneDe = (m: Machine, lg: LangueDevis): LigneDevis => ({
+    machine_id: m.id,
+    immat: m.immat,
+    reference: referenceCommerciale(m),
+    designation: designation(m, lg),
+    prix_ht: (prixDealer ? m.prix_dealer ?? m.prix_fr : m.prix_fr ?? m.prix_dealer) ?? 0,
+  });
+  const [lignes, setLignes] = useState<LigneDevis[]>(() => machines.map((m) => ligneDe(m, langue)));
+  // 📦 Vente en lot : un prix global pour toutes les nacelles
+  const [lot, setLot] = useState(false);
+  const [prixLot, setPrixLot] = useState(0);
+  const [recherche, setRecherche] = useState("");
+  const toutes = useMemo(() => new Map([...machines, ...autresMachines].map((m) => [m.id, m])), [machines, autresMachines]);
+  const ajoutables = useMemo(() => {
+    const q = recherche.trim().toLowerCase();
+    if (!q) return [];
+    return autresMachines
+      .filter((m) => !lignes.some((l) => l.machine_id === m.id))
+      .filter((m) => [referenceCommerciale(m), m.immat, m.type_nacelle, m.modele_porteur, m.numero_dossier].some((v) => String(v || "").toLowerCase().includes(q)))
+      .slice(0, 8);
+  }, [recherche, autresMachines, lignes]);
+  function ajouterLigne(m: Machine) { setLignes((ls) => [...ls, ligneDe(m, langue)]); setRecherche(""); }
+  function retirerLigne(id: string) { setLignes((ls) => (ls.length > 1 ? ls.filter((l) => l.machine_id !== id) : ls)); }
+  /** Prix du lot réparti sur les nacelles au prorata de leur prix catalogue (somme exacte) */
+  function repartirLot(ls: LigneDevis[], total: number): LigneDevis[] {
+    const base = ls.reduce((s, l) => s + (Number(l.prix_ht) || 0), 0);
+    let reste = Math.round(total * 100);
+    return ls.map((l, i) => {
+      const part = i === ls.length - 1 ? reste : Math.round((base > 0 ? (Number(l.prix_ht) || 0) / base : 1 / ls.length) * total * 100);
+      reste -= part;
+      return { ...l, prix_ht: part / 100 };
+    });
+  }
   const [tva, setTva] = useState<20 | 0>(() => (langue === "fr" ? 20 : 0));
   const [tente, setTente] = useState(false); // a cliqué sur Créer : champs manquants en rouge
   const [exoneration, setExoneration] = useState(() => TEXTES_DEVIS[langue].exonerationDefaut);
@@ -96,8 +122,7 @@ export default function DevisModal({ machines, prixDealer, onClose, onCree }: Pr
   function changerLangue(lg: LangueDevis) {
     if (lg === langue) return;
     setLangue(lg);
-    const parId = new Map(machines.map((m) => [m.id, m]));
-    setLignes((ls) => ls.map((l) => { const m = parId.get(l.machine_id); return m ? { ...l, designation: designation(m, lg) } : l; }));
+    setLignes((ls) => ls.map((l) => { const m = toutes.get(l.machine_id); return m ? { ...l, designation: designation(m, lg) } : l; }));
     setExoneration(TEXTES_DEVIS[lg].exonerationDefaut);
     if (cfg) setConditions(conditionsPour(cfg, lg));
     setTva(lg === "fr" ? 20 : 0); // devis anglais / espagnol : client étranger par défaut (modifiable)
@@ -126,7 +151,8 @@ export default function DevisModal({ machines, prixDealer, onClose, onCree }: Pr
     setClient((c) => ({ ...c, adresse: a.adresse, cp: a.cp, ville: a.ville }));
   }
 
-  const totalHt = useMemo(() => lignes.reduce((s, l) => s + (Number(l.prix_ht) || 0), 0), [lignes]);
+  const totalCatalogue = useMemo(() => lignes.reduce((s, l) => s + (Number(l.prix_ht) || 0), 0), [lignes]);
+  const totalHt = lot ? prixLot : totalCatalogue;
   const totalTtc = totalHt * (1 + tva / 100);
   const setC = (k: keyof ClientDevis, v: string) => setClient((c) => ({ ...c, [k]: v }));
   const setL = (i: number, k: keyof LigneDevis, v: any) => setLignes((ls) => ls.map((l, j) => (j === i ? { ...l, [k]: v } : l)));
@@ -138,17 +164,19 @@ export default function DevisModal({ machines, prixDealer, onClose, onCree }: Pr
     if (Object.keys(manquants).length) return; // message affiché en direct sous le formulaire
     if (mode !== "pdf" && !emailValide(client.contact_email)) return setErreur(mode === "signature" ? "Indiquez l'email du contact : c'est lui qui recevra la demande de signature." : "Indiquez l'email du contact pour l'envoi.");
     if (mode === "signature" && !(client.contact_nom || "").trim()) return setErreur("Indiquez le nom du contact (signataire).");
-    if (lignes.some((l) => !(Number(l.prix_ht) > 0))) return setErreur("Chaque nacelle doit avoir un prix HT.");
+    if (lot && !(prixLot > 0)) return setErreur("Indiquez le prix global du lot (HT).");
+    if (!lot && lignes.some((l) => !(Number(l.prix_ht) > 0))) return setErreur("Chaque nacelle doit avoir un prix HT.");
     if (!cfg) return;
+    const lignesDevis = lot ? repartirLot(lignes, prixLot) : lignes;
     setEnCours(mode);
     try {
-      const r = await creerDevisVente({ client, lignes, tva_taux: tva, exoneration: tva === 0 ? exoneration : "", acompte_pct: acompte, validite_jours: validite, conditions, langue, type_prepa: typePrepa, date_livraison: dateLivraison });
+      const r = await creerDevisVente({ client, lignes: lignesDevis, lot, tva_taux: tva, exoneration: tva === 0 ? exoneration : "", acompte_pct: acompte, validite_jours: validite, conditions, langue, type_prepa: typePrepa, date_livraison: dateLivraison });
       const now = new Date();
       const dv: DevisVente = {
         numero: r.numero,
         date: now.toISOString(),
         date_expiration: new Date(now.getTime() + validite * 86400000).toISOString().slice(0, 10),
-        client, lignes, tva_taux: tva, exoneration: tva === 0 ? exoneration : "",
+        client, lignes: lignesDevis, lot, tva_taux: tva, exoneration: tva === 0 ? exoneration : "",
         total_ht: r.total_ht, tva: r.tva, total_ttc: r.total_ttc,
         acompte_pct: acompte, acompte_ttc: Math.round(r.total_ttc * acompte) / 100,
         conditions, commercial: r.commercial, langue,
@@ -167,7 +195,7 @@ export default function DevisModal({ machines, prixDealer, onClose, onCree }: Pr
       await onCree({
         numero: r.numero,
         client: client.raison_sociale.trim(),
-        montants: Object.fromEntries(lignes.map((l) => [l.machine_id, Number(l.prix_ht) || 0])),
+        montants: Object.fromEntries(lignesDevis.map((l) => [l.machine_id, Number(l.prix_ht) || 0])),
         pdfUrl: env.pdf_url,
       });
       alert(
@@ -264,19 +292,53 @@ export default function DevisModal({ machines, prixDealer, onClose, onCree }: Pr
               </div>
 
               {/* Nacelles */}
-              <div style={{ fontWeight: 700, color: "#1a2a6e", marginBottom: 8 }}>Nacelles ({lignes.length})</div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+                <span style={{ fontWeight: 700, color: "#1a2a6e" }}>Nacelles ({lignes.length})</span>
+                {lignes.length > 1 && (
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                    <input type="checkbox" checked={lot} onChange={(e) => { setLot(e.target.checked); if (e.target.checked && !prixLot) setPrixLot(totalCatalogue); }} style={{ width: "auto", margin: 0 }} />
+                    📦 Vente en lot (prix global)
+                  </label>
+                )}
+              </div>
               <div style={{ border: "1px solid #eee", borderRadius: 6, marginBottom: 8 }}>
                 {lignes.map((l, i) => (
-                  <div key={l.machine_id} style={{ display: "grid", gridTemplateColumns: "80px 1fr 120px", gap: 8, alignItems: "center", padding: "8px 10px", borderBottom: i < lignes.length - 1 ? "1px solid #f0f0f0" : "none" }}>
+                  <div key={l.machine_id} style={{ display: "grid", gridTemplateColumns: lot ? "80px 1fr 28px" : "80px 1fr 120px 28px", gap: 8, alignItems: "center", padding: "8px 10px", borderBottom: i < lignes.length - 1 ? "1px solid #f0f0f0" : "none" }}>
                     <div style={{ fontWeight: 700, fontSize: 13 }} title={l.immat}>{l.reference}</div>
                     <input style={{ ...CHAMP, fontSize: 13 }} value={l.designation} onChange={(e) => setL(i, "designation", e.target.value)} />
-                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                      <input style={{ ...CHAMP, textAlign: "right" }} value={l.prix_ht || ""} onChange={(e) => setL(i, "prix_ht", Number(e.target.value.replace(/\s/g, "").replace(",", ".")) || 0)} />
-                      <span style={{ fontSize: 12, color: "#666" }}>HT</span>
-                    </div>
+                    {!lot && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        <input style={{ ...CHAMP, textAlign: "right" }} value={l.prix_ht || ""} onChange={(e) => setL(i, "prix_ht", Number(e.target.value.replace(/\s/g, "").replace(",", ".")) || 0)} />
+                        <span style={{ fontSize: 12, color: "#666" }}>HT</span>
+                      </div>
+                    )}
+                    <button type="button" onClick={() => retirerLigne(l.machine_id)} disabled={lignes.length < 2} title="Retirer cette nacelle du devis"
+                      style={{ border: "none", background: "transparent", color: lignes.length < 2 ? "#ccc" : "#c0392b", fontSize: 16, cursor: lignes.length < 2 ? "default" : "pointer" }}>✕</button>
                   </div>
                 ))}
+                {lot && (
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, padding: "10px", background: "#f5f8fe", borderTop: "1px solid #e3e9f5" }}>
+                    <span style={{ fontSize: 13, fontWeight: 700 }}>Prix global du lot</span>
+                    <input style={{ ...CHAMP, width: 140, textAlign: "right", fontWeight: 700 }} value={prixLot || ""} onChange={(e) => setPrixLot(Number(e.target.value.replace(/\s/g, "").replace(",", ".")) || 0)} />
+                    <span style={{ fontSize: 12, color: "#666" }}>HT</span>
+                    <span style={{ fontSize: 11, color: "#888" }}>(prix catalogue : {eur(totalCatalogue)})</span>
+                  </div>
+                )}
               </div>
+              {autresMachines.length > 0 && (
+                <div style={{ position: "relative", marginBottom: 8 }}>
+                  <input style={{ ...CHAMP, fontSize: 13 }} value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="➕ Ajouter une nacelle au devis : référence, type, porteur, D0…" />
+                  {ajoutables.length > 0 && (
+                    <div style={{ position: "absolute", zIndex: 10, left: 0, right: 0, top: "100%", background: "white", border: "1px solid #ccd", borderRadius: 6, boxShadow: "0 6px 18px rgba(0,0,0,0.15)" }}>
+                      {ajoutables.map((m) => (
+                        <div key={m.id} onMouseDown={(e) => { e.preventDefault(); ajouterLigne(m); }} style={{ padding: "8px 10px", cursor: "pointer", fontSize: 13, borderBottom: "1px solid #f2f2f2" }}>
+                          <b>{referenceCommerciale(m)}</b> — {designation(m, langue)}{m.prix_fr ? <span style={{ color: "#666" }}> · {eur(m.prix_fr)} HT</span> : null}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               <div style={{ fontSize: 11, color: "#888", marginBottom: 18 }}>Référence commerciale uniquement : l'immatriculation n'apparaît pas sur le devis.</div>
 
               {/* TVA + validité */}

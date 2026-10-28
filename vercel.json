@@ -1,5 +1,14 @@
 {
-    "rewrites": [
-      { "source": "/((?!api).*)", "destination": "/index.html" }
-    ]
-  }
+  "rewrites": [
+    {
+      "source": "/((?!api).*)",
+      "destination": "/index.html"
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/devis?action=rapport_hebdo",
+      "schedule": "0 5 * * 1"
+    }
+  ]
+}

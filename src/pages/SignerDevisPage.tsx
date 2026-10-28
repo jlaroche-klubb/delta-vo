@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { DELTA_LOGO_BASE64 } from "../assets/deltaLogo";
 import { lireDevisPublic, signerDevisPublic, type DevisPublic } from "../services/devisVenteService";
-import { eurDevis, langueDevis, type LangueDevis } from "../utils/devisLangues";
+import { TEXTES_DEVIS, eurDevis, langueDevis, type LangueDevis } from "../utils/devisLangues";
 
 /**
  * ✍️ Page PUBLIQUE « Accepter et signer » — ouverte depuis le bouton de l'email
@@ -217,10 +217,11 @@ export default function SignerDevisPage() {
                 <div key={i} style={{ display: "flex", gap: 12, padding: "10px 0", borderTop: "1px solid #eef0f4", alignItems: "baseline" }}>
                   <div style={{ fontWeight: 700, minWidth: 64 }}>{l.reference}</div>
                   <div style={{ flex: 1, fontSize: 14 }}>{l.designation}</div>
-                  <div style={{ fontWeight: 600, whiteSpace: "nowrap" }}>{eur(l.prix_ht)}</div>
+                  {l.prix_ht != null && <div style={{ fontWeight: 600, whiteSpace: "nowrap" }}>{eur(l.prix_ht)}</div>}
                 </div>
               ))}
               <div style={{ borderTop: `2px solid ${BLEU}`, paddingTop: 10, marginTop: 4, display: "grid", gridTemplateColumns: "1fr auto", rowGap: 4, fontSize: 14 }}>
+                {dv.lot && <b style={{ gridColumn: "1 / span 2" }}>📦 {TEXTES_DEVIS[lg].lot(dv.lignes.length)}</b>}
                 <span>{T.totalHt}</span><span style={{ textAlign: "right" }}>{eur(dv.total_ht)}</span>
                 {dv.tva_taux > 0 && <><span>{T.tva} {dv.tva_taux} %</span><span style={{ textAlign: "right" }}>{eur(dv.tva)}</span></>}
                 <b style={{ fontSize: 16 }}>{dv.tva_taux > 0 ? T.ttc : T.total}</b><b style={{ fontSize: 16, textAlign: "right" }}>{eur(dv.total_ttc)}</b>

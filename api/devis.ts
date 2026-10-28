@@ -33,6 +33,8 @@ import {
   envoyerPourSignature, pdfSigne, secretWebhook, statutEnveloppe,
 } from "./_lib/docusign.js";
 import { signerPdf } from "./_lib/signatureDevis.js";
+import { mettreEnPreparationDevis } from "./_lib/preparationAuto.js";
+import { collecterVentes, construireRapport, semainePrecedente } from "./_lib/rapportVentes.js";
 
 export const maxDuration = 30;
 
@@ -65,7 +67,7 @@ const MAIL: Record<Langue, {
   total: string; financement: string; acompte: (p: number, m: string) => string; valable: (d: string) => string;
   accepter: string; cordialement: string; fichier: string;
   signerMessage: string; signeSujet: (n: string, c: string) => string;
-  bouton: string; ouBien: string; confirmeSujet: (n: string) => string; confirmeTexte: (n: string) => string;
+  bouton: string; ouBien: string; lot: (n: number) => string; confirmeSujet: (n: string) => string; confirmeTexte: (n: string) => string;
 }> = {
   fr: {
     sujet: (n) => `Devis ${n} — Delta Services`,
@@ -81,6 +83,7 @@ const MAIL: Record<Langue, {
     signerMessage: "Veuillez trouver ci-joint notre devis. Vous pouvez le signer électroniquement en cliquant sur le bouton ci-dessus.",
     signeSujet: (n, c) => `✍️ Devis ${n} signé par ${c}`,
     bouton: "✍️ Accepter et signer le devis",
+    lot: (n) => `Vente en lot : prix global pour les ${n} nacelles`,
     ouBien: "Pour l'accepter, cliquez sur le bouton ci-dessous et signez en ligne (ou retournez-le daté et signé avec la mention « Bon pour accord » en réponse à cet email) :",
     confirmeSujet: (n) => `Devis ${n} signé — Delta Services`,
     confirmeTexte: (n) => `Merci ! Nous avons bien reçu votre accord sur le devis <b>${n}</b>. Vous trouverez ci-joint le devis signé. Votre interlocuteur vous recontacte rapidement pour la suite.`,
@@ -99,6 +102,7 @@ const MAIL: Record<Langue, {
     signerMessage: "Please find attached our quotation. You can sign it electronically by clicking the button above.",
     signeSujet: (n, c) => `✍️ Devis ${n} signé par ${c}`,
     bouton: "✍️ Accept and sign the quotation",
+    lot: (n) => `Lot sale: one total price for the ${n} aerial platforms`,
     ouBien: "To accept it, click the button below and sign online (or return it dated and signed with the words “Approved and accepted” in reply to this email):",
     confirmeSujet: (n) => `Quotation ${n} signed — Delta Services`,
     confirmeTexte: (n) => `Thank you! We have received your acceptance of quotation <b>${n}</b>. Please find the signed quotation attached. Your contact will get back to you shortly about the next steps.`,
@@ -117,6 +121,7 @@ const MAIL: Record<Langue, {
     signerMessage: "Le adjuntamos nuestro presupuesto. Puede firmarlo electrónicamente haciendo clic en el botón de arriba.",
     signeSujet: (n, c) => `✍️ Devis ${n} signé par ${c}`,
     bouton: "✍️ Aceptar y firmar el presupuesto",
+    lot: (n) => `Venta en lote: precio global para las ${n} plataformas`,
     ouBien: "Para aceptarlo, haga clic en el botón de abajo y firme en línea (o devuélvanoslo fechado y firmado con la mención «Conforme» en respuesta a este correo):",
     confirmeSujet: (n) => `Presupuesto ${n} firmado — Delta Services`,
     confirmeTexte: (n) => `¡Gracias! Hemos recibido su conformidad con el presupuesto <b>${n}</b>. Adjuntamos el presupuesto firmado. Su interlocutor se pondrá en contacto con usted en breve.`,
@@ -157,12 +162,20 @@ async function apresSignature(db: admin.firestore.Firestore, dv: any, url: strin
     const m = (await mref.get()).data();
     if (m?.devis_vente_numero === numero) await mref.update({ devis_vente_url: url, devis_vente_signe_le: date, updatedAt: now });
   }
+  // 🔧 Mise en préparation automatique (décision Jonathan 28/10/2026)
+  const prepa = await mettreEnPreparationDevis(appAdmin(), dv, date, `Devis ${numero} signé (${source})`);
+  await db.collection("devis_vente").doc(numero).update({
+    preparation_auto: prepa,
+    historique: admin.firestore.FieldValue.arrayUnion({ date: now, action: `mise en préparation : ${prepa.map((p) => `${p.reference} ${p.ok ? "✅" : "⚠ " + p.detail}`).join(", ")}`, par: "Delta VO" }),
+  }).catch(() => undefined);
+  const enEchec = prepa.filter((p) => !p.ok);
   const T = MAIL[langueOk(dv.langue)];
   await emailBrevo({ email: dv.commercial?.email, name: dv.commercial?.nom }, T.signeSujet(numero, dv.client?.raison_sociale || "le client"),
     `<p>Bonjour,</p><p>Le devis <b>${esc(numero)}</b> a été <b>signé électroniquement</b> (${esc(source)}) par ${esc(signataire || dv.client?.contact_nom || "le client")} (${esc(dv.client?.raison_sociale || "")}).</p>` +
     `<ul>${(dv.lignes || []).map((l: any) => `<li>${esc(l.reference)} — ${esc(l.designation)} : <b>${eur(l.prix_ht)} HT</b></li>`).join("")}</ul>` +
     `<p>Total : <b>${eur(dv.total_ht)} HT</b>${dv.acompte_pct ? ` · acompte ${dv.acompte_pct} % : ${eur(dv.acompte_ttc)} TTC` : " · financement bancaire"}</p>` +
-    `<p>📄 <a href="${url}">Devis signé (PDF + certificat de signature)</a></p><p>Prochaine étape : passer la ou les nacelles en préparation dans <a href="https://delta-vo.vercel.app">Delta VO</a>.</p>`);
+    `<p>📄 <a href="${url}">Devis signé (PDF + certificat de signature)</a></p><p><b>🔧 Mise en préparation automatique :</b></p><ul>${prepa.map((p) => `<li>${esc(p.reference)} : ${p.ok ? "✅ " : "⚠ <b>non basculée</b> — "}${esc(p.detail)}</li>`).join("")}</ul>` +
+    `${enEchec.length ? `<p>⚠ Pour ${enEchec.length > 1 ? "ces nacelles" : "cette nacelle"}, faites la mise en préparation à la main dans <a href="https://delta-vo.vercel.app">Delta VO</a>.</p>` : `<p>La nacelle est dans l'onglet « En préparation » de <a href="https://delta-vo.vercel.app">Delta VO</a> : il reste à valider la fiche de préparation (les préparateurs sont prévenus à ce moment-là, comme d'habitude).</p>`}`);
 }
 
 /** Lien public « Accepter et signer » */
@@ -185,7 +198,8 @@ function devisPublic(dv: any) {
     numero: dv.numero, date: dv.date, date_expiration: dv.date_expiration, langue: langueOk(dv.langue),
     statut: dv.statut === "signe" ? "signe" : dv.statut === "annule" || dv.statut === "refuse" ? "annule" : expire ? "expire" : "a_signer",
     client: { raison_sociale: dv.client?.raison_sociale || "", contact_nom: dv.client?.contact_nom || "" },
-    lignes: (dv.lignes || []).map((l: any) => ({ reference: l.reference, designation: l.designation, prix_ht: l.prix_ht })),
+    lot: !!dv.lot,
+    lignes: (dv.lignes || []).map((l: any) => ({ reference: l.reference, designation: l.designation, prix_ht: dv.lot ? null : l.prix_ht })),
     tva_taux: dv.tva_taux, total_ht: dv.total_ht, tva: dv.tva, total_ttc: dv.total_ttc,
     acompte_pct: dv.acompte_pct, acompte_ttc: dv.acompte_ttc, conditions: dv.conditions || "",
     commercial: { nom: dv.commercial?.nom || "", email: dv.commercial?.email || "", tel: dv.commercial?.tel || "" },
@@ -308,8 +322,66 @@ async function webhookDocusign(req: any, res: any) {
   return res.status(200).json({ ok: true, statut: st.statut });
 }
 
+/** 📊 Rapport hebdo des ventes : calcule la semaine précédente et l'envoie (programmé à 8 h Paris si possible) */
+async function envoyerRapportHebdo(opts: { force: boolean; destinataires?: string[] }): Promise<{ ok: boolean; detail: string; to?: string[]; ventes?: number }> {
+  const db = admin.firestore(appAdmin());
+  const sem = semainePrecedente();
+  const cfgRef = db.collection("config").doc("devis");
+  const cfg: any = (await cfgRef.get()).data() || {};
+  const to = (opts.destinataires?.length ? opts.destinataires : String(cfg.rapport_ventes_destinataires || "jlaroche@klubb.com").split(/[\s,;]+/))
+    .map((e) => e.trim().toLowerCase()).filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)).slice(0, 20);
+  if (!to.length) return { ok: false, detail: "aucun destinataire" };
+  // Une seule fois par semaine (le planificateur peut relancer)
+  if (!opts.force) {
+    const deja = await db.runTransaction(async (tx) => {
+      const c: any = (await tx.get(cfgRef)).data() || {};
+      if (c.rapport_ventes_derniere_semaine === sem.debut) return true;
+      tx.set(cfgRef, { rapport_ventes_derniere_semaine: sem.debut, rapport_ventes_envoye_le: new Date().toISOString() }, { merge: true });
+      return false;
+    });
+    if (deja) return { ok: true, detail: `déjà envoyé pour la semaine du ${sem.debut}` };
+  }
+  const r = construireRapport(sem, await collecterVentes(db, sem));
+  const programme = !opts.force && sem.lundi8hUtc.getTime() > Date.now() + 2 * 60000;
+  const apiKey = process.env.BREVO_API_KEY;
+  const sender = process.env.BREVO_SENDER_EMAIL;
+  if (!apiKey || !sender) return { ok: false, detail: "Brevo non configuré" };
+  const envoi = (planifie: boolean) => fetchAvecReessai("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: { "api-key": apiKey, "Content-Type": "application/json", accept: "application/json" },
+    body: JSON.stringify({
+      sender: { email: sender, name: process.env.BREVO_SENDER_NAME || "Delta VO" },
+      to: to.map((email) => ({ email })),
+      subject: r.sujet,
+      htmlContent: r.html,
+      attachment: [{ name: r.nomCsv, content: Buffer.from(r.csv, "utf8").toString("base64") }],
+      ...(planifie ? { scheduledAt: sem.lundi8hUtc.toISOString() } : {}),
+    }),
+  }, { timeoutMs: 20_000, essais: 1 });
+  let resp = await envoi(programme);
+  // Programmation refusée par Brevo → envoi immédiat plutôt que pas de rapport
+  if (!resp.ok && programme && resp.status === 400) resp = await envoi(false);
+  if (!resp.ok) {
+    const t = (await resp.text()).slice(0, 300);
+    console.error("❌ Rapport hebdo Brevo", resp.status, t);
+    if (!opts.force) await cfgRef.set({ rapport_ventes_derniere_semaine: null }, { merge: true }); // retentera
+    return { ok: false, detail: `envoi refusé (${resp.status})` };
+  }
+  const ventes = (r.sujet.match(/: (\d+) nacelle/) || [])[1];
+  console.log(`📊 Rapport ventes semaine ${sem.debut} → ${to.join(", ")}${programme ? ` (programmé ${sem.lundi8hUtc.toISOString()})` : ""}`);
+  return { ok: true, detail: programme ? `programmé pour lundi 8 h (${to.join(", ")})` : `envoyé à ${to.join(", ")}`, to, ventes: Number(ventes) || 0 };
+}
+
 export default async function handler(req: any, res: any) {
   if (cors(req, res)) return;
+  // ⏰ Tâche planifiée Vercel (lundi matin) : rapport hebdomadaire des ventes
+  if (req.method === "GET" && String(req.query?.action || "") === "rapport_hebdo") {
+    const secret = process.env.CRON_SECRET;
+    const autorise = secret ? req.headers.authorization === `Bearer ${secret}` : /vercel-cron/i.test(String(req.headers["user-agent"] || ""));
+    if (!autorise) return res.status(401).json({ error: "non autorisé" });
+    try { return res.status(200).json(await envoyerRapportHebdo({ force: false })); }
+    catch (e: any) { console.error("❌ rapport hebdo:", e); return res.status(500).json({ error: e?.message || "erreur" }); }
+  }
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
   // Webhook DocuSign : pas d'utilisateur Delta VO, protégé par une clé dans l'URL
   if (String(req.query?.action || "") === "docusign") {
@@ -397,6 +469,11 @@ export default async function handler(req: any, res: any) {
           acompte_ttc: Math.round(totalTtc * acompte) / 100,
           conditions: str(body.conditions, 3000),
           langue: langueOk(body.langue),
+          lot: body.lot === true && lignes.length > 1,
+          preparation: {
+            type_prepa: body.type_prepa === "en_etat" ? "en_etat" : "normale",
+            date_livraison: /^\d{4}-\d{2}-\d{2}$/.test(String(body.date_livraison || "")) ? String(body.date_livraison) : "",
+          },
           commercial,
           cree_par_uid: user.uid,
           historique: [{ date: now.toISOString(), action: "création", par: commercial.nom }],
@@ -449,8 +526,8 @@ export default async function handler(req: any, res: any) {
         const html =
           `<p>${T.bonjour}${dv.client?.contact_nom ? " " + esc(dv.client.contact_nom) : ""},</p>` +
           `<p>${T.joint(esc(numero), dv.lignes.length)}</p>` +
-          `<ul>${dv.lignes.map((l: any) => `<li>${esc(l.reference)} — ${esc(l.designation)}${sepFr}: <b>${eur(l.prix_ht, lg)} ${T.ht}</b></li>`).join("")}</ul>` +
-          `<p>${T.total}${sepFr}: <b>${eur(dv.total_ht, lg)} ${T.ht}</b>${dv.tva_taux ? ` · ${eur(dv.total_ttc, lg)} ${T.ttc}` : ""}<br/>${esc(acompteTxt)}<br/>` +
+          `<ul>${dv.lignes.map((l: any) => `<li>${esc(l.reference)} — ${esc(l.designation)}${dv.lot ? "" : `${sepFr}: <b>${eur(l.prix_ht, lg)} ${T.ht}</b>`}</li>`).join("")}</ul>` +
+          `<p>${dv.lot ? `<b>${esc(T.lot(dv.lignes.length))}</b><br/>` : ""}${T.total}${sepFr}: <b>${eur(dv.total_ht, lg)} ${T.ht}</b>${dv.tva_taux ? ` · ${eur(dv.total_ttc, lg)} ${T.ttc}` : ""}<br/>${esc(acompteTxt)}<br/>` +
           `${esc(T.valable(String(dv.date_expiration).split("-").reverse().join("/")))}</p>` +
           `<p>${esc(T.ouBien)}</p>` +
           `<p style="margin:18px 0"><a href="${lien}" style="background:#1e8e3e;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:6px;display:inline-block">${esc(T.bouton)}</a></p>` +
@@ -485,6 +562,13 @@ export default async function handler(req: any, res: any) {
       });
       console.log(`📧 Devis ${numero} ${emailEnvoye ? `envoyé à ${dest}` : "PDF enregistré"}`);
       return res.status(200).json({ ok: true, pdf_url: pdfUrl, email_envoye: emailEnvoye, to: dest, lien_signature: lien });
+    }
+
+    // ───────────── RAPPORT HEBDO : envoi immédiat (Admin → bouton « Envoyer maintenant ») ─────────────
+    if (action === "rapport_test") {
+      if (!["admin", "superadmin"].includes(String(profil.role || ""))) return res.status(403).json({ error: "Réservé aux administrateurs" });
+      const r = await envoyerRapportHebdo({ force: true, destinataires: body.moi ? [user.email] : undefined });
+      return res.status(r.ok ? 200 : 502).json(r);
     }
 
     // ───────────── CONFIG ─────────────
@@ -549,6 +633,12 @@ export default async function handler(req: any, res: any) {
       const ref = db.collection("devis_vente").doc(numero);
       const snapA = await ref.get();
       if (!snapA.exists) return res.status(404).json({ error: `Devis ${numero} introuvable` });
+      // ✍️ Un devis SIGNÉ ne s'annule pas en retirant l'offre : il reste signé (trace seulement)
+      if (snapA.data()?.statut === "signe") {
+        const t = new Date().toISOString();
+        await ref.update({ historique: admin.firestore.FieldValue.arrayUnion({ date: t, action: `offre retirée après signature${body.motif ? " — " + str(body.motif, 200) : ""} (devis conservé signé)`, par: commercial.nom }) });
+        return res.status(200).json({ ok: true, signe: true });
+      }
       const env = snapA.data()?.docusign;
       if (env?.envelope_id && env.statut === "sent" && docusignConfigure()) {
         await annulerEnveloppe(env.envelope_id, `Devis annulé${body.motif ? " — " + str(body.motif, 150) : ""}`);

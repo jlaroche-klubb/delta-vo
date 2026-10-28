@@ -57,6 +57,7 @@ export interface TextesDevis {
   /** Conditions par défaut (si non paramétrées dans Admin pour cette langue) */
   conditionsDefaut: string;
   nacelle: string;
+  lot: (n: number) => string;
   sur: string;
 }
 
@@ -92,6 +93,7 @@ export const TEXTES_DEVIS: Record<LangueDevis, TextesDevis> = {
       "Livraison ou enlèvement après encaissement de la totalité du prix. " +
       "Le transfert de propriété intervient au paiement intégral.",
     nacelle: "Nacelle",
+    lot: (n) => `Prix global du lot (${n} nacelles)`,
     sur: "sur",
   },
   en: {
@@ -125,6 +127,7 @@ export const TEXTES_DEVIS: Record<LangueDevis, TextesDevis> = {
       "Delivery or collection after receipt of the full price. " +
       "Ownership is transferred upon full payment.",
     nacelle: "Aerial platform",
+    lot: (n) => `Total price for the lot (${n} aerial platforms)`,
     sur: "on",
   },
   es: {
@@ -158,6 +161,7 @@ export const TEXTES_DEVIS: Record<LangueDevis, TextesDevis> = {
       "Entrega o recogida tras el cobro del importe total. " +
       "La transmisión de la propiedad se produce con el pago íntegro.",
     nacelle: "Plataforma elevadora",
+    lot: (n) => `Precio global del lote (${n} plataformas)`,
     sur: "sobre",
   },
 };

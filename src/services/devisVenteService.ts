@@ -49,6 +49,8 @@ export interface DevisVente {
   commercial: { nom: string; email: string; tel?: string };
   /** Langue du devis (PDF + email au client) — défaut fr */
   langue?: LangueDevis;
+  /** 📦 Vente en lot : un prix global, prix par nacelle non imprimés */
+  lot?: boolean;
 }
 
 /** Paramètres société affichés sur les devis (Admin → Paramètres des devis) */
@@ -68,6 +70,8 @@ export interface ConfigDevis {
   cgv_en?: string;
   cgv_es?: string;
   validite_jours: number;
+  /** 📊 Rapport hebdo des ventes (lundi 8 h) : emails séparés par des virgules */
+  rapport_ventes_destinataires?: string;
 }
 
 export const CONFIG_DEVIS_DEFAUT: ConfigDevis = {
@@ -117,12 +121,15 @@ async function appel(corps: Record<string, any>): Promise<any> {
 export function creerDevisVente(d: {
   client: ClientDevis;
   lignes: LigneDevis[];
+  lot?: boolean;
   tva_taux: number;
   exoneration?: string;
   acompte_pct: AcompteDevis;
   validite_jours: number;
   conditions: string;
   langue: LangueDevis;
+  type_prepa: "normale" | "en_etat";
+  date_livraison: string;
 }): Promise<{ numero: string; commercial: DevisVente["commercial"]; total_ht: number; tva: number; total_ttc: number }> {
   return appel({ action: "creer", ...d });
 }
@@ -136,7 +143,8 @@ export interface DevisPublic {
   numero: string; date: string; date_expiration: string; langue: LangueDevis;
   statut: "a_signer" | "signe" | "expire" | "annule";
   client: { raison_sociale: string; contact_nom: string };
-  lignes: { reference: string; designation: string; prix_ht: number }[];
+  lot?: boolean;
+  lignes: { reference: string; designation: string; prix_ht: number | null }[];
   tva_taux: number; total_ht: number; tva: number; total_ttc: number;
   acompte_pct: number; acompte_ttc: number; conditions: string;
   commercial: { nom: string; email: string; tel: string };
@@ -166,6 +174,11 @@ export async function signatureDisponible(): Promise<boolean> {
 /** Envoi pour signature électronique DocuSign (le client reçoit l'email DocuSign) */
 export function signerDevisVente(numero: string, pdfBase64: string): Promise<{ pdf_url: string; envelope_id: string; to: string }> {
   return appel({ action: "signer", numero, pdfBase64 });
+}
+
+/** 📊 Envoie tout de suite le rapport des ventes de la semaine dernière (à soi-même ou aux destinataires) */
+export function envoyerRapportVentes(moi: boolean): Promise<{ ok: boolean; detail: string; ventes?: number }> {
+  return appel({ action: "rapport_test", moi });
 }
 
 export function annulerDevisVente(numero: string, motif?: string): Promise<void> {

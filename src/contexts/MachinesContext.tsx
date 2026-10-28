@@ -164,7 +164,7 @@ interface MachinesContextType {
     date_expertise: string;
   }) => void;
   deleteMachine: (machineId: string) => void;
-  creerOffre: (machineIds: string[], clientOffre: string, montants: Record<string, number>, hubspotDealId?: string) => Promise<void>;
+  creerOffre: (machineIds: string[], clientOffre: string, montants: Record<string, number>, hubspotDealId?: string, devis?: { numero: string; pdfUrl?: string }) => Promise<void>;
   annulerOffre: (machineId: string) => void;
 }
 
@@ -458,6 +458,8 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             
             // ✅ Champs offre HubSpot
             offre_en_cours: data.offre_en_cours || undefined,
+            devis_vente_numero: data.devis_vente_numero || undefined,
+            devis_vente_url: data.devis_vente_url || undefined,
             client_offre: data.client_offre || undefined,
             montant_offre: data.montant_offre ?? undefined,
             hubspot_deal_id: data.hubspot_deal_id || undefined,
@@ -2071,7 +2073,8 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     machineIds: string[],
     clientOffre: string,
     montants: Record<string, number>,
-    hubspotDealId?: string
+    hubspotDealId?: string,
+    devis?: { numero: string; pdfUrl?: string }
   ) {
     const now = new Date().toISOString();
 
@@ -2085,6 +2088,10 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       };
       if (hubspotDealId) {
         updates.hubspot_deal_id = hubspotDealId;
+      }
+      if (devis) {
+        updates.devis_vente_numero = devis.numero;
+        updates.devis_vente_url = devis.pdfUrl || null;
       }
 
       if (isFirebaseMachine(machineId)) {
@@ -2109,6 +2116,8 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       montant_offre: null,
       date_offre: null,
       hubspot_deal_id: null,
+      devis_vente_numero: null,
+      devis_vente_url: null,
       updatedAt: new Date().toISOString(),
     };
 

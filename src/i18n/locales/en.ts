@@ -92,7 +92,7 @@ const en: TranslationSchema = {
     pdfGeneratingSub: "The download will start in a few seconds",
     platformSelected: "platform selected",
     platformsSelected: "platforms selected",
-    createOffer: "Create offer",
+    createOffer: "Create quote",
     clearSelection: "Clear selection",
   },
   importVog: {

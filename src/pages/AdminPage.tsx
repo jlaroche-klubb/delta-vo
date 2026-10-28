@@ -10,6 +10,7 @@ import {
   type NotifPrepaConfig,
 } from "../services/preparationNotify";
 import { useTranslation } from "react-i18next";
+import { chargerConfigDevis, enregistrerConfigDevis, type ConfigDevis } from "../services/devisVenteService";
 
 interface PendingUser {
   id: string;
@@ -58,6 +59,20 @@ export default function AdminPage() {
   const [notifCfg, setNotifCfg] = useState<NotifPrepaConfig | null>(null);
   const [notifText, setNotifText] = useState<Record<string, string>>({});
   const [notifSaving, setNotifSaving] = useState(false);
+
+  // 🧾 Paramètres des devis de vente (mentions légales, IBAN, conditions, CGV)
+  const [cfgDevis, setCfgDevis] = useState<ConfigDevis | null>(null);
+  const [cfgDevisDirty, setCfgDevisDirty] = useState(false);
+  const [cfgDevisSaving, setCfgDevisSaving] = useState(false);
+  useEffect(() => { chargerConfigDevis().then(setCfgDevis); }, []);
+  const setCD = (k: keyof ConfigDevis, v: any) => { setCfgDevis((c) => (c ? { ...c, [k]: v } : c)); setCfgDevisDirty(true); };
+  async function saveCfgDevis() {
+    if (!cfgDevis) return;
+    setCfgDevisSaving(true);
+    try { await enregistrerConfigDevis(cfgDevis); setCfgDevisDirty(false); }
+    catch (e: any) { alert("Enregistrement impossible : " + (e?.message || e)); }
+    finally { setCfgDevisSaving(false); }
+  }
   const [notifDirty, setNotifDirty] = useState(false);
 
   useEffect(() => {
@@ -349,6 +364,54 @@ export default function AdminPage() {
                 {notifSaving ? "…" : `💾 ${t("notifPrepa.save")}`}
               </button>
               {notifDirty && <span className="section-desc" style={{ fontStyle: "italic" }}>{t("notifPrepa.unsaved")}</span>}
+            </div>
+          </>
+        )}
+      </section>
+
+      {/* 🧾 PARAMÈTRES DES DEVIS DE VENTE */}
+      <section className="admin-section">
+        <div className="section-header">
+          <h2>🧾 Paramètres des devis de vente</h2>
+          <p className="section-desc">Imprimés sur chaque devis créé depuis Disponibles (en-tête, pied de page, règlement, conditions, CGV).</p>
+        </div>
+        {!cfgDevis ? (
+          <div className="loading">{t("common.loading")}</div>
+        ) : (
+          <>
+            {(() => {
+              const champ: React.CSSProperties = { width: "100%", boxSizing: "border-box", padding: 8, border: "1px solid #ccd", borderRadius: 6, fontFamily: "inherit", fontSize: 13 };
+              const lab: React.CSSProperties = { fontWeight: 700, color: "#1a2a6e", fontSize: 13, display: "block", marginBottom: 4 };
+              const ligne = (k: keyof ConfigDevis, l: string, rows = 0, ph = "") => (
+                <div key={k}>
+                  <label style={lab}>{l}</label>
+                  {rows ? (
+                    <textarea style={{ ...champ, resize: "vertical" }} rows={rows} value={String(cfgDevis[k] ?? "")} placeholder={ph} onChange={(e) => setCD(k, e.target.value)} />
+                  ) : (
+                    <input style={champ} value={String(cfgDevis[k] ?? "")} placeholder={ph} onChange={(e) => setCD(k, k === "validite_jours" ? Number(e.target.value) || 30 : e.target.value)} />
+                  )}
+                </div>
+              );
+              return (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 14 }}>
+                  {ligne("raison_sociale", "Raison sociale")}
+                  {ligne("adresse", "Adresse (une ligne par ligne)", 2)}
+                  {ligne("telephone", "Téléphone")}
+                  {ligne("site_web", "Site web")}
+                  {ligne("mentions_legales", "Mentions légales (pied de page)", 2, "SIREN, RCS, TVA intracommunautaire, capital…")}
+                  {ligne("iban", "IBAN (acompte par virement)")}
+                  {ligne("bic", "BIC")}
+                  {ligne("validite_jours", "Validité par défaut (jours)")}
+                  {ligne("conditions_defaut", "Conditions pré-remplies sur chaque devis", 4)}
+                  {ligne("cgv", "Conditions générales de vente (page jointe au devis si renseignées)", 6)}
+                </div>
+              );
+            })()}
+            <div className="admin-card-actions" style={{ marginTop: 14 }}>
+              <button className="btn-approve" onClick={saveCfgDevis} disabled={cfgDevisSaving || !cfgDevisDirty}>
+                {cfgDevisSaving ? "…" : "💾 Enregistrer"}
+              </button>
+              {cfgDevisDirty && <span className="section-desc" style={{ fontStyle: "italic" }}>Modifications non enregistrées</span>}
             </div>
           </>
         )}

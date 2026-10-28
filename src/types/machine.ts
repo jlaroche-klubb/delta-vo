@@ -325,6 +325,9 @@ export interface Machine {
   montant_offre?: number;
   hubspot_deal_id?: string;
   date_offre?: string;
+  /** 🧾 Devis de vente Delta VO (collection devis_vente) */
+  devis_vente_numero?: string;
+  devis_vente_url?: string;
 
   is_test?: boolean;
   createdAt: string;

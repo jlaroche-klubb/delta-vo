@@ -690,6 +690,7 @@ function construireServeur(): McpServer {
         historique: trace(d.statut, vers, "annulation_prepa", [fraisImpayes ? "frais NE non réglés" : "", a.motif].filter(Boolean).join(" — ") || undefined),
         statut: vers, type_sortie: null, type_prepa: null, acheteur: null, commercial_vendeur: null, date_vente: null, date_livraison_prevue: null, date_mise_en_cours: null,
         etapes_prepa: null, client_lld: null, contrat_sortie: FieldValue.delete(), email_sortie: FieldValue.delete(), date_mise_dispo_lld: null, updatedAt: nowIso(),
+        offre_en_cours: false, client_offre: null, montant_offre: null, date_offre: null, devis_vente_numero: null, devis_vente_url: null, devis_vente_signe_le: null, devis_vente_validation: null,
       });
       const hs = vers === "disponible" && d.prix_fr > 0 && !d.archived ? await hubspot("upsert", id, modeleLabel(d), d.prix_fr) : "HubSpot : rien à publier";
       return { immat: id, resultat: `✅ ${id} : préparation annulée → ${vers}${fraisImpayes ? " (frais Nacelle Expert non réglés : reste en Restitutions)" : ""} — ${hs}` };

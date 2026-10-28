@@ -151,6 +151,236 @@ async function emailBrevo(to: { email: string; name?: string }, sujet: string, h
   return !!r?.ok;
 }
 
+/** 📧 Email du devis au client (Brevo) : PDF joint, bouton « Accepter et signer », commercial en copie */
+async function envoyerEmailClient(dv: any, numero: string, pdf: string, lien: string, dest: string): Promise<{ ok: boolean; status: number; error?: string }> {
+  const apiKey = process.env.BREVO_API_KEY;
+  const sender = process.env.BREVO_SENDER_EMAIL;
+  if (!apiKey || !sender) return { ok: false, status: 500, error: "Brevo non configuré" };
+  const lg = langueOk(dv.langue);
+  const T = MAIL[lg];
+  const sepFr = lg === "fr" ? " " : "";
+  const acompteTxt = dv.acompte_pct === 0 ? T.financement : T.acompte(dv.acompte_pct, eur(dv.acompte_ttc, lg));
+  const html =
+    `<p>${T.bonjour}${dv.client?.contact_nom ? " " + esc(dv.client.contact_nom) : ""},</p>` +
+    `<p>${T.joint(esc(numero), dv.lignes.length)}</p>` +
+    `<ul>${dv.lignes.map((l: any) => `<li>${esc(l.reference)} — ${esc(l.designation)}${dv.lot ? "" : `${sepFr}: <b>${eur(l.prix_ht, lg)} ${T.ht}</b>`}</li>`).join("")}</ul>` +
+    `<p>${dv.lot ? `<b>${esc(T.lot(dv.lignes.length))}</b><br/>` : ""}${T.total}${sepFr}: <b>${eur(dv.total_ht, lg)} ${T.ht}</b>${dv.tva_taux ? ` · ${eur(dv.total_ttc, lg)} ${T.ttc}` : ""}<br/>${esc(acompteTxt)}<br/>` +
+    `${esc(T.valable(String(dv.date_expiration).split("-").reverse().join("/")))}</p>` +
+    `<p>${esc(T.ouBien)}</p>` +
+    `<p style="margin:18px 0"><a href="${lien}" style="background:#1e8e3e;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:6px;display:inline-block">${esc(T.bouton)}</a></p>` +
+    `<p>${T.cordialement}<br/>${esc(dv.commercial?.nom || "")}<br/>Delta Services${dv.commercial?.tel ? "<br/>" + esc(dv.commercial.tel) : ""}<br/>${esc(dv.commercial?.email || "")}</p>`;
+  const r = await fetchAvecReessai("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: { "api-key": apiKey, "Content-Type": "application/json", accept: "application/json" },
+    body: JSON.stringify({
+      sender: { email: sender, name: process.env.BREVO_SENDER_NAME || "Delta Services" },
+      to: [{ email: dest, ...(dv.client?.contact_nom ? { name: dv.client.contact_nom } : {}) }],
+      cc: dv.commercial?.email && dv.commercial.email !== dest ? [{ email: dv.commercial.email }] : undefined,
+      replyTo: dv.commercial?.email ? { email: dv.commercial.email, name: dv.commercial.nom } : undefined,
+      subject: T.sujet(numero),
+      htmlContent: html,
+      attachment: [{ name: `${T.fichier}_${numero}.pdf`, content: pdf }],
+    }),
+  }, { timeoutMs: 20_000, essais: 1 });
+  if (!r.ok) {
+    console.error("❌ Brevo devis", r.status, (await r.text()).slice(0, 300));
+    return { ok: false, status: 502, error: "Envoi de l'email impossible — le PDF est enregistré, réessayez l'envoi" };
+  }
+  return { ok: true, status: 200 };
+}
+
+/** ✍️ Envoi DocuSign (signature électronique) */
+async function lancerDocusign(dv: any, numero: string, pdf: string, hote: string): Promise<{ envelopeId: string; email: string }> {
+  const email = str(dv.client?.contact_email, 120);
+  const lg = langueOk(dv.langue);
+  const T = MAIL[lg];
+  const joursRestants = Math.ceil((new Date(String(dv.date_expiration) + "T23:59:59").getTime() - Date.now()) / 86400000);
+  const { envelopeId } = await envoyerPourSignature({
+    numero,
+    pdfBase64: pdf,
+    nomFichier: `${T.fichier}_${numero}.pdf`,
+    langue: lg,
+    client: { nom: dv.client?.contact_nom || dv.client?.raison_sociale || email, email },
+    commercial: { nom: dv.commercial?.nom || "", email: dv.commercial?.email || "" },
+    sujet: T.sujet(numero),
+    message: `${T.bonjour}${dv.client?.contact_nom ? " " + dv.client.contact_nom : ""},\n\n${T.signerMessage}\n\n${T.cordialement}\n${dv.commercial?.nom || ""}\nDelta Services${dv.commercial?.tel ? "\n" + dv.commercial.tel : ""}`,
+    webhookUrl: `https://${hote}/api/devis?action=docusign&cle=${secretWebhook()}`,
+    expireJours: Math.min(Math.max(joursRestants, 1), 120),
+  });
+  return { envelopeId, email };
+}
+
+// ─────────────────────────────────────────────────────────────
+// 🔒 VALIDATION DES REMISES (décision Jonathan 28/10/2026)
+// Hors admin / super admin, le prix d'une nacelle ne peut baisser que de
+// 1 000 € HT max sous le prix catalogue (vente en lot : 1 000 € × nb de
+// nacelles sous le total catalogue). Au-delà : validation par Jonathan OU
+// Nathalie (Admin → Paramètres des devis → valideurs), avant tout envoi.
+// ─────────────────────────────────────────────────────────────
+const SEUIL_REMISE = 1000;
+const VALIDEURS_DEFAUT = "jlaroche@klubb.com, nneguy@klubb.com";
+
+async function calculerValidation(db: admin.firestore.Firestore, lignes: any[], lot: boolean, totalHt: number, role: string) {
+  const dealer = role === "dealer";
+  const details: { reference: string; catalogue: number | null; propose: number; remise: number | null }[] = [];
+  for (const l of lignes) {
+    const d: any = l.machine_id ? (await db.collection("machines_vo").doc(l.machine_id).get()).data() : null;
+    const cat = Number(dealer ? d?.prix_dealer ?? d?.prix_fr : d?.prix_fr ?? d?.prix_dealer) || 0;
+    details.push({ reference: l.reference, catalogue: cat > 0 ? cat : null, propose: l.prix_ht, remise: cat > 0 ? Math.round((cat - l.prix_ht) * 100) / 100 : null });
+  }
+  const totalCatalogue = details.reduce((t, x) => t + (x.catalogue || 0), 0);
+  const remiseTotale = Math.round((totalCatalogue - totalHt) * 100) / 100;
+  const admin_ = role === "admin" || role === "superadmin";
+  const sansPrix = details.filter((x) => x.catalogue === null).map((x) => x.reference);
+  const depassements = lot
+    ? (remiseTotale > SEUIL_REMISE * lignes.length ? [`lot : ${eur(remiseTotale)} de remise (max ${eur(SEUIL_REMISE * lignes.length)})`] : [])
+    : details.filter((x) => x.remise !== null && x.remise > SEUIL_REMISE).map((x) => `${x.reference} : ${eur(x.remise as number)} de remise`);
+  const requise = !admin_ && (sansPrix.length > 0 || depassements.length > 0);
+  return {
+    requise,
+    statut: requise ? "a_demander" : "non_requise",
+    seuil_par_nacelle: SEUIL_REMISE,
+    total_catalogue: totalCatalogue,
+    remise_totale: remiseTotale,
+    motifs: [...depassements, ...sansPrix.map((r) => `${r} : pas de prix catalogue`)],
+    details,
+  };
+}
+
+/** Envoie la demande de validation aux valideurs (un lien personnel chacun) */
+async function demanderValidation(db: admin.firestore.Firestore, ref: admin.firestore.DocumentReference, dv: any, numero: string, envoiPrevu: "email" | "pdf" | "signature", hote: string, par: string, extra: Record<string, any> = {}) {
+  const cfg: any = (await db.collection("config").doc("devis").get()).data() || {};
+  const valideurs = String(cfg.valideurs_emails || VALIDEURS_DEFAUT).split(/[\s,;]+/).map((e) => e.trim().toLowerCase())
+    .filter((e) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)).slice(0, 10);
+  const jetons: Record<string, string> = {};
+  for (const e of valideurs) jetons[crypto.randomBytes(16).toString("hex")] = e;
+  const now = new Date().toISOString();
+  await ref.update({
+    ...extra,
+    pdf_url: dv.pdf_url,
+    statut: "a_valider",
+    "validation.statut": "en_attente",
+    "validation.demande_le": now,
+    "validation.envoi_prevu": envoiPrevu,
+    "validation.jetons": jetons,
+    historique: admin.firestore.FieldValue.arrayUnion({ date: now, action: `remise à valider (${(dv.validation?.motifs || []).join(" ; ")}) — demande envoyée à ${valideurs.join(", ")}`, par }),
+  });
+  for (const l of dv.lignes || []) {
+    if (l.machine_id) await db.collection("machines_vo").doc(l.machine_id).update({ devis_vente_validation: "en_attente" }).catch(() => undefined);
+  }
+  const v = dv.validation || {};
+  const lignesHtml = (v.details || []).map((x: any) =>
+    `<tr><td style="padding:5px 8px;border-bottom:1px solid #eee"><b>${esc(x.reference)}</b></td><td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:right">${x.catalogue ? eur(x.catalogue) : "—"}</td>` +
+    `<td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:right">${dv.lot ? "lot" : eur(x.propose)}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:right;color:${(x.remise || 0) > SEUIL_REMISE ? "#c0392b" : "#333"}">${x.remise !== null && !dv.lot ? eur(x.remise) : "—"}</td></tr>`).join("");
+  for (const [jeton, email] of Object.entries(jetons)) {
+    const lien = `https://${hote}/devis-validation/${encodeURIComponent(numero)}/${jeton}`;
+    await emailBrevo({ email }, `🔒 Remise à valider — devis ${numero} (${dv.client?.raison_sociale || ""}) par ${dv.commercial?.nom || ""}`,
+      `<p>Bonjour,</p><p><b>${esc(dv.commercial?.nom || "")}</b> demande votre validation pour le devis <b>${esc(numero)}</b> à <b>${esc(dv.client?.raison_sociale || "")}</b> : la remise dépasse ${eur(SEUIL_REMISE)} HT par nacelle.</p>` +
+      `<table style="border-collapse:collapse;font-size:13px"><tr style="background:#1f4282;color:#fff"><th style="padding:5px 8px;text-align:left">Réf.</th><th style="padding:5px 8px">Prix catalogue HT</th><th style="padding:5px 8px">Prix proposé HT</th><th style="padding:5px 8px">Remise</th></tr>${lignesHtml}</table>` +
+      `<p>Total catalogue : ${eur(v.total_catalogue || 0)} HT · <b>Total proposé : ${eur(dv.total_ht)} HT</b>${dv.lot ? ` (vente en lot, ${dv.lignes.length} nacelles)` : ""} · <b style="color:#c0392b">remise ${eur(v.remise_totale || 0)}</b></p>` +
+      `<p>Après validation, le devis part ${envoiPrevu === "email" ? "automatiquement par email au client" : envoiPrevu === "signature" ? "automatiquement au client pour signature DocuSign" : "chez le commercial, qui pourra le télécharger et l'envoyer"}.</p>` +
+      `<p style="margin:18px 0"><a href="${lien}" style="background:#1f4282;color:#fff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:6px;display:inline-block">Voir et valider / refuser</a></p>` +
+      `${dv.pdf_url ? `<p>📄 <a href="${dv.pdf_url}">Devis PDF</a></p>` : ""}<p style="font-size:11px;color:#888">Le premier valideur qui répond décide. — Delta VO</p>`);
+  }
+  console.log(`🔒 Devis ${numero} : validation demandée à ${valideurs.join(", ")}`);
+  return { valideurs };
+}
+
+/** 🔒 Page de validation (lien personnel du valideur) */
+async function actionValidation(req: any, res: any, body: any) {
+  const db = admin.firestore(appAdmin());
+  const numero = str(body.numero, 20);
+  const jeton = str(body.jeton, 40).toLowerCase();
+  if (!/^DV-\d{4}-\d{4}$/.test(numero) || !/^[a-f0-9]{32}$/.test(jeton)) return res.status(404).json({ error: "lien_invalide" });
+  const ref = db.collection("devis_vente").doc(numero);
+  const dv: any = (await ref.get()).data();
+  const valideur = dv?.validation?.jetons?.[jeton];
+  if (!dv || !valideur) return res.status(404).json({ error: "lien_invalide" });
+  const vue = () => ({
+    numero, statut: dv.statut, client: dv.client?.raison_sociale || "", commercial: dv.commercial?.nom || "", lot: !!dv.lot,
+    lignes: (dv.validation?.details || []).map((x: any, i: number) => ({ ...x, designation: dv.lignes?.[i]?.designation || "" })),
+    total_ht: dv.total_ht, total_catalogue: dv.validation?.total_catalogue, remise_totale: dv.validation?.remise_totale, motifs: dv.validation?.motifs || [],
+    acompte_pct: dv.acompte_pct, pdf_url: dv.pdf_url, envoi_prevu: dv.validation?.envoi_prevu,
+    validation: { statut: dv.validation?.statut, par: dv.validation?.par || null, le: dv.validation?.le || null, motif: dv.validation?.motif || "" },
+    valideur,
+  });
+  if (body.action === "public_validation_lire") return res.status(200).json({ ok: true, devis: vue() });
+
+  const decision = body.decision === "valider" ? "valider" : body.decision === "refuser" ? "refuser" : "";
+  if (!decision) return res.status(400).json({ error: "decision" });
+  const motif = str(body.motif, 500);
+  const now = new Date().toISOString();
+  const deja = await db.runTransaction(async (tx) => {
+    const cur: any = (await tx.get(ref)).data();
+    if (cur?.validation?.statut !== "en_attente" || cur?.statut !== "a_valider") return cur?.validation?.statut || "deja";
+    tx.update(ref, {
+      "validation.statut": decision === "valider" ? "validee" : "refusee",
+      "validation.par": valideur, "validation.le": now, "validation.motif": motif,
+      statut: decision === "valider" ? "valide" : "refuse_interne",
+      historique: admin.firestore.FieldValue.arrayUnion({ date: now, action: `remise ${decision === "valider" ? "validée" : "refusée"} par ${valideur}${motif ? " — " + motif : ""}`, par: valideur }),
+    });
+    return "";
+  });
+  if (deja) {
+    const d2: any = (await ref.get()).data();
+    Object.assign(dv, d2);
+    return res.status(409).json({ error: "deja_traite", devis: vue() });
+  }
+
+  const hote = String(req.headers["x-forwarded-host"] || req.headers.host || "delta-vo.vercel.app");
+  let resultat = "";
+  if (decision === "valider") {
+    for (const l of dv.lignes || []) {
+      if (l.machine_id) await db.collection("machines_vo").doc(l.machine_id).update({ devis_vente_validation: null, ...(dv.pdf_url ? { devis_vente_url: dv.pdf_url } : {}) }).catch(() => undefined);
+    }
+    const prevu = dv.validation?.envoi_prevu || "pdf";
+    try {
+      if (prevu === "email" || prevu === "signature") {
+        const [buf] = await admin.storage(appAdmin()).bucket(BUCKET).file(`devis_vente/${numero}.pdf`).download();
+        const pdf = buf.toString("base64");
+        if (prevu === "signature" && docusignConfigure()) {
+          const { envelopeId, email } = await lancerDocusign(dv, numero, pdf, hote);
+          await ref.update({ statut: "signature", envoye_le: now, envoye_a: email, docusign: { envelope_id: envelopeId, statut: "sent", envoye_le: now },
+            historique: admin.firestore.FieldValue.arrayUnion({ date: now, action: `envoyé pour signature électronique à ${email} (DocuSign) après validation`, par: valideur }) });
+          resultat = `envoyé au client pour signature (${email})`;
+        } else {
+          const dest = str(dv.client?.contact_email, 120);
+          const jetonSig = /^[a-f0-9]{32}$/.test(String(dv.signature_jeton || "")) ? dv.signature_jeton : crypto.randomBytes(16).toString("hex");
+          const e = await envoyerEmailClient(dv, numero, pdf, lienSignature(hote, numero, jetonSig), dest);
+          if (!e.ok) throw new Error(e.error || "envoi impossible");
+          await ref.update({ statut: "envoye", envoye_le: now, envoye_a: dest, signature_jeton: jetonSig,
+            historique: admin.firestore.FieldValue.arrayUnion({ date: now, action: `envoyé à ${dest} après validation`, par: valideur }) });
+          resultat = `envoyé par email au client (${dest})`;
+        }
+      } else {
+        await ref.update({ statut: "genere" });
+        resultat = "prêt : vous pouvez le télécharger depuis la carte de la nacelle et l'envoyer";
+      }
+    } catch (e: any) {
+      console.error("❌ envoi après validation:", e);
+      resultat = `⚠ validé mais l'envoi au client a échoué (${e?.message || e}) — renvoyez-le depuis Delta VO`;
+    }
+  } else {
+    // Refus : l'offre est retirée des nacelles
+    for (const l of dv.lignes || []) {
+      if (!l.machine_id) continue;
+      const mref = db.collection("machines_vo").doc(l.machine_id);
+      const m: any = (await mref.get()).data();
+      if (m?.devis_vente_numero === numero) {
+        await mref.update({ offre_en_cours: false, client_offre: null, montant_offre: null, date_offre: null, devis_vente_numero: null, devis_vente_url: null, devis_vente_validation: null, devis_vente_signe_le: null, updatedAt: now });
+      }
+    }
+    resultat = "le devis n'est pas envoyé et l'offre est retirée des nacelles";
+  }
+  await emailBrevo({ email: dv.commercial?.email, name: dv.commercial?.nom },
+    `${decision === "valider" ? "✅ Remise validée" : "❌ Remise refusée"} — devis ${numero} (${dv.client?.raison_sociale || ""})`,
+    `<p>Bonjour,</p><p>La remise du devis <b>${esc(numero)}</b> (${esc(dv.client?.raison_sociale || "")}, ${eur(dv.total_ht)} HT) a été <b>${decision === "valider" ? "validée" : "refusée"}</b> par ${esc(valideur)}.</p>` +
+    `${motif ? `<p>Commentaire : <i>${esc(motif)}</i></p>` : ""}<p>${esc(resultat)}.</p><p><a href="https://delta-vo.vercel.app">Delta VO</a></p>`);
+  const d3: any = (await ref.get()).data();
+  Object.assign(dv, d3);
+  return res.status(200).json({ ok: true, resultat, devis: vue() });
+}
+
 /** Après une signature (DocuSign ou en ligne) : fiches machines + email au commercial */
 async function apresSignature(db: admin.firestore.Firestore, dv: any, url: string, signataire: string, date: string, source: string) {
   const numero = dv.numero;
@@ -196,7 +426,7 @@ function devisPublic(dv: any) {
   const expire = String(dv.date_expiration || "") < new Date().toISOString().slice(0, 10);
   return {
     numero: dv.numero, date: dv.date, date_expiration: dv.date_expiration, langue: langueOk(dv.langue),
-    statut: dv.statut === "signe" ? "signe" : dv.statut === "annule" || dv.statut === "refuse" ? "annule" : expire ? "expire" : "a_signer",
+    statut: dv.statut === "signe" ? "signe" : ["annule", "refuse", "refuse_interne", "a_valider"].includes(dv.statut) ? "annule" : expire ? "expire" : "a_signer",
     client: { raison_sociale: dv.client?.raison_sociale || "", contact_nom: dv.client?.contact_nom || "" },
     lot: !!dv.lot,
     lignes: (dv.lignes || []).map((l: any) => ({ reference: l.reference, designation: l.designation, prix_ht: dv.lot ? null : l.prix_ht })),
@@ -395,6 +625,10 @@ export default async function handler(req: any, res: any) {
       try { return await actionPublique(req, res, b); }
       catch (e: any) { console.error("❌ signature en ligne:", e); return res.status(500).json({ error: "erreur_serveur" }); }
     }
+    if (b.action === "public_validation_lire" || b.action === "public_valider") {
+      try { return await actionValidation(req, res, b); }
+      catch (e: any) { console.error("❌ validation remise:", e); return res.status(500).json({ error: "erreur_serveur" }); }
+    }
   }
   const user = await exigerUtilisateur(req, res, { roles: ROLES });
   if (!user) return;
@@ -443,6 +677,8 @@ export default async function handler(req: any, res: any) {
       const totalTtc = Math.round((totalHt + tva) * 100) / 100;
       const now = new Date();
       const expire = new Date(now.getTime() + validiteJours * 86400000);
+      const estLot = body.lot === true && lignes.length > 1;
+      const validation = await calculerValidation(db, lignes, estLot, totalHt, String(profil.role || ""));
 
       const annee = now.getFullYear();
       const compteurRef = db.collection("config").doc("compteur_devis_vente");
@@ -469,7 +705,8 @@ export default async function handler(req: any, res: any) {
           acompte_ttc: Math.round(totalTtc * acompte) / 100,
           conditions: str(body.conditions, 3000),
           langue: langueOk(body.langue),
-          lot: body.lot === true && lignes.length > 1,
+          lot: estLot,
+          validation,
           preparation: {
             type_prepa: body.type_prepa === "en_etat" ? "en_etat" : "normale",
             date_livraison: /^\d{4}-\d{2}-\d{2}$/.test(String(body.date_livraison || "")) ? String(body.date_livraison) : "",
@@ -481,7 +718,7 @@ export default async function handler(req: any, res: any) {
         return n;
       });
       console.log(`🧾 Devis ${numero} créé par ${commercial.nom} — ${client.raison_sociale}, ${lignes.length} nacelle(s), ${eur(totalHt)} HT`);
-      return res.status(200).json({ ok: true, numero, commercial, total_ht: totalHt, tva, total_ttc: totalTtc });
+      return res.status(200).json({ ok: true, numero, commercial, total_ht: totalHt, tva, total_ttc: totalTtc, validation_requise: validation.requise, motifs_validation: validation.motifs });
     }
 
     // ───────────── ENVOYER ─────────────
@@ -511,44 +748,19 @@ export default async function handler(req: any, res: any) {
       const hote = req.headers["x-forwarded-host"] || req.headers.host || "delta-vo.vercel.app";
       const lien = lienSignature(String(hote), numero, jeton);
 
+      // 🔒 Remise > 1 000 € / nacelle (hors admin) : validation Jonathan / Nathalie avant tout envoi
+      if (dv.validation?.requise && dv.validation.statut !== "validee") {
+        const v = await demanderValidation(db, ref, { ...dv, pdf_url: pdfUrl }, numero, body.envoyer_email !== false ? "email" : "pdf", String(hote), commercial.nom, { signature_jeton: jeton, ...(zone ? { zone_signature: zone } : {}) });
+        return res.status(200).json({ ok: true, pdf_url: pdfUrl, email_envoye: false, validation: "en_attente", valideurs: v.valideurs });
+      }
+
       // 2) Email au client (si demandé)
       let emailEnvoye = false;
       const dest = str(body.email || dv.client?.contact_email, 120);
       if (body.envoyer_email !== false) {
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(dest)) return res.status(400).json({ error: "Email du client manquant ou invalide" });
-        const apiKey = process.env.BREVO_API_KEY;
-        const sender = process.env.BREVO_SENDER_EMAIL;
-        if (!apiKey || !sender) return res.status(500).json({ error: "Brevo non configuré" });
-        const lg = langueOk(dv.langue);
-        const T = MAIL[lg];
-        const sepFr = lg === "fr" ? " " : "";
-        const acompteTxt = dv.acompte_pct === 0 ? T.financement : T.acompte(dv.acompte_pct, eur(dv.acompte_ttc, lg));
-        const html =
-          `<p>${T.bonjour}${dv.client?.contact_nom ? " " + esc(dv.client.contact_nom) : ""},</p>` +
-          `<p>${T.joint(esc(numero), dv.lignes.length)}</p>` +
-          `<ul>${dv.lignes.map((l: any) => `<li>${esc(l.reference)} — ${esc(l.designation)}${dv.lot ? "" : `${sepFr}: <b>${eur(l.prix_ht, lg)} ${T.ht}</b>`}</li>`).join("")}</ul>` +
-          `<p>${dv.lot ? `<b>${esc(T.lot(dv.lignes.length))}</b><br/>` : ""}${T.total}${sepFr}: <b>${eur(dv.total_ht, lg)} ${T.ht}</b>${dv.tva_taux ? ` · ${eur(dv.total_ttc, lg)} ${T.ttc}` : ""}<br/>${esc(acompteTxt)}<br/>` +
-          `${esc(T.valable(String(dv.date_expiration).split("-").reverse().join("/")))}</p>` +
-          `<p>${esc(T.ouBien)}</p>` +
-          `<p style="margin:18px 0"><a href="${lien}" style="background:#1e8e3e;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:6px;display:inline-block">${esc(T.bouton)}</a></p>` +
-          `<p>${T.cordialement}<br/>${esc(dv.commercial?.nom || "")}<br/>Delta Services${dv.commercial?.tel ? "<br/>" + esc(dv.commercial.tel) : ""}<br/>${esc(dv.commercial?.email || "")}</p>`;
-        const r = await fetchAvecReessai("https://api.brevo.com/v3/smtp/email", {
-          method: "POST",
-          headers: { "api-key": apiKey, "Content-Type": "application/json", accept: "application/json" },
-          body: JSON.stringify({
-            sender: { email: sender, name: process.env.BREVO_SENDER_NAME || "Delta Services" },
-            to: [{ email: dest, ...(dv.client?.contact_nom ? { name: dv.client.contact_nom } : {}) }],
-            cc: dv.commercial?.email && dv.commercial.email !== dest ? [{ email: dv.commercial.email }] : undefined,
-            replyTo: dv.commercial?.email ? { email: dv.commercial.email, name: dv.commercial.nom } : undefined,
-            subject: T.sujet(numero),
-            htmlContent: html,
-            attachment: [{ name: `${T.fichier}_${numero}.pdf`, content: pdf }],
-          }),
-        }, { timeoutMs: 20_000, essais: 1 });
-        if (!r.ok) {
-          console.error("❌ Brevo devis", r.status, (await r.text()).slice(0, 300));
-          return res.status(502).json({ error: "Envoi de l'email impossible — le PDF est enregistré, réessayez l'envoi", pdf_url: pdfUrl });
-        }
+        const e = await envoyerEmailClient(dv, numero, pdf, lien, dest);
+        if (!e.ok) return res.status(e.status).json({ error: e.error, pdf_url: pdfUrl });
         emailEnvoye = true;
       }
       const now = new Date().toISOString();
@@ -588,25 +800,15 @@ export default async function handler(req: any, res: any) {
       if (!pdf || pdf.length > 8_000_000) return res.status(400).json({ error: "PDF manquant ou trop volumineux" });
       const email = str(dv.client?.contact_email, 120);
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: "Email du client manquant ou invalide" });
-      const lg = langueOk(dv.langue);
-      const T = MAIL[lg];
       const pdfUrl = await sauverPdf(`devis_vente/${numero}.pdf`, Buffer.from(pdf, "base64"));
-      const hote = req.headers["x-forwarded-host"] || req.headers.host || "delta-vo.vercel.app";
-      const joursRestants = Math.ceil((new Date(String(dv.date_expiration) + "T23:59:59").getTime() - Date.now()) / 86400000);
+      const hote = String(req.headers["x-forwarded-host"] || req.headers.host || "delta-vo.vercel.app");
+      if (dv.validation?.requise && dv.validation.statut !== "validee") {
+        const v = await demanderValidation(db, ref, { ...dv, pdf_url: pdfUrl }, numero, "signature", hote, commercial.nom);
+        return res.status(200).json({ ok: true, pdf_url: pdfUrl, validation: "en_attente", valideurs: v.valideurs, to: email });
+      }
       let envelopeId = "";
       try {
-        ({ envelopeId } = await envoyerPourSignature({
-          numero,
-          pdfBase64: pdf,
-          nomFichier: `${T.fichier}_${numero}.pdf`,
-          langue: lg,
-          client: { nom: dv.client?.contact_nom || dv.client?.raison_sociale || email, email },
-          commercial: { nom: dv.commercial?.nom || "", email: dv.commercial?.email || "" },
-          sujet: T.sujet(numero),
-          message: `${T.bonjour}${dv.client?.contact_nom ? " " + dv.client.contact_nom : ""},\n\n${T.signerMessage}\n\n${T.cordialement}\n${dv.commercial?.nom || ""}\nDelta Services${dv.commercial?.tel ? "\n" + dv.commercial.tel : ""}`,
-          webhookUrl: `https://${hote}/api/devis?action=docusign&cle=${secretWebhook()}`,
-          expireJours: Math.min(Math.max(joursRestants, 1), 120),
-        }));
+        ({ envelopeId } = await lancerDocusign(dv, numero, pdf, hote));
       } catch (e: any) {
         if (e instanceof ErreurDocusign) {
           console.error("❌ DocuSign:", e.message, e.detail);

@@ -405,6 +405,7 @@ export default function AdminPage() {
                   {ligne("validite_jours", "Validité par défaut (jours)")}
                   {ligne("conditions_defaut", "Conditions pré-remplies sur chaque devis", 4)}
                   {ligne("cgv", "Conditions générales de vente (page jointe au devis si renseignées)", 6)}
+                  {ligne("valideurs_emails", "🔒 Valideurs des remises > 1 000 € HT / nacelle (vendeurs et dealers)", 2, "jlaroche@klubb.com, nneguy@klubb.com")}
                   {ligne("rapport_ventes_destinataires", "📊 Rapport des ventes chaque lundi à 8 h — destinataires", 2, "jlaroche@klubb.com, direction@…")}
                   {ligne("conditions_defaut_en", "🇬🇧 Conditions — devis en anglais (vide = texte standard traduit)", 4)}
                   {ligne("conditions_defaut_es", "🇪🇸 Conditions — devis en espagnol (vide = texte standard traduit)", 4)}

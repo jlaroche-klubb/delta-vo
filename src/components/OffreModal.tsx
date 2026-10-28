@@ -5,12 +5,17 @@ import { useTranslation } from "react-i18next";
 interface OffreModalProps {
   machines: Machine[]; // nacelles sélectionnées (panier)
   onClose: () => void;
-  onConfirm: (clientOffre: string, montants: Record<string, number>) => void;
+  onConfirm: (clientOffre: string, montants: Record<string, number>, acompte: AcompteOffre) => void;
 }
+
+/** 💶 Acompte demandé sur le devis HubSpot (paiement en ligne désactivé) :
+ *  30 % ou 100 % à la commande, ou 0 % si financement bancaire. */
+export type AcompteOffre = 30 | 100 | 0;
 
 export default function OffreModal({ machines, onClose, onConfirm }: OffreModalProps) {
   const { t } = useTranslation();
   const [client, setClient] = useState("");
+  const [acompte, setAcompte] = useState<AcompteOffre>(30);
 
   // Montants pré-remplis avec le prix de base (prix_dealer en priorité, sinon prix_fr)
   const [montants, setMontants] = useState<Record<string, number>>(() => {
@@ -33,7 +38,7 @@ export default function OffreModal({ machines, onClose, onConfirm }: OffreModalP
       alert(t("modals.errClientNameReq"));
       return;
     }
-    onConfirm(client.trim(), montants);
+    onConfirm(client.trim(), montants, acompte);
   }
 
   return (
@@ -188,6 +193,43 @@ export default function OffreModal({ machines, onClose, onConfirm }: OffreModalP
           >
             <span>{t("modals.offreTotal")}</span>
             <span>{total.toLocaleString("fr-FR")} €</span>
+          </div>
+
+          {/* 💶 Acompte à la commande (repris dans les conditions du devis HubSpot) */}
+          <div style={{ marginTop: 18 }}>
+            <div style={{ fontWeight: 600, marginBottom: 8 }}>{t("modals.offreAcompte")}</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {([30, 100, 0] as AcompteOffre[]).map((v) => (
+                <label
+                  key={v}
+                  style={{
+                    flex: "1 1 150px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    padding: "10px 12px",
+                    borderRadius: 6,
+                    cursor: "pointer",
+                    border: `2px solid ${acompte === v ? "#1a73e8" : "#ddd"}`,
+                    background: acompte === v ? "#eef4fd" : "white",
+                    fontSize: 14,
+                  }}
+                >
+                  <input type="radio" name="acompte" checked={acompte === v} onChange={() => setAcompte(v)} style={{ width: "auto", margin: 0 }} />
+                  <span>
+                    <strong>{v} %</strong>
+                    <span style={{ display: "block", fontSize: 12, color: "#666" }}>
+                      {v === 30 ? t("modals.offreAcompte30") : v === 100 ? t("modals.offreAcompte100") : t("modals.offreAcompte0")}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            {acompte > 0 && total > 0 && (
+              <div style={{ fontSize: 12, color: "#666", marginTop: 6 }}>
+                {t("modals.offreAcompteMontant", { montant: Math.round((total * acompte) / 100).toLocaleString("fr-FR") })}
+              </div>
+            )}
           </div>
         </div>
 

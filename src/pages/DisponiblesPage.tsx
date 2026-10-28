@@ -8,7 +8,7 @@ import {
 } from "../types/machine";
 import { useMachinesFiltered } from "../contexts/MachinesContext";
 import DisponibleCard from "../components/DisponibleCard";
-import OffreModal from "../components/OffreModal";
+import OffreModal, { type AcompteOffre } from "../components/OffreModal";
 import { createHubspotDeal } from "../services/hubspotService";
 import { referenceCommerciale } from "../utils/reference";
 import { notifyImportAdmin } from "../services/importNotify";
@@ -330,7 +330,8 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
 
   async function handleCreerOffre(
     clientOffre: string,
-    montants: Record<string, number>
+    montants: Record<string, number>,
+    acompte: AcompteOffre = 30
   ) {
     const ids = panier.map((m) => m.id);
 
@@ -351,7 +352,7 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
     let hubspotDealId: string | undefined;
     let quoteWarning: string | null | undefined;
     try {
-      const result = await createHubspotDeal(clientOffre, nacelles, userEmail);
+      const result = await createHubspotDeal(clientOffre, nacelles, userEmail, acompte);
       hubspotDealId = result.dealId;
       quoteWarning = result.quoteWarning;
       console.log(`✅ Deal HubSpot créé : ${result.dealName} (id: ${result.dealId})`);

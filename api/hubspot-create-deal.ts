@@ -29,6 +29,20 @@ interface CreateDealBody {
   client: string;
   nacelles: NacelleOffre[];
   userEmail?: string;
+  /** 💶 % d'acompte à la commande : 30 (défaut), 100, ou 0 = financement bancaire */
+  acompte?: number;
+}
+
+/** Texte des « Conditions d'achat » du devis selon l'acompte choisi */
+function conditionsAcompte(acompte: number, totalHt: number): string {
+  const eur = (n: number) => Math.round(n).toLocaleString("fr-FR") + " €";
+  if (acompte === 0) {
+    return "Financement bancaire : aucun acompte demandé. Règlement de la totalité par l'organisme de financement avant livraison.";
+  }
+  if (acompte === 100) {
+    return `Règlement de 100 % du montant TTC à la commande (soit ${eur(totalHt)} HT + TVA), par virement.`;
+  }
+  return `Acompte de ${acompte} % du montant TTC à la commande (soit ${eur((totalHt * acompte) / 100)} HT + TVA), par virement. Solde à régler avant livraison.`;
 }
 
 export const maxDuration = 30;
@@ -72,6 +86,7 @@ export default async function handler(req: any, res: any) {
     }
 
     const amount = body.nacelles.reduce((sum, n) => sum + (Number(n.montant) || 0), 0);
+    const acompte = [0, 30, 100].includes(Number(body.acompte)) ? Number(body.acompte) : 30;
     const refs = body.nacelles.map((n) => n.reference).join(", ");
     const dealName = `VO - ${body.client}`;
     const description = body.nacelles
@@ -106,7 +121,7 @@ export default async function handler(req: any, res: any) {
         dealname: dealName,
         amount: String(amount),
         ...(ownerId ? { hubspot_owner_id: ownerId } : {}),
-        description: `Offre VO Delta VO\n\nRéférences : ${refs}\n\nNacelles :\n${description}`,
+        description: `Offre VO Delta VO\n\nRéférences : ${refs}\n\nNacelles :\n${description}\n\nAcompte : ${acompte === 0 ? "0 % (financement bancaire)" : acompte + " %"}`,
       },
     });
     if (!dealRes.ok) {
@@ -183,6 +198,10 @@ export default async function handler(req: any, res: any) {
           hs_currency: "EUR",
           hs_language: "fr",
           hs_status: "DRAFT",
+          // 💶 Pas de paiement en ligne sur le devis (bouton « Payer l'acompte »
+          // retiré) : l'acompte choisi dans Delta VO est écrit dans les conditions
+          hs_payment_enabled: "false",
+          hs_terms: conditionsAcompte(acompte, amount),
         },
       });
       if (!quoteRes.ok) throw new Error(`quote ${quoteRes.status}: ${quoteRes.text}`);

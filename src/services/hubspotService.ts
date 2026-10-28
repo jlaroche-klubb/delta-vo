@@ -31,12 +31,14 @@ export interface CreateDealResult {
 export async function createHubspotDeal(
   client: string,
   nacelles: NacelleOffre[],
-  userEmail?: string
+  userEmail?: string,
+  /** % d'acompte à la commande : 30, 100, ou 0 (financement bancaire) */
+  acompte?: 30 | 100 | 0
 ): Promise<CreateDealResult> {
   const response = await apiFetch("/api/hubspot-create-deal", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ client, nacelles, userEmail }),
+    body: JSON.stringify({ client, nacelles, userEmail, acompte }),
   });
 
   if (!response.ok) {

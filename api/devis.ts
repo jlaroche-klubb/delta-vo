@@ -115,6 +115,7 @@ export default async function handler(req: any, res: any) {
       const client = {
         raison_sociale: str(c.raison_sociale, 120),
         siren: str(c.siren, 20),
+        tva_intra: str(c.tva_intra, 20),
         adresse: str(c.adresse, 200),
         cp: str(c.cp, 10),
         ville: str(c.ville, 80),

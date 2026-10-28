@@ -35,7 +35,7 @@ export function genererDevisPdf(dv: DevisVente, cfg: ConfigDevis): { base64: str
 
   // ── Bandeau bleu : titre, client, références (hauteur ajustée au contenu) ──
   const c = dv.client;
-  const cl: string[] = [c.adresse || "", [c.cp, c.ville].filter(Boolean).join(" "), c.siren ? `${T.siren} ${c.siren}` : "", "",
+  const cl: string[] = [c.adresse || "", [c.cp, c.ville].filter(Boolean).join(" "), c.siren ? `${T.siren} ${c.siren}${c.tva_intra ? `   ${T.tva} ${c.tva_intra}` : ""}` : "", "",
     c.contact_nom || "", c.contact_email || "", c.contact_tel || ""].filter((l, i, a) => l || (i === 3 && a.slice(4).some(Boolean)));
   if (cl[0] === "") cl.shift(); // pas d'adresse : pas de ligne vide en tête
   const sep = lg === "fr" ? " : " : ": ";

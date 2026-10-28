@@ -17,7 +17,10 @@ const dateFr = (iso: string) => (iso ? iso.slice(0, 10).split("-").reverse().joi
 /** Espaces insécables / fines (format numérique français) → espace simple : la police PDF ne les connaît pas */
 const nettoie = (t: string) => String(t ?? "").replace(/[\u00a0\u2007\u202f]/g, " ");
 
-export function genererDevisPdf(dv: DevisVente, cfg: ConfigDevis): { base64: string; blob: Blob; filename: string } {
+/** Emplacement de l'encadré « Bon pour accord » (mm, origine en haut à gauche) : la signature en ligne y est apposée */
+export interface ZoneSignature { page: number; x: number; y: number; w: number; h: number }
+
+export function genererDevisPdf(dv: DevisVente, cfg: ConfigDevis): { base64: string; blob: Blob; filename: string; zoneSignature: ZoneSignature } {
   const lg = langueDevis(dv.langue);
   const T = TEXTES_DEVIS[lg];
   const eur = (n: number) => eurDevis(n, lg);
@@ -134,6 +137,7 @@ export function genererDevisPdf(dv: DevisVente, cfg: ConfigDevis): { base64: str
   if (y + 38 > 275) { pdf.addPage(); y = 20; }
   y += 2;
   pdf.setDrawColor(...BLEU).setLineWidth(0.3).rect(W - M - 85, y, 85, 32);
+  const zoneSignature: ZoneSignature = { page: pdf.getNumberOfPages(), x: W - M - 85, y, w: 85, h: 32 };
   pdf.setFont("helvetica", "bold").setFontSize(9).setTextColor(...BLEU).text(T.bonPourAccord, W - M - 82, y + 6);
   pdf.setFont("helvetica", "normal").setFontSize(8).setTextColor(...GRIS);
   pdf.text(T.signature1, W - M - 82, y + 11);
@@ -169,6 +173,7 @@ export function genererDevisPdf(dv: DevisVente, cfg: ConfigDevis): { base64: str
 
   const dataUri = pdf.output("datauristring");
   return {
+    zoneSignature,
     base64: dataUri.split(",")[1] || "",
     blob: pdf.output("blob"),
     filename: `${lg === "en" ? "Quotation" : lg === "es" ? "Presupuesto" : "Devis"}_${dv.numero}.pdf`,

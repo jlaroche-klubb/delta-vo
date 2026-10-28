@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider, useAuth } from "./AuthContext";
 import { MachinesProvider } from "./contexts/MachinesContext";
 import LoginPage from "./LoginPage";
+import SignerDevisPage from "./pages/SignerDevisPage";
 import GaleriePage from "./pages/GaleriePage";
 import RestitutionsPage from "./pages/RestitutionsPage";
 import DisponiblesPage from "./pages/DisponiblesPage";
@@ -262,6 +263,8 @@ export default function App() {
         {/* Page PUBLIQUE : galerie partagée au client. Aucune authentification,
             rendue hors AuthProvider/MachinesProvider (pas de sync, pas de login). */}
         <Route path="/galerie/:token" element={<GaleriePage />} />
+        {/* Page PUBLIQUE : le client accepte et signe son devis (lien de l'email) */}
+        <Route path="/devis/:numero/:jeton" element={<SignerDevisPage />} />
 
         {/* Toute le reste de l'app interne, avec authentification + contextes. */}
         <Route

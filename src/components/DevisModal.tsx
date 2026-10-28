@@ -153,7 +153,7 @@ export default function DevisModal({ machines, prixDealer, onClose, onCree }: Pr
       const pdf = genererDevisPdf(dv, cfg);
       const env = mode === "signature"
         ? await signerDevisVente(r.numero, pdf.base64)
-        : await envoyerDevisVente(r.numero, pdf.base64, mode === "email");
+        : await envoyerDevisVente(r.numero, pdf.base64, mode === "email", pdf.zoneSignature);
       if (mode === "pdf") {
         const a = document.createElement("a");
         a.href = URL.createObjectURL(pdf.blob);

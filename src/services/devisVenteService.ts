@@ -14,6 +14,7 @@ export type AcompteDevis = 30 | 100 | 0;
 export interface ClientDevis {
   raison_sociale: string;
   siren?: string;
+  tva_intra?: string; // n° TVA intracommunautaire (rempli par l'annuaire des entreprises)
   adresse?: string;
   cp?: string;
   ville?: string;

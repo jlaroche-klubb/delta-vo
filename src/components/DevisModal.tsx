@@ -13,6 +13,8 @@ import {
   type LigneDevis,
 } from "../services/devisVenteService";
 import { genererDevisPdf } from "../utils/generateDevisPdf";
+import ChampSuggestions from "./ChampSuggestions";
+import { cpValide, emailValide, rechercherAdresses, rechercherEntreprises, sirenValide, telValide, type AdresseFR, type EntrepriseFR } from "../services/rechercheFrance";
 import { LANGUES_DEVIS, TEXTES_DEVIS, langueDevis, nombreDevis, type LangueDevis } from "../utils/devisLangues";
 
 /**
@@ -58,7 +60,8 @@ export default function DevisModal({ machines, prixDealer, onClose, onCree }: Pr
       prix_ht: (prixDealer ? m.prix_dealer ?? m.prix_fr : m.prix_fr ?? m.prix_dealer) ?? 0,
     }))
   );
-  const [tva, setTva] = useState<20 | 0>(20);
+  const [tva, setTva] = useState<20 | 0>(() => (langue === "fr" ? 20 : 0));
+  const [tente, setTente] = useState(false); // a cliqué sur Créer : champs manquants en rouge
   const [exoneration, setExoneration] = useState(() => TEXTES_DEVIS[langue].exonerationDefaut);
   const [acompte, setAcompte] = useState<AcompteDevis>(30);
   const [validite, setValidite] = useState(30);
@@ -89,6 +92,30 @@ export default function DevisModal({ machines, prixDealer, onClose, onCree }: Pr
     setLignes((ls) => ls.map((l) => { const m = parId.get(l.machine_id); return m ? { ...l, designation: designation(m, lg) } : l; }));
     setExoneration(TEXTES_DEVIS[lg].exonerationDefaut);
     if (cfg) setConditions(conditionsPour(cfg, lg));
+    setTva(lg === "fr" ? 20 : 0); // devis anglais / espagnol : client étranger par défaut (modifiable)
+  }
+
+  // 🇫🇷 Client en France (TVA 20 %) : toutes les coordonnées sont obligatoires
+  const france = tva === 20;
+  const manquants: Partial<Record<keyof ClientDevis, string>> = {};
+  if (!client.raison_sociale.trim()) manquants.raison_sociale = "la raison sociale";
+  if (france) {
+    if (!sirenValide(client.siren)) manquants.siren = "le SIREN (9 chiffres)";
+    if (!(client.adresse || "").trim()) manquants.adresse = "l'adresse";
+    if (!cpValide(client.cp)) manquants.cp = "le code postal (5 chiffres)";
+    if (!(client.ville || "").trim()) manquants.ville = "la ville";
+    if (!(client.contact_nom || "").trim()) manquants.contact_nom = "le nom du contact";
+    if (!emailValide(client.contact_email)) manquants.contact_email = "l'email du contact";
+    if (!telValide(client.contact_tel)) manquants.contact_tel = "le téléphone";
+  }
+  const rouge = (k: keyof ClientDevis): React.CSSProperties => (tente && manquants[k] ? { border: "1px solid #c0392b", background: "#fff6f5" } : {});
+  const etoile = (k: keyof ClientDevis) => (k === "raison_sociale" || france ? " *" : "");
+
+  function choisirEntreprise(e: EntrepriseFR) {
+    setClient((c) => ({ ...c, raison_sociale: e.raison_sociale, siren: e.siren, tva_intra: e.tva_intra || "", adresse: e.adresse || c.adresse, cp: e.cp || c.cp, ville: e.ville || c.ville }));
+  }
+  function choisirAdresse(a: AdresseFR) {
+    setClient((c) => ({ ...c, adresse: a.adresse, cp: a.cp, ville: a.ville }));
   }
 
   const totalHt = useMemo(() => lignes.reduce((s, l) => s + (Number(l.prix_ht) || 0), 0), [lignes]);
@@ -98,8 +125,9 @@ export default function DevisModal({ machines, prixDealer, onClose, onCree }: Pr
 
   async function valider(mode: "pdf" | "email") {
     setErreur("");
-    if (!client.raison_sociale.trim()) return setErreur("Indiquez la raison sociale du client.");
-    if (mode === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(client.contact_email || "")) return setErreur("Indiquez l'email du contact pour l'envoi.");
+    setTente(true);
+    if (Object.keys(manquants).length) return; // message affiché en direct sous le formulaire
+    if (mode === "email" && !emailValide(client.contact_email)) return setErreur("Indiquez l'email du contact pour l'envoi.");
     if (lignes.some((l) => !(Number(l.prix_ht) > 0))) return setErreur("Chaque nacelle doit avoir un prix HT.");
     if (!cfg) return;
     setEnCours(mode);
@@ -164,20 +192,58 @@ export default function DevisModal({ machines, prixDealer, onClose, onCree }: Pr
               </div>
 
               {/* Client */}
-              <div style={{ fontWeight: 700, color: "#1a2a6e", marginBottom: 8 }}>Client</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
+                <span style={{ fontWeight: 700, color: "#1a2a6e" }}>Client</span>
+                <span style={{ fontSize: 11, color: "#888" }}>
+                  {france
+                    ? "🇫🇷 Client en France : tapez le nom ou le SIREN et choisissez l'entreprise (annuaire officiel) — tous les champs sont obligatoires"
+                    : "Client étranger (TVA exonérée) : seule la raison sociale est obligatoire"}
+                </span>
+              </div>
               <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10, marginBottom: 10 }}>
-                <div><label style={LABEL}>Raison sociale *</label><input style={CHAMP} value={client.raison_sociale} onChange={(e) => setC("raison_sociale", e.target.value)} autoFocus /></div>
-                <div><label style={LABEL}>SIREN</label><input style={CHAMP} value={client.siren || ""} onChange={(e) => setC("siren", e.target.value)} /></div>
+                <div>
+                  <label style={LABEL}>Raison sociale{etoile("raison_sociale")}</label>
+                  <ChampSuggestions<EntrepriseFR>
+                    style={{ ...CHAMP, ...rouge("raison_sociale") }} autoFocus actif={france}
+                    value={client.raison_sociale} onChange={(v) => setC("raison_sociale", v)}
+                    chercher={rechercherEntreprises} onChoix={choisirEntreprise}
+                    placeholder={france ? "Nom de l'entreprise ou SIREN…" : ""}
+                    rendu={(e) => (
+                      <>
+                        <b>{e.raison_sociale}</b>{e.fermee && <span style={{ color: "#c0392b" }}> · fermée</span>}
+                        <div style={{ fontSize: 11, color: "#666" }}>SIREN {e.siren} · {[e.adresse, e.cp, e.ville].filter(Boolean).join(" ")}</div>
+                      </>
+                    )}
+                  />
+                </div>
+                <div>
+                  <label style={LABEL}>SIREN{etoile("siren")}</label>
+                  <ChampSuggestions<EntrepriseFR>
+                    style={{ ...CHAMP, ...rouge("siren") }} actif={france}
+                    value={client.siren || ""} onChange={(v) => setClient((c) => ({ ...c, siren: v, tva_intra: "" }))}
+                    chercher={(q) => (sirenValide(q) ? rechercherEntreprises(q) : Promise.resolve([]))} onChoix={choisirEntreprise}
+                    rendu={(e) => (<><b>{e.raison_sociale}</b><div style={{ fontSize: 11, color: "#666" }}>{[e.cp, e.ville].filter(Boolean).join(" ")}</div></>)}
+                  />
+                </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1.4fr", gap: 10, marginBottom: 10 }}>
-                <div><label style={LABEL}>Adresse</label><input style={CHAMP} value={client.adresse || ""} onChange={(e) => setC("adresse", e.target.value)} /></div>
-                <div><label style={LABEL}>Code postal</label><input style={CHAMP} value={client.cp || ""} onChange={(e) => setC("cp", e.target.value)} /></div>
-                <div><label style={LABEL}>Ville</label><input style={CHAMP} value={client.ville || ""} onChange={(e) => setC("ville", e.target.value)} /></div>
+                <div>
+                  <label style={LABEL}>Adresse{etoile("adresse")}</label>
+                  <ChampSuggestions<AdresseFR>
+                    style={{ ...CHAMP, ...rouge("adresse") }} actif={france}
+                    value={client.adresse || ""} onChange={(v) => setC("adresse", v)}
+                    chercher={rechercherAdresses} onChoix={choisirAdresse}
+                    placeholder={france ? "Tapez l'adresse…" : ""}
+                    rendu={(a) => a.label}
+                  />
+                </div>
+                <div><label style={LABEL}>Code postal{etoile("cp")}</label><input style={{ ...CHAMP, ...rouge("cp") }} value={client.cp || ""} onChange={(e) => setC("cp", e.target.value)} /></div>
+                <div><label style={LABEL}>Ville{etoile("ville")}</label><input style={{ ...CHAMP, ...rouge("ville") }} value={client.ville || ""} onChange={(e) => setC("ville", e.target.value)} /></div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1.4fr 1fr", gap: 10, marginBottom: 18 }}>
-                <div><label style={LABEL}>Contact</label><input style={CHAMP} value={client.contact_nom || ""} onChange={(e) => setC("contact_nom", e.target.value)} placeholder="Prénom Nom" /></div>
-                <div><label style={LABEL}>Email du contact</label><input style={CHAMP} type="email" value={client.contact_email || ""} onChange={(e) => setC("contact_email", e.target.value)} /></div>
-                <div><label style={LABEL}>Téléphone</label><input style={CHAMP} value={client.contact_tel || ""} onChange={(e) => setC("contact_tel", e.target.value)} /></div>
+                <div><label style={LABEL}>Contact{etoile("contact_nom")}</label><input style={{ ...CHAMP, ...rouge("contact_nom") }} value={client.contact_nom || ""} onChange={(e) => setC("contact_nom", e.target.value)} placeholder="Prénom Nom" /></div>
+                <div><label style={LABEL}>Email du contact{etoile("contact_email")}</label><input style={{ ...CHAMP, ...rouge("contact_email") }} type="email" value={client.contact_email || ""} onChange={(e) => setC("contact_email", e.target.value)} /></div>
+                <div><label style={LABEL}>Téléphone{etoile("contact_tel")}</label><input style={{ ...CHAMP, ...rouge("contact_tel") }} value={client.contact_tel || ""} onChange={(e) => setC("contact_tel", e.target.value)} /></div>
               </div>
 
               {/* Nacelles */}
@@ -232,6 +298,9 @@ export default function DevisModal({ machines, prixDealer, onClose, onCree }: Pr
               </div>
               {!cfg.iban && acompte > 0 && (
                 <div style={{ marginTop: 8, fontSize: 12, color: "#8a5a00" }}>⚠ IBAN non renseigné (Admin → Paramètres des devis) : il n'apparaîtra pas sur le devis.</div>
+              )}
+              {tente && Object.keys(manquants).length > 0 && (
+                <div style={{ marginTop: 10, color: "#c0392b", fontWeight: 600 }}>⚠ {france ? "Client en France : " : ""}indiquez {Object.values(manquants).join(", ")}.</div>
               )}
               {erreur && <div style={{ marginTop: 10, color: "#c0392b", fontWeight: 600 }}>⚠ {erreur}</div>}
             </>

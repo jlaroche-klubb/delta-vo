@@ -211,6 +211,7 @@ export default function SignerDevisPage() {
 
             {/* Récapitulatif du devis */}
             <div style={carte}>
+              {dv.type === "locfi" && dv.locfi && <div style={{ fontWeight: 700, color: BLEU, marginBottom: 4 }}>📄 Contrat de location financière N°{dv.locfi.numero_contrat}</div>}
               <div style={{ fontWeight: 700, fontSize: 17 }}>{dv.client.raison_sociale}</div>
               <div style={{ fontSize: 13, color: "#666", marginBottom: 14 }}>{T.valable} {dateCourte(dv.date_expiration)}</div>
               {dv.lignes.map((l, i) => (
@@ -225,7 +226,13 @@ export default function SignerDevisPage() {
                 <span>{T.totalHt}</span><span style={{ textAlign: "right" }}>{eur(dv.total_ht)}</span>
                 {dv.tva_taux > 0 && <><span>{T.tva} {dv.tva_taux} %</span><span style={{ textAlign: "right" }}>{eur(dv.tva)}</span></>}
                 <b style={{ fontSize: 16 }}>{dv.tva_taux > 0 ? T.ttc : T.total}</b><b style={{ fontSize: 16, textAlign: "right" }}>{eur(dv.total_ttc)}</b>
-                {dv.acompte_pct > 0
+                {dv.type === "locfi" && dv.locfi
+                  ? <>
+                      <span style={{ color: BLEU, fontWeight: 600 }}>1er loyer majoré à la signature</span><span style={{ color: BLEU, fontWeight: 600, textAlign: "right" }}>{eur(dv.locfi.premier_loyer_ht * 1.2)} TTC</span>
+                      {dv.locfi.duree_mois > 1 && <><span>Puis {dv.locfi.duree_mois - 1} loyer{dv.locfi.duree_mois > 2 ? "s" : ""} mensuel{dv.locfi.duree_mois > 2 ? "s" : ""} (prélèvement le 20)</span><span style={{ textAlign: "right" }}>{eur(dv.locfi.loyer_mensuel_ht * 1.2)} TTC</span></>}
+                      <span style={{ gridColumn: "1 / span 2", fontSize: 13, color: "#555" }}>Location financière de {dv.locfi.duree_mois} mois — valeur de rachat au terme : offerte</span>
+                    </>
+                  : dv.acompte_pct > 0
                   ? <><span style={{ color: BLEU, fontWeight: 600 }}>{T.acompte} ({dv.acompte_pct} %)</span><span style={{ color: BLEU, fontWeight: 600, textAlign: "right" }}>{eur(dv.acompte_ttc)}</span></>
                   : <span style={{ color: BLEU, fontWeight: 600, gridColumn: "1 / span 2" }}>{T.financement}</span>}
               </div>
@@ -238,7 +245,7 @@ export default function SignerDevisPage() {
             {/* Signature */}
             {dv.statut === "a_signer" && (
               <div style={carte}>
-                <h2 style={{ marginTop: 0, fontSize: 19, color: BLEU }}>✍️ {T.accord}</h2>
+                <h2 style={{ marginTop: 0, fontSize: 19, color: BLEU }}>✍️ {dv.type === "locfi" ? "Accepter et signer le contrat" : T.accord}</h2>
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 14 }}>
                   <label style={{ fontSize: 13, fontWeight: 600 }}>{T.nom}<input style={{ ...champ, marginTop: 4 }} value={nom} onChange={(e) => setNom(e.target.value)} autoComplete="name" /></label>
                   <label style={{ fontSize: 13, fontWeight: 600 }}>{T.fonction}<input style={{ ...champ, marginTop: 4 }} value={fonction} onChange={(e) => setFonction(e.target.value)} autoComplete="organization-title" /></label>
@@ -259,7 +266,7 @@ export default function SignerDevisPage() {
                 {erreur && <div style={{ color: "#c0392b", fontWeight: 600, marginTop: 12 }}>⚠ {erreur}</div>}
                 <button type="button" onClick={signer} disabled={envoi}
                   style={{ marginTop: 16, width: "100%", padding: "14px 18px", fontSize: 17, fontWeight: 700, border: "none", borderRadius: 8, background: envoi ? "#7fb893" : VERT, color: "white", cursor: envoi ? "wait" : "pointer" }}>
-                  {envoi ? T.envoi : T.bouton}
+                  {envoi ? T.envoi : dv.type === "locfi" ? "✍️ Signer le contrat" : T.bouton}
                 </button>
                 <p style={{ fontSize: 11.5, color: "#777", marginBottom: 0 }}>{T.legal}</p>
               </div>

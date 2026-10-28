@@ -69,6 +69,8 @@ export async function signerPdf(
   s: Signataire,
   numero: string,
   lg: Lg,
+  /** Libellé du document (défaut : « Devis ») — ex. « Contrat de location financière » */
+  libelleDoc?: string,
 ): Promise<{ pdf: Buffer; hashOriginal: string; hashSigne: string }> {
   const T = TXT[lg];
   const hashOriginal = sha256(original);
@@ -110,7 +112,7 @@ export async function signerPdf(
     vs.forEach((v, i) => c.drawText(v, { x: 245, y: y - i * 13, size: 9.5, font: police, color: rgb(0.15, 0.15, 0.15) }));
     y -= 13 * Math.max(vs.length, 1) + 9;
   };
-  ligne(T.devis, `${numero} — ${T.bpa}`);
+  ligne(libelleDoc || T.devis, `${numero} — ${T.bpa}`);
   ligne(T.signataire, s.nom);
   ligne(T.fonction, s.fonction || "");
   ligne(T.societe, s.societe || "");
@@ -128,7 +130,7 @@ export async function signerPdf(
   c.drawImage(img, { x: 253, y: y - hs, width: ls, height: hs });
   c.drawText(propre(police, `Delta VO · Delta Services — ${numero}`), { x: 50, y: 40, size: 7.5, font: police, color: gris });
 
-  doc.setTitle(`${T.devis} ${numero} — ${T.bpa}`);
+  doc.setTitle(`${libelleDoc || T.devis} ${numero} — ${T.bpa}`);
   doc.setModificationDate(s.date);
   const pdf = Buffer.from(await doc.save());
   return { pdf, hashOriginal, hashSigne: sha256(pdf) };

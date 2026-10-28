@@ -15,6 +15,7 @@ import {
   type LigneDevis,
 } from "../services/devisVenteService";
 import { genererDevisPdf } from "../utils/generateDevisPdf";
+import { calculerLocFi, genererContratLocFiPdf } from "../utils/generateContratLocFiPdf";
 import ChampSuggestions from "./ChampSuggestions";
 import { cpValide, emailValide, rechercherAdresses, rechercherEntreprises, sirenValide, telValide, type AdresseFR, type EntrepriseFR } from "../services/rechercheFrance";
 import { LANGUES_DEVIS, TEXTES_DEVIS, langueDevis, nombreDevis, type LangueDevis } from "../utils/devisLangues";
@@ -94,6 +95,10 @@ export default function DevisModal({ machines, autresMachines = [], prixDealer, 
   const [tente, setTente] = useState(false); // a cliqué sur Créer : champs manquants en rouge
   const [exoneration, setExoneration] = useState(() => TEXTES_DEVIS[langue].exonerationDefaut);
   const [acompte, setAcompte] = useState<AcompteDevis>(30);
+  // 📄 Location financière (contrat DSLOCFI) : durée + 1er loyer majoré
+  const [typeDoc, setTypeDoc] = useState<"vente" | "locfi">("vente");
+  const [dureeMois, setDureeMois] = useState(3);
+  const [premierLoyer, setPremierLoyer] = useState(0);
   const [validite, setValidite] = useState(30);
   // 🔧 À la signature, les nacelles passent seules en préparation avec ces choix
   const [typePrepa, setTypePrepa] = useState<"normale" | "en_etat">("normale");
@@ -164,7 +169,23 @@ export default function DevisModal({ machines, autresMachines = [], prixDealer, 
   const depassements = estAdmin ? [] : lot
     ? (totalCat - prixLot > SEUIL_REMISE * lignes.length ? [`lot : remise de ${eur(totalCat - prixLot)} (max ${eur(SEUIL_REMISE * lignes.length)} sans validation)`] : [])
     : lignes.filter((l) => catalogue(l.machine_id) - (Number(l.prix_ht) || 0) > SEUIL_REMISE).map((l) => `${l.reference} : remise de ${eur(catalogue(l.machine_id) - (Number(l.prix_ht) || 0))}`);
+  // 📄 Location financière : 1er loyer ≥ 30 % du prix HT, 4 loyers mensuels max après le 1er (au-delà : dérogation)
+  const locFi = typeDoc === "locfi";
+  const calcLf = calculerLocFi(totalHt, premierLoyer, dureeMois);
+  const reglesLf = !locFi ? [] : [
+    ...(calcLf.pct_premier < 30 ? [`1er loyer majoré à ${calcLf.pct_premier.toFixed(1).replace(".", ",")} % du prix (minimum 30 %)`] : []),
+    ...(calcLf.nb_loyers_suivants > 4 ? [`${calcLf.nb_loyers_suivants} loyers mensuels après le 1er (maximum 4)`] : []),
+  ];
+  if (!estAdmin) depassements.push(...reglesLf);
   const aValider = depassements.length > 0;
+  function choisirType(t: "vente" | "locfi") {
+    setTypeDoc(t);
+    if (t === "locfi") {
+      changerLangue("fr");
+      setTva(20);
+      if (!premierLoyer) setPremierLoyer(Math.ceil((totalHt * 0.3) / 10) * 10);
+    }
+  }
   const setC = (k: keyof ClientDevis, v: string) => setClient((c) => ({ ...c, [k]: v }));
   const setL = (i: number, k: keyof LigneDevis, v: any) => setLignes((ls) => ls.map((l, j) => (j === i ? { ...l, [k]: v } : l)));
 
@@ -181,7 +202,8 @@ export default function DevisModal({ machines, autresMachines = [], prixDealer, 
     const lignesDevis = lot ? repartirLot(lignes, prixLot) : lignes;
     setEnCours(mode);
     try {
-      const r = await creerDevisVente({ client, lignes: lignesDevis, lot, tva_taux: tva, exoneration: tva === 0 ? exoneration : "", acompte_pct: acompte, validite_jours: validite, conditions, langue, type_prepa: typePrepa, date_livraison: dateLivraison });
+      if (locFi && !(premierLoyer > 0)) { setEnCours(""); return setErreur("Indiquez le 1er loyer majoré (HT)."); }
+      const r = await creerDevisVente({ type: typeDoc, locfi: locFi ? { duree_mois: dureeMois, premier_loyer_ht: premierLoyer } : undefined, client, lignes: lignesDevis, lot, tva_taux: tva, exoneration: tva === 0 ? exoneration : "", acompte_pct: acompte, validite_jours: validite, conditions, langue, type_prepa: typePrepa, date_livraison: dateLivraison });
       const now = new Date();
       const dv: DevisVente = {
         numero: r.numero,
@@ -191,8 +213,11 @@ export default function DevisModal({ machines, autresMachines = [], prixDealer, 
         total_ht: r.total_ht, tva: r.tva, total_ttc: r.total_ttc,
         acompte_pct: acompte, acompte_ttc: Math.round(r.total_ttc * acompte) / 100,
         conditions, commercial: r.commercial, langue,
+        ...(r.locfi ? { type: "locfi" as const, locfi: r.locfi } : {}),
       };
-      const pdf = genererDevisPdf(dv, cfg);
+      const pdf = r.locfi
+        ? genererContratLocFiPdf({ ...dv, locfi: r.locfi }, lignesDevis.map((l) => { const m = toutes.get(l.machine_id); return { reference: l.reference, type: m?.type_nacelle, immat: m?.immat }; }))
+        : genererDevisPdf(dv, cfg);
       const enValidation = !!r.validation_requise;
       const env = mode === "signature"
         ? await signerDevisVente(r.numero, pdf.base64)
@@ -231,7 +256,7 @@ export default function DevisModal({ machines, autresMachines = [], prixDealer, 
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 760, width: "95%", maxHeight: "92vh", background: "white", borderRadius: 8, display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 10px 40px rgba(0,0,0,0.3)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 20px", borderBottom: "1px solid #eee" }}>
-          <h2 style={{ margin: 0, fontSize: 18 }}>🧾 Nouveau devis de vente</h2>
+          <h2 style={{ margin: 0, fontSize: 18 }}>{locFi ? "📄 Nouveau contrat de location financière" : "🧾 Nouveau devis de vente"}</h2>
           <button onClick={onClose} disabled={!!enCours} style={{ background: "transparent", border: "none", fontSize: 20, cursor: "pointer", color: "#666" }}>✕</button>
         </div>
 
@@ -242,12 +267,21 @@ export default function DevisModal({ machines, autresMachines = [], prixDealer, 
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
                 <span style={{ fontWeight: 700, color: "#1a2a6e" }}>Langue du devis</span>
                 {LANGUES_DEVIS.map((l) => (
-                  <button key={l.code} type="button" onClick={() => changerLangue(l.code)}
+                  <button key={l.code} type="button" disabled={locFi && l.code !== "fr"} onClick={() => changerLangue(l.code)}
                     style={{ padding: "6px 12px", borderRadius: 16, cursor: "pointer", fontSize: 13, fontWeight: 600, border: `2px solid ${langue === l.code ? "#1a73e8" : "#ddd"}`, background: langue === l.code ? "#eef4fd" : "white", color: langue === l.code ? "#1a73e8" : "#444" }}>
                     {l.libelle}
                   </button>
                 ))}
-                <span style={{ fontSize: 11, color: "#888" }}>PDF et email au client dans cette langue</span>
+                <span style={{ fontSize: 11, color: "#888" }}>{locFi ? "Contrat de location financière : en français" : "PDF et email au client dans cette langue"}</span>
+              </div>
+              {/* Type de document */}
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+                {([["vente", "🧾 Devis de vente"], ["locfi", "📄 Location financière"]] as const).map(([v, lib]) => (
+                  <button key={v} type="button" onClick={() => choisirType(v)}
+                    style={{ flex: "1 1 200px", padding: "9px 12px", borderRadius: 6, cursor: "pointer", fontSize: 14, fontWeight: 700, border: `2px solid ${typeDoc === v ? "#1a73e8" : "#ddd"}`, background: typeDoc === v ? "#eef4fd" : "white", color: typeDoc === v ? "#1a73e8" : "#444" }}>
+                    {lib}
+                  </button>
+                ))}
               </div>
 
               {/* Client */}
@@ -359,7 +393,7 @@ export default function DevisModal({ machines, autresMachines = [], prixDealer, 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
                 <div>
                   <label style={LABEL}>TVA</label>
-                  <select style={CHAMP} value={tva} onChange={(e) => setTva(Number(e.target.value) as 20 | 0)}>
+                  <select style={CHAMP} value={tva} disabled={locFi} onChange={(e) => setTva(Number(e.target.value) as 20 | 0)}>
                     <option value={20}>20 % (France)</option>
                     <option value={0}>Exonéré (export / intracommunautaire)</option>
                   </select>
@@ -381,32 +415,55 @@ export default function DevisModal({ machines, autresMachines = [], prixDealer, 
                 <div style={{ marginBottom: 10 }}><label style={LABEL}>Mention d'exonération (imprimée sur le devis)</label><input style={CHAMP} value={exoneration} onChange={(e) => setExoneration(e.target.value)} /></div>
               )}
 
+              {locFi ? (
+                <div style={{ border: "1px solid #d6e2f0", background: "#f5f9fd", borderRadius: 6, padding: 12, marginBottom: 14, marginTop: 8 }}>
+                  <div style={{ fontWeight: 700, color: "#1a2a6e", marginBottom: 8 }}>📄 Conditions de la location financière</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                    <div><label style={LABEL}>Durée irrévocable (mois)</label><input style={CHAMP} type="number" min={1} max={60} value={dureeMois} onChange={(e) => setDureeMois(Math.max(1, Number(e.target.value) || 1))} /></div>
+                    <div><label style={LABEL}>1er loyer majoré HT (à la signature)</label><input style={CHAMP} value={premierLoyer || ""} onChange={(e) => setPremierLoyer(Number(e.target.value.replace(/\s/g, "").replace(",", ".")) || 0)} /></div>
+                  </div>
+                  <div style={{ marginTop: 8, fontSize: 13 }}>
+                    1er loyer : <b>{calcLf.pct_premier.toFixed(1).replace(".", ",")} %</b> du prix d'achat
+                    {calcLf.nb_loyers_suivants > 0 ? <> · puis <b>{calcLf.nb_loyers_suivants} loyer{calcLf.nb_loyers_suivants > 1 ? "s" : ""} de {eur(calcLf.loyer_mensuel_ht)} HT</b> ({eur(calcLf.loyer_mensuel_ht * 1.2)} TTC) prélevé{calcLf.nb_loyers_suivants > 1 ? "s" : ""} le 20 du mois</> : null}
+                    {" "}· rachat au terme : offert
+                  </div>
+                  <div style={{ marginTop: 4, fontSize: 11, color: "#888" }}>Règles : 1er loyer majoré ≥ 30 % du prix HT et 4 loyers mensuels maximum après le 1er — au-delà, dérogation de Jonathan ou Nathalie.</div>
+                  {estAdmin && reglesLf.length > 0 && <div style={{ marginTop: 6, fontSize: 12, color: "#8a5a00" }}>⚠ Hors règles ({reglesLf.join(" ; ")}) — autorisé pour un administrateur.</div>}
+                </div>
+              ) : (
+                <>
               {/* Acompte */}
-              <label style={{ ...LABEL, marginTop: 8 }}>Acompte à la commande</label>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
-                {([30, 100, 0] as AcompteDevis[]).map((v) => (
-                  <label key={v} style={{ flex: "1 1 150px", display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", borderRadius: 6, cursor: "pointer", border: `2px solid ${acompte === v ? "#1a73e8" : "#ddd"}`, background: acompte === v ? "#eef4fd" : "white", fontSize: 14 }}>
-                    <input type="radio" name="acompte" checked={acompte === v} onChange={() => setAcompte(v)} style={{ width: "auto", margin: 0 }} />
-                    <span><strong>{v} %</strong><span style={{ display: "block", fontSize: 12, color: "#666" }}>{v === 30 ? "Standard" : v === 100 ? "Paiement intégral" : "Financement bancaire"}</span></span>
-                  </label>
-                ))}
-              </div>
+                  <label style={{ ...LABEL, marginTop: 8 }}>Acompte à la commande</label>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+                    {([30, 100, 0] as AcompteDevis[]).map((v) => (
+                      <label key={v} style={{ flex: "1 1 150px", display: "flex", alignItems: "center", gap: 8, padding: "9px 12px", borderRadius: 6, cursor: "pointer", border: `2px solid ${acompte === v ? "#1a73e8" : "#ddd"}`, background: acompte === v ? "#eef4fd" : "white", fontSize: 14 }}>
+                        <input type="radio" name="acompte" checked={acompte === v} onChange={() => setAcompte(v)} style={{ width: "auto", margin: 0 }} />
+                        <span><strong>{v} %</strong><span style={{ display: "block", fontSize: 12, color: "#666" }}>{v === 30 ? "Standard" : v === 100 ? "Paiement intégral" : "Financement bancaire"}</span></span>
+                      </label>
+                    ))}
+                  </div>
+                </>
+              )}
 
-              <label style={LABEL}>Conditions (imprimées sur le devis)</label>
-              <textarea style={{ ...CHAMP, resize: "vertical" }} rows={4} value={conditions} onChange={(e) => setConditions(e.target.value)} />
+              {!locFi && (
+                <>
+                  <label style={LABEL}>Conditions (imprimées sur le devis)</label>
+                  <textarea style={{ ...CHAMP, resize: "vertical" }} rows={4} value={conditions} onChange={(e) => setConditions(e.target.value)} />
+                </>
+              )}
 
               {aValider && (
                 <div style={{ marginTop: 14, padding: "10px 14px", background: "#fff6e5", border: "1px solid #f0c36d", borderRadius: 6, fontSize: 13, color: "#7a4b00" }}>
-                  🔒 <b>Remise supérieure à {eur(SEUIL_REMISE)} HT par nacelle</b> : {depassements.join(" ; ")}.<br />
+                  🔒 <b>{reglesLf.length && depassements.length === reglesLf.length ? "Location financière hors règles" : `Dérogation nécessaire (remise > ${eur(SEUIL_REMISE)} HT par nacelle ou location financière hors règles)`}</b> : {depassements.join(" ; ")}.<br />
                   Le devis sera d'abord soumis à <b>validation</b> (Jonathan Laroche ou Nathalie Neguy) et partira au client dès qu'elle est donnée.
                 </div>
               )}
               {/* Récap */}
               <div style={{ marginTop: 14, padding: "10px 14px", background: "#f8f9fa", borderRadius: 6, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, fontSize: 14 }}>
                 <span>Total : <b>{eur(totalHt)} HT</b>{tva ? <> · {eur(totalTtc)} TTC</> : null}</span>
-                <span>{acompte ? <>Acompte {acompte} % : <b>{eur((totalTtc * acompte) / 100)} TTC</b></> : "Sans acompte (financement)"}</span>
+                <span>{locFi ? <>1er loyer majoré : <b>{eur(premierLoyer * 1.2)} TTC</b></> : acompte ? <>Acompte {acompte} % : <b>{eur((totalTtc * acompte) / 100)} TTC</b></> : "Sans acompte (financement)"}</span>
               </div>
-              {!cfg.iban && acompte > 0 && (
+              {!cfg.iban && acompte > 0 && !locFi && (
                 <div style={{ marginTop: 8, fontSize: 12, color: "#8a5a00" }}>⚠ IBAN non renseigné (Admin → Paramètres des devis) : il n'apparaîtra pas sur le devis.</div>
               )}
               {tente && Object.keys(manquants).length > 0 && (

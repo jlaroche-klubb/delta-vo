@@ -159,15 +159,18 @@ async function envoyerEmailClient(dv: any, numero: string, pdf: string, lien: st
   const lg = langueOk(dv.langue);
   const T = MAIL[lg];
   const sepFr = lg === "fr" ? " " : "";
-  const acompteTxt = dv.acompte_pct === 0 ? T.financement : T.acompte(dv.acompte_pct, eur(dv.acompte_ttc, lg));
+  const lf = dv.type === "locfi" ? dv.locfi || {} : null;
+  const acompteTxt = lf
+    ? `1er loyer majoré à la signature : ${eur(lf.premier_loyer_ht, lg)} HT (${eur(lf.premier_loyer_ht * 1.2, lg)} TTC)${lf.duree_mois > 1 ? `, puis ${lf.duree_mois - 1} loyer${lf.duree_mois > 2 ? "s" : ""} mensuel${lf.duree_mois > 2 ? "s" : ""} de ${eur(lf.loyer_mensuel_ht, lg)} HT (${eur(lf.loyer_mensuel_ht * 1.2, lg)} TTC) par prélèvement le 20 du mois` : ""}. Valeur de rachat au terme des ${lf.duree_mois} mois : offerte.`
+    : dv.acompte_pct === 0 ? T.financement : T.acompte(dv.acompte_pct, eur(dv.acompte_ttc, lg));
   const html =
     `<p>${T.bonjour}${dv.client?.contact_nom ? " " + esc(dv.client.contact_nom) : ""},</p>` +
-    `<p>${T.joint(esc(numero), dv.lignes.length)}</p>` +
+    `<p>${lf ? `Veuillez trouver ci-joint notre <b>contrat de location financière N°${esc(lf.numero_contrat)}</b> (${lf.duree_mois} mois) pour ${dv.lignes.length > 1 ? `${dv.lignes.length} nacelles` : "la nacelle"} :` : T.joint(esc(numero), dv.lignes.length)}</p>` +
     `<ul>${dv.lignes.map((l: any) => `<li>${esc(l.reference)} — ${esc(l.designation)}${dv.lot ? "" : `${sepFr}: <b>${eur(l.prix_ht, lg)} ${T.ht}</b>`}</li>`).join("")}</ul>` +
     `<p>${dv.lot ? `<b>${esc(T.lot(dv.lignes.length))}</b><br/>` : ""}${T.total}${sepFr}: <b>${eur(dv.total_ht, lg)} ${T.ht}</b>${dv.tva_taux ? ` · ${eur(dv.total_ttc, lg)} ${T.ttc}` : ""}<br/>${esc(acompteTxt)}<br/>` +
-    `${esc(T.valable(String(dv.date_expiration).split("-").reverse().join("/")))}</p>` +
-    `<p>${esc(T.ouBien)}</p>` +
-    `<p style="margin:18px 0"><a href="${lien}" style="background:#1e8e3e;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:6px;display:inline-block">${esc(T.bouton)}</a></p>` +
+    `${esc(T.valable(String(dv.date_expiration).split("-").reverse().join("/")).replace(lf ? "Devis valable" : "§", "Offre valable"))}</p>` +
+    `<p>${esc(lf ? "Pour l'accepter, cliquez sur le bouton ci-dessous et signez en ligne (ou retournez-le daté, paraphé et signé en réponse à cet email) :" : T.ouBien)}</p>` +
+    `<p style="margin:18px 0"><a href="${lien}" style="background:#1e8e3e;color:#ffffff;text-decoration:none;font-weight:bold;padding:12px 22px;border-radius:6px;display:inline-block">${esc(lf ? "✍️ Accepter et signer le contrat" : T.bouton)}</a></p>` +
     `<p>${T.cordialement}<br/>${esc(dv.commercial?.nom || "")}<br/>Delta Services${dv.commercial?.tel ? "<br/>" + esc(dv.commercial.tel) : ""}<br/>${esc(dv.commercial?.email || "")}</p>`;
   const r = await fetchAvecReessai("https://api.brevo.com/v3/smtp/email", {
     method: "POST",
@@ -177,9 +180,9 @@ async function envoyerEmailClient(dv: any, numero: string, pdf: string, lien: st
       to: [{ email: dest, ...(dv.client?.contact_nom ? { name: dv.client.contact_nom } : {}) }],
       cc: dv.commercial?.email && dv.commercial.email !== dest ? [{ email: dv.commercial.email }] : undefined,
       replyTo: dv.commercial?.email ? { email: dv.commercial.email, name: dv.commercial.nom } : undefined,
-      subject: T.sujet(numero),
+      subject: lf ? `Contrat de location financière N°${lf.numero_contrat} — Delta Services` : T.sujet(numero),
       htmlContent: html,
-      attachment: [{ name: `${T.fichier}_${numero}.pdf`, content: pdf }],
+      attachment: [{ name: lf ? `Contrat_location_financiere_${lf.numero_contrat}.pdf` : `${T.fichier}_${numero}.pdf`, content: pdf }],
     }),
   }, { timeoutMs: 20_000, essais: 1 });
   if (!r.ok) {
@@ -220,7 +223,12 @@ async function lancerDocusign(dv: any, numero: string, pdf: string, hote: string
 const SEUIL_REMISE = 1000;
 const VALIDEURS_DEFAUT = "jlaroche@klubb.com, nneguy@klubb.com";
 
-async function calculerValidation(db: admin.firestore.Firestore, lignes: any[], lot: boolean, totalHt: number, role: string) {
+// 📄 Location financière : 1er loyer majoré ≥ 30 % du prix HT et 4 loyers mensuels max après le 1er
+// (au-delà : dérogation Jonathan ou Nathalie, même circuit que les remises)
+const LOCFI_PREMIER_MIN_PCT = 30;
+const LOCFI_LOYERS_SUIVANTS_MAX = 4;
+
+async function calculerValidation(db: admin.firestore.Firestore, lignes: any[], lot: boolean, totalHt: number, role: string, locfi?: { duree_mois: number; premier_loyer_ht: number } | null) {
   const dealer = role === "dealer";
   const details: { reference: string; catalogue: number | null; propose: number; remise: number | null }[] = [];
   for (const l of lignes) {
@@ -235,6 +243,11 @@ async function calculerValidation(db: admin.firestore.Firestore, lignes: any[], 
   const depassements = lot
     ? (remiseTotale > SEUIL_REMISE * lignes.length ? [`lot : ${eur(remiseTotale)} de remise (max ${eur(SEUIL_REMISE * lignes.length)})`] : [])
     : details.filter((x) => x.remise !== null && x.remise > SEUIL_REMISE).map((x) => `${x.reference} : ${eur(x.remise as number)} de remise`);
+  if (locfi) {
+    const pct = totalHt > 0 ? (locfi.premier_loyer_ht / totalHt) * 100 : 0;
+    if (pct < LOCFI_PREMIER_MIN_PCT) depassements.push(`location financière : 1er loyer majoré à ${pct.toFixed(1).replace(".", ",")} % du prix (minimum ${LOCFI_PREMIER_MIN_PCT} %)`);
+    if (locfi.duree_mois - 1 > LOCFI_LOYERS_SUIVANTS_MAX) depassements.push(`location financière : ${locfi.duree_mois - 1} loyers mensuels après le 1er (maximum ${LOCFI_LOYERS_SUIVANTS_MAX})`);
+  }
   const requise = !admin_ && (sansPrix.length > 0 || depassements.length > 0);
   return {
     requise,
@@ -274,8 +287,9 @@ async function demanderValidation(db: admin.firestore.Firestore, ref: admin.fire
     `<td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:right">${dv.lot ? "lot" : eur(x.propose)}</td><td style="padding:5px 8px;border-bottom:1px solid #eee;text-align:right;color:${(x.remise || 0) > SEUIL_REMISE ? "#c0392b" : "#333"}">${x.remise !== null && !dv.lot ? eur(x.remise) : "—"}</td></tr>`).join("");
   for (const [jeton, email] of Object.entries(jetons)) {
     const lien = `https://${hote}/devis-validation/${encodeURIComponent(numero)}/${jeton}`;
-    await emailBrevo({ email }, `🔒 Remise à valider — devis ${numero} (${dv.client?.raison_sociale || ""}) par ${dv.commercial?.nom || ""}`,
-      `<p>Bonjour,</p><p><b>${esc(dv.commercial?.nom || "")}</b> demande votre validation pour le devis <b>${esc(numero)}</b> à <b>${esc(dv.client?.raison_sociale || "")}</b> : la remise dépasse ${eur(SEUIL_REMISE)} HT par nacelle.</p>` +
+    await emailBrevo({ email }, `🔒 Dérogation à valider — ${dv.type === "locfi" ? `location financière ${dv.locfi?.numero_contrat || numero}` : `devis ${numero}`} (${dv.client?.raison_sociale || ""}) par ${dv.commercial?.nom || ""}`,
+      `<p>Bonjour,</p><p><b>${esc(dv.commercial?.nom || "")}</b> demande votre validation pour ${dv.type === "locfi" ? `la <b>location financière ${esc(dv.locfi?.numero_contrat || numero)}</b>` : `le devis <b>${esc(numero)}</b>`} à <b>${esc(dv.client?.raison_sociale || "")}</b> :</p><ul>${(v.motifs || []).map((m: string) => `<li>${esc(m)}</li>`).join("")}</ul>` +
+      `${dv.type === "locfi" && dv.locfi ? `<p>Location financière ${dv.locfi.duree_mois} mois : 1er loyer majoré ${eur(dv.locfi.premier_loyer_ht)} HT${dv.locfi.duree_mois > 1 ? `, puis ${dv.locfi.duree_mois - 1} × ${eur(dv.locfi.loyer_mensuel_ht)} HT` : ""}.</p>` : ""}` +
       `<table style="border-collapse:collapse;font-size:13px"><tr style="background:#1f4282;color:#fff"><th style="padding:5px 8px;text-align:left">Réf.</th><th style="padding:5px 8px">Prix catalogue HT</th><th style="padding:5px 8px">Prix proposé HT</th><th style="padding:5px 8px">Remise</th></tr>${lignesHtml}</table>` +
       `<p>Total catalogue : ${eur(v.total_catalogue || 0)} HT · <b>Total proposé : ${eur(dv.total_ht)} HT</b>${dv.lot ? ` (vente en lot, ${dv.lignes.length} nacelles)` : ""} · <b style="color:#c0392b">remise ${eur(v.remise_totale || 0)}</b></p>` +
       `<p>Après validation, le devis part ${envoiPrevu === "email" ? "automatiquement par email au client" : envoiPrevu === "signature" ? "automatiquement au client pour signature DocuSign" : "chez le commercial, qui pourra le télécharger et l'envoyer"}.</p>` +
@@ -298,6 +312,7 @@ async function actionValidation(req: any, res: any, body: any) {
   if (!dv || !valideur) return res.status(404).json({ error: "lien_invalide" });
   const vue = () => ({
     numero, statut: dv.statut, client: dv.client?.raison_sociale || "", commercial: dv.commercial?.nom || "", lot: !!dv.lot,
+    type: dv.type === "locfi" ? "locfi" : "vente", locfi: dv.type === "locfi" ? dv.locfi || null : null,
     lignes: (dv.validation?.details || []).map((x: any, i: number) => ({ ...x, designation: dv.lignes?.[i]?.designation || "" })),
     total_ht: dv.total_ht, total_catalogue: dv.validation?.total_catalogue, remise_totale: dv.validation?.remise_totale, motifs: dv.validation?.motifs || [],
     acompte_pct: dv.acompte_pct, pdf_url: dv.pdf_url, envoi_prevu: dv.validation?.envoi_prevu,
@@ -382,6 +397,53 @@ async function actionValidation(req: any, res: any, body: any) {
 }
 
 /** Après une signature (DocuSign ou en ligne) : fiches machines + email au commercial */
+// 👩‍💼 Assistante commerciale de chaque commercial (Admin → Paramètres des devis), prévenue à la signature
+const ASSISTANTES_DEFAUT = [
+  "flarronde@klubb.com = anebotsaudin@delta-services.fr",
+  "flouis@klubb.com = bzucchi@delta-services.fr",
+  "lpotier@klubb.com = bzucchi@delta-services.fr",
+  "fmailleret@klubb.com = gcloarec@delta-services.fr",
+  "dcoulet@klubb.com = gcloarec@delta-services.fr",
+].join("\n");
+
+function assistantesDe(cfg: any, emailCommercial: string): string[] {
+  const e = String(emailCommercial || "").trim().toLowerCase();
+  const out: string[] = [];
+  for (const ligne of String(cfg?.assistantes_commerciaux || ASSISTANTES_DEFAUT).split(/\n+/)) {
+    const [com, ass] = ligne.split(/=|→|->|:/).map((x) => x.trim().toLowerCase());
+    if (com && ass && com === e) out.push(...ass.split(/[\s,;]+/).filter((x) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)));
+  }
+  return [...new Set(out)];
+}
+
+/** 📧 Email à l'assistante : contrat signé → dossier à monter (facturation, livraison…) */
+async function prevenirAssistante(db: admin.firestore.Firestore, dv: any, url: string, signataire: string, date: string, prepa: { reference: string; ok: boolean; detail: string }[]) {
+  const cfg: any = (await db.collection("config").doc("devis").get()).data() || {};
+  const to = assistantesDe(cfg, dv.commercial?.email);
+  if (!to.length) return;
+  const lf = dv.type === "locfi" ? dv.locfi || {} : null;
+  const c = dv.client || {};
+  const quoi = lf ? `Contrat de location financière N°${lf.numero_contrat}` : `Devis ${dv.numero}`;
+  const html =
+    `<p>Bonjour,</p><p><b>${esc(quoi)}</b> signé le ${esc(String(date).slice(0, 10).split("-").reverse().join("/"))} par ${esc(signataire || c.contact_nom || "le client")} — commercial : <b>${esc(dv.commercial?.nom || "")}</b>.</p>` +
+    `<table style="border-collapse:collapse;font-size:13px">` +
+    [["Client", c.raison_sociale], ["SIREN", c.siren], ["TVA intracom", c.tva_intra], ["Adresse", [c.adresse, [c.cp, c.ville].filter(Boolean).join(" ")].filter(Boolean).join(", ")],
+      ["Contact", [c.contact_nom, c.contact_email, c.contact_tel].filter(Boolean).join(" · ")]]
+      .filter(([, v]) => v).map(([k, v]) => `<tr><td style="padding:3px 10px 3px 0;color:#666">${esc(k)}</td><td style="padding:3px 0"><b>${esc(v)}</b></td></tr>`).join("") +
+    `</table>` +
+    `<ul>${(dv.lignes || []).map((l: any) => `<li><b>${esc(l.reference)}</b> (${esc(l.immat || "")}) — ${esc(l.designation)}${dv.lot ? "" : ` : ${eur(l.prix_ht)} HT`}</li>`).join("")}</ul>` +
+    `<p>Total : <b>${eur(dv.total_ht)} HT</b>${dv.tva_taux ? ` · ${eur(dv.total_ttc)} TTC` : ""}${dv.lot ? " (vente en lot)" : ""}<br/>` +
+    (lf
+      ? `Location financière ${lf.duree_mois} mois : <b>1er loyer majoré ${eur(lf.premier_loyer_ht)} HT</b> à encaisser à la signature${lf.duree_mois > 1 ? `, puis ${lf.duree_mois - 1} × ${eur(lf.loyer_mensuel_ht)} HT par prélèvement le 20 du mois` : ""} — rachat offert.`
+      : dv.acompte_pct ? `Acompte ${dv.acompte_pct} % à encaisser : <b>${eur(dv.acompte_ttc)} TTC</b>` : "Financement bancaire (sans acompte)") +
+    `${dv.preparation?.date_livraison ? `<br/>Livraison souhaitée : ${esc(String(dv.preparation.date_livraison).split("-").reverse().join("/"))}` : ""}</p>` +
+    `${prepa.length ? `<p>Préparation : ${prepa.map((p) => `${esc(p.reference)} ${p.ok ? "✅" : "⚠ " + esc(p.detail)}`).join(" · ")}</p>` : ""}` +
+    `<p>📄 <a href="${url}">${esc(quoi)} signé (PDF)</a></p>` +
+    `<p style="font-size:12px;color:#666">${lf ? "À faire : facture du 1er loyer majoré, mandat de prélèvement SEPA, attestation d'assurance du locataire avant livraison." : "À faire : facture d'acompte / de vente et organisation de la livraison."}</p>`;
+  await emailBrevo({ email: to[0] }, `✍️ ${quoi} signé — ${c.raison_sociale || ""} (${dv.commercial?.nom || ""})`, html,
+    { ...(to.length > 1 ? { cc: to.slice(1).map((email) => ({ email })) } : {}), ...(dv.commercial?.email ? { replyTo: { email: dv.commercial.email, name: dv.commercial.nom } } : {}) });
+}
+
 async function apresSignature(db: admin.firestore.Firestore, dv: any, url: string, signataire: string, date: string, source: string) {
   const numero = dv.numero;
   const now = new Date().toISOString();
@@ -399,6 +461,7 @@ async function apresSignature(db: admin.firestore.Firestore, dv: any, url: strin
     historique: admin.firestore.FieldValue.arrayUnion({ date: now, action: `mise en préparation : ${prepa.map((p) => `${p.reference} ${p.ok ? "✅" : "⚠ " + p.detail}`).join(", ")}`, par: "Delta VO" }),
   }).catch(() => undefined);
   const enEchec = prepa.filter((p) => !p.ok);
+  await prevenirAssistante(db, dv, url, signataire, date, prepa).catch((e) => console.warn("Email assistante :", e?.message || e));
   const T = MAIL[langueOk(dv.langue)];
   await emailBrevo({ email: dv.commercial?.email, name: dv.commercial?.nom }, T.signeSujet(numero, dv.client?.raison_sociale || "le client"),
     `<p>Bonjour,</p><p>Le devis <b>${esc(numero)}</b> a été <b>signé électroniquement</b> (${esc(source)}) par ${esc(signataire || dv.client?.contact_nom || "le client")} (${esc(dv.client?.raison_sociale || "")}).</p>` +
@@ -429,6 +492,8 @@ function devisPublic(dv: any) {
     statut: dv.statut === "signe" ? "signe" : ["annule", "refuse", "refuse_interne", "a_valider"].includes(dv.statut) ? "annule" : expire ? "expire" : "a_signer",
     client: { raison_sociale: dv.client?.raison_sociale || "", contact_nom: dv.client?.contact_nom || "" },
     lot: !!dv.lot,
+    type: dv.type === "locfi" ? "locfi" : "vente",
+    locfi: dv.type === "locfi" ? dv.locfi || null : null,
     lignes: (dv.lignes || []).map((l: any) => ({ reference: l.reference, designation: l.designation, prix_ht: dv.lot ? null : l.prix_ht })),
     tva_taux: dv.tva_taux, total_ht: dv.total_ht, tva: dv.tva, total_ttc: dv.total_ttc,
     acompte_pct: dv.acompte_pct, acompte_ttc: dv.acompte_ttc, conditions: dv.conditions || "",
@@ -467,7 +532,7 @@ async function actionPublique(req: any, res: any, body: any) {
   const lg = langueOk(dv.langue);
   const signe = await signerPdf(original, png, dv.zone_signature, {
     nom, fonction, email: dv.client?.contact_email || "", societe: dv.client?.raison_sociale || "", ip, navigateur, date,
-  }, numero, lg);
+  }, dv.type === "locfi" ? dv.locfi?.numero_contrat || numero : numero, lg, dv.type === "locfi" ? "Contrat de location financière" : undefined);
   const url = await sauverPdf(`devis_vente/${numero}_signe.pdf`, signe.pdf);
   const now = date.toISOString();
   // Transaction : pas de double signature si le client clique deux fois
@@ -678,16 +743,32 @@ export default async function handler(req: any, res: any) {
       const now = new Date();
       const expire = new Date(now.getTime() + validiteJours * 86400000);
       const estLot = body.lot === true && lignes.length > 1;
-      const validation = await calculerValidation(db, lignes, estLot, totalHt, String(profil.role || ""));
+      // 📄 Location financière : durée (mois), 1er loyer majoré HT, loyers mensuels calculés ici
+      const estLocFi = body.type === "locfi";
+      const dureeMois = Math.min(Math.max(Math.round(Number(body.locfi?.duree_mois) || 3), 1), 60);
+      const premierLoyer = Math.min(Math.max(num(body.locfi?.premier_loyer_ht), 0), totalHt);
+      const loyerMensuel = dureeMois > 1 ? Math.round(((totalHt - premierLoyer) / (dureeMois - 1)) * 100) / 100 : 0;
+      if (estLocFi && tvaTaux !== 20) return res.status(400).json({ error: "Location financière : TVA 20 % (client en France) obligatoire" });
+      const validation = await calculerValidation(db, lignes, estLot, totalHt, String(profil.role || ""), estLocFi ? { duree_mois: dureeMois, premier_loyer_ht: premierLoyer } : null);
 
       const annee = now.getFullYear();
       const compteurRef = db.collection("config").doc("compteur_devis_vente");
+      const compteurLocFiRef = db.collection("config").doc("compteur_locfi");
+      const moisCourant = now.toISOString().slice(0, 7);
+      let numeroContrat = "";
       const numero = await db.runTransaction(async (tx) => {
         const snap = await tx.get(compteurRef);
+        const snapLf = estLocFi ? await tx.get(compteurLocFiRef) : null;
         const d = snap.exists ? snap.data() || {} : {};
         const suivant = d.annee === annee ? (Number(d.dernier) || 0) + 1 : 1;
         tx.set(compteurRef, { annee, dernier: suivant, maj: now.toISOString() });
         const n = `DV-${annee}-${String(suivant).padStart(4, "0")}`;
+        if (estLocFi && snapLf) {
+          const dl: any = snapLf.exists ? snapLf.data() || {} : {};
+          const suivantLf = dl.mois === moisCourant ? (Number(dl.dernier) || 0) + 1 : 1;
+          tx.set(compteurLocFiRef, { mois: moisCourant, dernier: suivantLf, maj: now.toISOString() });
+          numeroContrat = `DSLOCFI${moisCourant}-${String(suivantLf).padStart(2, "0")}`;
+        }
         tx.set(db.collection("devis_vente").doc(n), {
           numero: n,
           statut: "brouillon",
@@ -704,9 +785,11 @@ export default async function handler(req: any, res: any) {
           acompte_pct: acompte,
           acompte_ttc: Math.round(totalTtc * acompte) / 100,
           conditions: str(body.conditions, 3000),
-          langue: langueOk(body.langue),
+          langue: estLocFi ? "fr" : langueOk(body.langue),
           lot: estLot,
           validation,
+          type: estLocFi ? "locfi" : "vente",
+          ...(estLocFi ? { locfi: { numero_contrat: numeroContrat, duree_mois: dureeMois, premier_loyer_ht: premierLoyer, loyer_mensuel_ht: loyerMensuel } } : {}),
           preparation: {
             type_prepa: body.type_prepa === "en_etat" ? "en_etat" : "normale",
             date_livraison: /^\d{4}-\d{2}-\d{2}$/.test(String(body.date_livraison || "")) ? String(body.date_livraison) : "",
@@ -718,7 +801,7 @@ export default async function handler(req: any, res: any) {
         return n;
       });
       console.log(`🧾 Devis ${numero} créé par ${commercial.nom} — ${client.raison_sociale}, ${lignes.length} nacelle(s), ${eur(totalHt)} HT`);
-      return res.status(200).json({ ok: true, numero, commercial, total_ht: totalHt, tva, total_ttc: totalTtc, validation_requise: validation.requise, motifs_validation: validation.motifs });
+      return res.status(200).json({ ok: true, numero, commercial, total_ht: totalHt, tva, total_ttc: totalTtc, validation_requise: validation.requise, motifs_validation: validation.motifs, ...(estLocFi ? { locfi: { numero_contrat: numeroContrat, duree_mois: dureeMois, premier_loyer_ht: premierLoyer, loyer_mensuel_ht: loyerMensuel } } : {}) });
     }
 
     // ───────────── ENVOYER ─────────────

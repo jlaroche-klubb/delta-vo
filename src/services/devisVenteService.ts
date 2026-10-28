@@ -2,6 +2,7 @@ import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { apiFetch } from "./apiFetch";
 import type { LangueDevis } from "../utils/devisLangues";
+import type { ZoneSignature } from "../utils/generateDevisPdf";
 
 /**
  * 🧾 Devis de vente faits dans Delta VO (plus de devis HubSpot — décision
@@ -126,8 +127,35 @@ export function creerDevisVente(d: {
   return appel({ action: "creer", ...d });
 }
 
-export function envoyerDevisVente(numero: string, pdfBase64: string, envoyerEmail: boolean): Promise<{ pdf_url: string; email_envoye: boolean; to?: string }> {
-  return appel({ action: "envoyer", numero, pdfBase64, envoyer_email: envoyerEmail });
+export function envoyerDevisVente(numero: string, pdfBase64: string, envoyerEmail: boolean, zoneSignature?: ZoneSignature): Promise<{ pdf_url: string; email_envoye: boolean; to?: string; lien_signature?: string }> {
+  return appel({ action: "envoyer", numero, pdfBase64, envoyer_email: envoyerEmail, zone_signature: zoneSignature });
+}
+
+// ───────── Page publique « Accepter et signer » (lien de l'email, sans compte) ─────────
+export interface DevisPublic {
+  numero: string; date: string; date_expiration: string; langue: LangueDevis;
+  statut: "a_signer" | "signe" | "expire" | "annule";
+  client: { raison_sociale: string; contact_nom: string };
+  lignes: { reference: string; designation: string; prix_ht: number }[];
+  tva_taux: number; total_ht: number; tva: number; total_ttc: number;
+  acompte_pct: number; acompte_ttc: number; conditions: string;
+  commercial: { nom: string; email: string; tel: string };
+  pdf_url?: string; signe_le?: string | null; signataire?: string | null;
+}
+
+async function appelPublic(corps: Record<string, any>): Promise<any> {
+  const r = await fetch("/api/devis", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(corps) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(j.error || `Erreur ${r.status}`), { code: j.error, details: j });
+  return j;
+}
+
+export async function lireDevisPublic(numero: string, jeton: string): Promise<DevisPublic> {
+  return (await appelPublic({ action: "public_lire", numero, jeton })).devis;
+}
+
+export async function signerDevisPublic(numero: string, jeton: string, d: { nom: string; fonction: string; accepte: boolean; signature: string }): Promise<DevisPublic> {
+  return (await appelPublic({ action: "public_signer", numero, jeton, ...d })).devis;
 }
 
 /** Signature électronique disponible ? (variables DocuSign renseignées dans Vercel) */

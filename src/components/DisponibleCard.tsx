@@ -136,7 +136,17 @@ export default function DisponibleCard({
           }}
         >
           {/* Partie cliquable : si on a un deal HubSpot, ouvre dans un nouvel onglet */}
-          {machine.hubspot_deal_id ? (
+          {machine.devis_vente_numero ? (
+            <a
+              href={machine.devis_vente_url || undefined}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Ouvrir le PDF du devis"
+              style={{ color: "#1a73e8", textDecoration: "none", flex: 1, cursor: machine.devis_vente_url ? "pointer" : "default" }}
+            >
+              🧾 Devis {machine.devis_vente_numero}{machine.client_offre ? ` — ${machine.client_offre}` : ""}{machine.devis_vente_url ? " 📄" : ""}
+            </a>
+          ) : machine.hubspot_deal_id ? (
             <a
               href={`https://app.hubspot.com/contacts/144239378/deal/${machine.hubspot_deal_id}`}
               target="_blank"

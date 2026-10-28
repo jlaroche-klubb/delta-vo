@@ -91,7 +91,7 @@ const fr = {
     pdfGeneratingSub: "Le téléchargement va démarrer dans quelques secondes",
     platformSelected: "nacelle sélectionnée",
     platformsSelected: "nacelles sélectionnées",
-    createOffer: "Créer l'offre",
+    createOffer: "Créer le devis",
     clearSelection: "Vider la sélection",
   },
   importVog: {

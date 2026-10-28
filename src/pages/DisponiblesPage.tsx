@@ -8,8 +8,8 @@ import {
 } from "../types/machine";
 import { useMachinesFiltered } from "../contexts/MachinesContext";
 import DisponibleCard from "../components/DisponibleCard";
-import OffreModal from "../components/OffreModal";
-import { createHubspotDeal } from "../services/hubspotService";
+import DevisModal from "../components/DevisModal";
+import { annulerDevisVente } from "../services/devisVenteService";
 import { referenceCommerciale } from "../utils/reference";
 import { notifyImportAdmin } from "../services/importNotify";
 import EditPriceModal from "../components/EditPriceModal";
@@ -328,80 +328,24 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
     return panier.some((m) => m.id === machineId);
   }
 
-  async function handleCreerOffre(
-    clientOffre: string,
-    montants: Record<string, number>
-  ) {
+  // 🧾 Devis de vente créé dans Delta VO (plus de deal/devis HubSpot à
+  // l'offre — HubSpot ne reçoit les infos qu'à la livraison, décision 28/10/2026)
+  async function handleDevisCree(r: { numero: string; client: string; montants: Record<string, number>; pdfUrl?: string }) {
     const ids = panier.map((m) => m.id);
-
-    // Préparer les nacelles pour HubSpot — RÉFÉRENCE commerciale, jamais
-    // d'immat sur le devis (règle direction, validée avec Jonathan)
-    const nacelles = panier.map((m) => ({
-      reference: referenceCommerciale(m),
-      modele: m.type_nacelle || m.modele_porteur || "",
-      montant: montants[m.id] ?? 0,
-    }));
-
-    // Ouvre l'onglet TOUT DE SUITE (dans le geste de clic) pour éviter le
-    // blocage de pop-up : la création du deal est asynchrone, donc on ne peut
-    // pas ouvrir la fenêtre après coup. On y chargera l'URL du deal une fois prêt.
-    const hubspotTab = window.open("about:blank", "_blank");
-
-    // 1. Tenter la création du Deal + Devis HubSpot
-    let hubspotDealId: string | undefined;
-    let quoteWarning: string | null | undefined;
-    try {
-      const result = await createHubspotDeal(clientOffre, nacelles, userEmail);
-      hubspotDealId = result.dealId;
-      quoteWarning = result.quoteWarning;
-      console.log(`✅ Deal HubSpot créé : ${result.dealName} (id: ${result.dealId})`);
-      if (result.quoteId) {
-        console.log(`✅ Devis brouillon HubSpot créé : ${result.quoteId}`);
-      }
-      if (quoteWarning) {
-        console.warn("⚠️ Devis non créé : " + quoteWarning);
-      }
-    } catch (err: any) {
-      console.error("❌ Erreur HubSpot:", err);
-      if (hubspotTab) hubspotTab.close();
-      const confirmContinue = window.confirm(
-        `⚠️ La création du Deal HubSpot a échoué :\n${err.message}\n\n` +
-        `Voulez-vous quand même marquer les nacelles comme "Offre en cours" dans Delta VO ?\n` +
-        `(Le Deal HubSpot devra être créé manuellement)`
-      );
-      if (!confirmContinue) {
-        return;
-      }
-    }
-
-    // 2. Marquer les nacelles "Offre en cours" dans Firebase (avec ou sans hubspot_deal_id)
-    await creerOffre(ids, clientOffre, montants, hubspotDealId);
-
+    await creerOffre(ids, r.client, r.montants, undefined, { numero: r.numero, pdfUrl: r.pdfUrl });
     setPanier([]);
     setOffreModalOpen(false);
-
-    if (hubspotDealId) {
-      // ✅ Charge la fiche Deal HubSpot dans l'onglet déjà ouvert (le devis brouillon y figure)
-      const dealUrl = `https://app.hubspot.com/contacts/144239378/deal/${hubspotDealId}`;
-      if (hubspotTab) {
-        hubspotTab.location.href = dealUrl;
-      } else {
-        // Au cas où l'onglet n'a pas pu être pré-ouvert
-        window.open(dealUrl, "_blank", "noopener,noreferrer");
-      }
-      console.log(`✅ Deal HubSpot ouvert : ${dealUrl}`);
-    } else {
-      if (hubspotTab) hubspotTab.close();
-      alert(
-        `⚠️ Offre créée localement pour ${clientOffre} (${ids.length} nacelle(s))\n` +
-        `Le Deal HubSpot n'a pas pu être créé.`
-      );
-    }
   }
 
+
   function handleAnnulerOffre(machine: Machine) {
-    if (window.confirm(`Annuler l'offre en cours sur ${machine.immat} ?`)) {
+    const num = machine.devis_vente_numero;
+    if (window.confirm(`Annuler l'offre en cours sur ${machine.immat}${num ? ` (devis ${num})` : ""} ?`)) {
       annulerOffre(machine.id);
+      // 🧾 Dernière nacelle du devis retirée → le devis passe « annulé »
+      if (num && !machines.some((m) => m.id !== machine.id && m.devis_vente_numero === num && m.offre_en_cours)) {
+        annulerDevisVente(num, `offre retirée (${machine.immat})`).catch((e) => console.warn("Annulation devis :", e));
+      }
     }
   }
 
@@ -1260,10 +1204,11 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
 
       {/* ✅ Modal de création d'offre */}
       {offreModalOpen && panier.length > 0 && (
-        <OffreModal
+        <DevisModal
           machines={panier}
+          prixDealer={userRole === "dealer"}
           onClose={() => setOffreModalOpen(false)}
-          onConfirm={handleCreerOffre}
+          onCree={handleDevisCree}
         />
       )}
     </div>

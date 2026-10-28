@@ -94,7 +94,7 @@ const es = {
     pdfGeneratingSub: "La descarga comenzará en unos segundos",
     platformSelected: "plataforma seleccionada",
     platformsSelected: "plataformas seleccionadas",
-    createOffer: "Crear la oferta",
+    createOffer: "Crear presupuesto",
     clearSelection: "Vaciar la selección",
   },
   importVog: {

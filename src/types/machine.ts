@@ -330,6 +330,8 @@ export interface Machine {
   devis_vente_url?: string;
   /** ✍️ Date de signature électronique (DocuSign) — devis_vente_url pointe alors vers le PDF signé */
   devis_vente_signe_le?: string;
+  /** 🔒 Remise > 1 000 € / nacelle en attente de validation (Jonathan / Nathalie) */
+  devis_vente_validation?: "en_attente";
 
   is_test?: boolean;
   createdAt: string;

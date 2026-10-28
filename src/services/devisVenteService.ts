@@ -70,6 +70,8 @@ export interface ConfigDevis {
   cgv_en?: string;
   cgv_es?: string;
   validite_jours: number;
+  /** 🔒 Valideurs des remises > 1 000 € / nacelle (emails séparés par des virgules) */
+  valideurs_emails?: string;
   /** 📊 Rapport hebdo des ventes (lundi 8 h) : emails séparés par des virgules */
   rapport_ventes_destinataires?: string;
 }
@@ -130,11 +132,11 @@ export function creerDevisVente(d: {
   langue: LangueDevis;
   type_prepa: "normale" | "en_etat";
   date_livraison: string;
-}): Promise<{ numero: string; commercial: DevisVente["commercial"]; total_ht: number; tva: number; total_ttc: number }> {
+}): Promise<{ numero: string; commercial: DevisVente["commercial"]; total_ht: number; tva: number; total_ttc: number; validation_requise?: boolean; motifs_validation?: string[] }> {
   return appel({ action: "creer", ...d });
 }
 
-export function envoyerDevisVente(numero: string, pdfBase64: string, envoyerEmail: boolean, zoneSignature?: ZoneSignature): Promise<{ pdf_url: string; email_envoye: boolean; to?: string; lien_signature?: string }> {
+export function envoyerDevisVente(numero: string, pdfBase64: string, envoyerEmail: boolean, zoneSignature?: ZoneSignature): Promise<{ pdf_url: string; email_envoye: boolean; to?: string; lien_signature?: string; validation?: "en_attente"; valideurs?: string[] }> {
   return appel({ action: "envoyer", numero, pdfBase64, envoyer_email: envoyerEmail, zone_signature: zoneSignature });
 }
 
@@ -158,6 +160,22 @@ async function appelPublic(corps: Record<string, any>): Promise<any> {
   return j;
 }
 
+// ───────── Page de validation des remises (lien personnel du valideur) ─────────
+export interface DevisAValider {
+  numero: string; statut: string; client: string; commercial: string; lot: boolean;
+  lignes: { reference: string; designation: string; catalogue: number | null; propose: number; remise: number | null }[];
+  total_ht: number; total_catalogue: number; remise_totale: number; motifs: string[]; acompte_pct: number;
+  pdf_url?: string; envoi_prevu?: "email" | "pdf" | "signature";
+  validation: { statut: string; par: string | null; le: string | null; motif: string };
+  valideur: string;
+}
+export async function lireValidation(numero: string, jeton: string): Promise<DevisAValider> {
+  return (await appelPublic({ action: "public_validation_lire", numero, jeton })).devis;
+}
+export async function deciderValidation(numero: string, jeton: string, decision: "valider" | "refuser", motif: string): Promise<{ devis: DevisAValider; resultat?: string }> {
+  return appelPublic({ action: "public_valider", numero, jeton, decision, motif });
+}
+
 export async function lireDevisPublic(numero: string, jeton: string): Promise<DevisPublic> {
   return (await appelPublic({ action: "public_lire", numero, jeton })).devis;
 }
@@ -172,7 +190,7 @@ export async function signatureDisponible(): Promise<boolean> {
 }
 
 /** Envoi pour signature électronique DocuSign (le client reçoit l'email DocuSign) */
-export function signerDevisVente(numero: string, pdfBase64: string): Promise<{ pdf_url: string; envelope_id: string; to: string }> {
+export function signerDevisVente(numero: string, pdfBase64: string): Promise<{ pdf_url: string; envelope_id?: string; to: string; validation?: "en_attente"; valideurs?: string[] }> {
   return appel({ action: "signer", numero, pdfBase64 });
 }
 

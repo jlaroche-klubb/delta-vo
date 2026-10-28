@@ -330,9 +330,9 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
 
   // 🧾 Devis de vente créé dans Delta VO (plus de deal/devis HubSpot à
   // l'offre — HubSpot ne reçoit les infos qu'à la livraison, décision 28/10/2026)
-  async function handleDevisCree(r: { numero: string; client: string; montants: Record<string, number>; pdfUrl?: string }) {
+  async function handleDevisCree(r: { numero: string; client: string; montants: Record<string, number>; pdfUrl?: string; enValidation?: boolean }) {
     const ids = Object.keys(r.montants); // nacelles du devis (panier + ajoutées dans la fenêtre)
-    await creerOffre(ids, r.client, r.montants, undefined, { numero: r.numero, pdfUrl: r.pdfUrl });
+    await creerOffre(ids, r.client, r.montants, undefined, { numero: r.numero, pdfUrl: r.pdfUrl, enValidation: r.enValidation });
     setPanier([]);
     setOffreModalOpen(false);
   }
@@ -1217,7 +1217,8 @@ export default function DisponiblesPage({ userRole, userName, userEmail }: Dispo
       {offreModalOpen && panier.length > 0 && (
         <DevisModal
           machines={panier}
-          autresMachines={machines.filter((m) => m.statut === "disponible" && !m.archived && !m.offre_en_cours && !panier.some((p) => p.id === m.id))}
+          autresMachines={machines.filter((m) => m.statut === "disponible" && !m.archived && !m.offre_en_cours && (m.prix_fr || m.prix_dealer) && !panier.some((p) => p.id === m.id))}
+          estAdmin={isAdmin}
           prixDealer={userRole === "dealer"}
           onClose={() => setOffreModalOpen(false)}
           onCree={handleDevisCree}

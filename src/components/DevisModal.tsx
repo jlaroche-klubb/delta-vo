@@ -32,7 +32,9 @@ interface Props {
   prixDealer: boolean; // dealer : prix dealer par défaut
   onClose: () => void;
   /** Appelé une fois le devis créé (machines à marquer « offre en cours ») */
-  onCree: (r: { numero: string; client: string; montants: Record<string, number>; pdfUrl?: string }) => Promise<void> | void;
+  onCree: (r: { numero: string; client: string; montants: Record<string, number>; pdfUrl?: string; enValidation?: boolean }) => Promise<void> | void;
+  /** Admin / super admin : pas de plafond de remise */
+  estAdmin?: boolean;
 }
 
 const CHAMP: React.CSSProperties = { width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: 6, border: "1px solid #ccc", fontSize: 14, fontFamily: "inherit" };
@@ -50,7 +52,7 @@ function designation(m: Machine, lg: LangueDevis): string {
   return [tete, ...details].filter(Boolean).join(" · ");
 }
 
-export default function DevisModal({ machines, autresMachines = [], prixDealer, onClose, onCree }: Props) {
+export default function DevisModal({ machines, autresMachines = [], prixDealer, onClose, onCree, estAdmin = false }: Props) {
   const { i18n } = useTranslation();
   const [langue, setLangue] = useState<LangueDevis>(() => langueDevis(i18n.language));
   const [cfg, setCfg] = useState<ConfigDevis | null>(null);
@@ -154,6 +156,15 @@ export default function DevisModal({ machines, autresMachines = [], prixDealer, 
   const totalCatalogue = useMemo(() => lignes.reduce((s, l) => s + (Number(l.prix_ht) || 0), 0), [lignes]);
   const totalHt = lot ? prixLot : totalCatalogue;
   const totalTtc = totalHt * (1 + tva / 100);
+
+  // 🔒 Remise max 1 000 € HT / nacelle sous le prix catalogue (hors admin) — au-delà : validation Jonathan / Nathalie
+  const SEUIL_REMISE = 1000;
+  const catalogue = (id: string) => { const m = toutes.get(id); return Number(prixDealer ? m?.prix_dealer ?? m?.prix_fr : m?.prix_fr ?? m?.prix_dealer) || 0; };
+  const totalCat = lignes.reduce((t, l) => t + catalogue(l.machine_id), 0);
+  const depassements = estAdmin ? [] : lot
+    ? (totalCat - prixLot > SEUIL_REMISE * lignes.length ? [`lot : remise de ${eur(totalCat - prixLot)} (max ${eur(SEUIL_REMISE * lignes.length)} sans validation)`] : [])
+    : lignes.filter((l) => catalogue(l.machine_id) - (Number(l.prix_ht) || 0) > SEUIL_REMISE).map((l) => `${l.reference} : remise de ${eur(catalogue(l.machine_id) - (Number(l.prix_ht) || 0))}`);
+  const aValider = depassements.length > 0;
   const setC = (k: keyof ClientDevis, v: string) => setClient((c) => ({ ...c, [k]: v }));
   const setL = (i: number, k: keyof LigneDevis, v: any) => setLignes((ls) => ls.map((l, j) => (j === i ? { ...l, [k]: v } : l)));
 
@@ -182,10 +193,11 @@ export default function DevisModal({ machines, autresMachines = [], prixDealer, 
         conditions, commercial: r.commercial, langue,
       };
       const pdf = genererDevisPdf(dv, cfg);
+      const enValidation = !!r.validation_requise;
       const env = mode === "signature"
         ? await signerDevisVente(r.numero, pdf.base64)
         : await envoyerDevisVente(r.numero, pdf.base64, mode === "email", pdf.zoneSignature);
-      if (mode === "pdf") {
+      if (mode === "pdf" && !enValidation) {
         const a = document.createElement("a");
         a.href = URL.createObjectURL(pdf.blob);
         a.download = pdf.filename;
@@ -196,10 +208,12 @@ export default function DevisModal({ machines, autresMachines = [], prixDealer, 
         numero: r.numero,
         client: client.raison_sociale.trim(),
         montants: Object.fromEntries(lignesDevis.map((l) => [l.machine_id, Number(l.prix_ht) || 0])),
-        pdfUrl: env.pdf_url,
+        pdfUrl: enValidation ? undefined : env.pdf_url,
+        enValidation,
       });
       alert(
-        mode === "signature" ? `✍️ Devis ${r.numero} envoyé pour signature électronique à ${env.to}.\nVous recevrez un email dès qu'il est signé (ou refusé).`
+        enValidation ? `🔒 Devis ${r.numero} : la remise dépasse ${eur(SEUIL_REMISE)} HT par nacelle.\nDemande de validation envoyée à ${(env.valideurs || []).join(", ")}.\n${mode === "pdf" ? "Vous serez prévenu dès la décision : le PDF sera alors disponible sur la carte." : "Le devis partira automatiquement au client dès validation (vous serez prévenu)."}`
+        : mode === "signature" ? `✍️ Devis ${r.numero} envoyé pour signature électronique à ${env.to}.\nVous recevrez un email dès qu'il est signé (ou refusé).`
         : mode === "email" ? `✅ Devis ${r.numero} envoyé à ${env.to} (copie à vous-même).`
         : `✅ Devis ${r.numero} créé et téléchargé.`
       );
@@ -381,6 +395,12 @@ export default function DevisModal({ machines, autresMachines = [], prixDealer, 
               <label style={LABEL}>Conditions (imprimées sur le devis)</label>
               <textarea style={{ ...CHAMP, resize: "vertical" }} rows={4} value={conditions} onChange={(e) => setConditions(e.target.value)} />
 
+              {aValider && (
+                <div style={{ marginTop: 14, padding: "10px 14px", background: "#fff6e5", border: "1px solid #f0c36d", borderRadius: 6, fontSize: 13, color: "#7a4b00" }}>
+                  🔒 <b>Remise supérieure à {eur(SEUIL_REMISE)} HT par nacelle</b> : {depassements.join(" ; ")}.<br />
+                  Le devis sera d'abord soumis à <b>validation</b> (Jonathan Laroche ou Nathalie Neguy) et partira au client dès qu'elle est donnée.
+                </div>
+              )}
               {/* Récap */}
               <div style={{ marginTop: 14, padding: "10px 14px", background: "#f8f9fa", borderRadius: 6, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, fontSize: 14 }}>
                 <span>Total : <b>{eur(totalHt)} HT</b>{tva ? <> · {eur(totalTtc)} TTC</> : null}</span>
@@ -405,10 +425,10 @@ export default function DevisModal({ machines, autresMachines = [], prixDealer, 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, padding: 14, borderTop: "1px solid #eee", background: "#fafafa", flexWrap: "wrap" }}>
           <button onClick={onClose} disabled={!!enCours} style={{ padding: "10px 16px", borderRadius: 6, border: "1px solid #ccc", background: "white", cursor: "pointer" }}>Annuler</button>
           <button onClick={() => valider("pdf")} disabled={!cfg || !!enCours} style={{ padding: "10px 16px", borderRadius: 6, border: "1px solid #1a73e8", background: "white", color: "#1a73e8", fontWeight: 600, cursor: "pointer" }}>
-            {enCours === "pdf" ? "⏳ …" : "⬇ Créer et télécharger"}
+            {enCours === "pdf" ? "⏳ …" : aValider ? "🔒 Demander la validation" : "⬇ Créer et télécharger"}
           </button>
           <button onClick={() => valider("email")} disabled={!cfg || !!enCours} style={{ padding: "10px 16px", borderRadius: 6, border: "none", background: "#1a73e8", color: "white", fontWeight: 600, cursor: "pointer" }}>
-            {enCours === "email" ? "⏳ Envoi…" : "📧 Créer et envoyer au client"}
+            {enCours === "email" ? "⏳ Envoi…" : aValider ? "🔒 Demander la validation puis envoyer" : "📧 Créer et envoyer au client"}
           </button>
           {docusign && (
             <button onClick={() => valider("signature")} disabled={!cfg || !!enCours} title="Le client reçoit un email DocuSign et signe en ligne ; vous êtes prévenu dès la signature"

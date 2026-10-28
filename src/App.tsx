@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from "./AuthContext";
 import { MachinesProvider } from "./contexts/MachinesContext";
 import LoginPage from "./LoginPage";
 import SignerDevisPage from "./pages/SignerDevisPage";
+import ValidationDevisPage from "./pages/ValidationDevisPage";
 import GaleriePage from "./pages/GaleriePage";
 import RestitutionsPage from "./pages/RestitutionsPage";
 import DisponiblesPage from "./pages/DisponiblesPage";
@@ -265,6 +266,8 @@ export default function App() {
         <Route path="/galerie/:token" element={<GaleriePage />} />
         {/* Page PUBLIQUE : le client accepte et signe son devis (lien de l'email) */}
         <Route path="/devis/:numero/:jeton" element={<SignerDevisPage />} />
+        {/* Page PUBLIQUE (lien personnel) : validation d'une remise > 1 000 € par Jonathan / Nathalie */}
+        <Route path="/devis-validation/:numero/:jeton" element={<ValidationDevisPage />} />
 
         {/* Toute le reste de l'app interne, avec authentification + contextes. */}
         <Route

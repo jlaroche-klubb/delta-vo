@@ -32,6 +32,7 @@ interface EnCoursPageProps {
 }
 
 export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
+  const { forcerFinPrepa, archiverDoublon } = useMachines();
   const { machines, toggleEtapePrepa, setEtapeNonNecessaire, addEtapePrepa, removeEtapePrepa, configureEnCours, modifierInfosVente, cancelEnCours, marquerFacturee, marquerLivree, updateDocumentsVO } = useMachines();
   const [search, setSearch] = useState("");
   const { t } = useTranslation();
@@ -185,6 +186,50 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
     }
   }
 
+  // 🧹 NETTOYAGE (super admin) : sélection multiple, retour en dispo (doublons
+  // gérés : une fiche en double d'une autre fiche active est archivée), fin de
+  // préparation forcée
+  const estSuperAdmin = userRole === "superadmin";
+  const [nettoyage, setNettoyage] = useState(false);
+  const [selection, setSelection] = useState<Set<string>>(new Set());
+  const [nettoyageEnCours, setNettoyageEnCours] = useState(false);
+  const basculer = (id: string) => setSelection((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  const cle = (v?: string) => String(v || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  const doublonDe = (m: Machine) =>
+    machines.find((x) => x.id !== m.id && !x.archived && x.statut !== "cloturee" &&
+      ((cle(x.immat) && cle(x.immat) === cle(m.immat)) || (m.numero_dossier && x.numero_dossier === m.numero_dossier)));
+  async function retourDispo(liste: Machine[]) {
+    const doubles = liste.map((m) => [m, doublonDe(m)] as const).filter(([, d]) => d);
+    const msg = `↩ Remettre ${liste.length} nacelle(s) en Disponibles ?\n\n` +
+      `• Les données de vente / location et les étapes de préparation seront effacées.\n` +
+      `• Une nacelle dont les frais Nacelle Expert ne sont pas réglés repart en Restitutions.\n` +
+      (doubles.length ? `• ${doubles.length} fiche(s) en double d'une autre fiche active seront ARCHIVÉES (pas remises en vente) :\n${doubles.slice(0, 8).map(([m, d]) => `   ${m.immat} = ${d!.immat} (${d!.statut})`).join("\n")}${doubles.length > 8 ? "\n   …" : ""}\n` : "");
+    if (!window.confirm(msg)) return;
+    setNettoyageEnCours(true);
+    let dispo = 0, resti = 0, archives = 0;
+    const dejaArchivees = new Set<string>(); // deux fiches en double sélectionnées : on garde la première
+    for (const m of liste) {
+      const d = doublonDe(m);
+      if (d && !dejaArchivees.has(d.id)) { await archiverDoublon(m.id, d.immat || d.id, userName); dejaArchivees.add(m.id); archives++; continue; }
+      const fraisImpayes = !!m.expertise_recue && !m.facture_reglee_ok;
+      await cancelEnCours(m.id);
+      if (fraisImpayes) resti++; else dispo++;
+    }
+    setNettoyageEnCours(false);
+    setSelection(new Set());
+    alert(`🧹 Nettoyage terminé :\n• ${dispo} remise(s) en Disponibles\n• ${resti} en Restitutions (frais Nacelle Expert non réglés)\n• ${archives} fiche(s) en double archivée(s)`);
+  }
+  async function forcerFin(liste: Machine[]) {
+    const aFaire = liste.filter((m) => !(m.type_prepa && (m.type_prepa === "en_etat" || prepaTerminee(m.etapes_prepa))));
+    if (!aFaire.length) { alert("Ces nacelles sont déjà prêtes à facturer."); return; }
+    if (!window.confirm(`✅ Forcer la fin de préparation de ${aFaire.length} nacelle(s) ?\n\nToutes les étapes seront cochées (préparation « en l'état » si la vente n'était pas configurée) : elles passeront dans « Prêtes à facturer ».`)) return;
+    setNettoyageEnCours(true);
+    for (const m of aFaire) await forcerFinPrepa(m.id, userName);
+    setNettoyageEnCours(false);
+    setSelection(new Set());
+    alert(`✅ ${aFaire.length} nacelle(s) passée(s) en « Prêtes à facturer ».`);
+  }
+
   // 🔁 Changer de nacelle (devis signé) + re-signature quand c'est définitif
   const [changerMachine, setChangerMachine] = useState<Machine | null>(null);
   async function handleResigner(m: Machine) {
@@ -284,6 +329,13 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
           title="Télécharger la liste affichée (filtres et recherche appliqués) en Excel" style={{ whiteSpace: "nowrap" }}>
           ⬇ Export Excel ({filtered.length})
         </button>
+        {estSuperAdmin && (
+          <button className="btn-secondary" onClick={() => { setNettoyage(!nettoyage); setSelection(new Set()); }}
+            title="Super admin : sélectionner plusieurs nacelles pour les remettre en dispo ou forcer la fin de leur préparation"
+            style={{ whiteSpace: "nowrap", ...(nettoyage ? { background: "#fff6e5", borderColor: "#d9a441", color: "#8a5a00" } : {}) }}>
+            🧹 {nettoyage ? "Quitter le nettoyage" : "Nettoyage"}
+          </button>
+        )}
       </div>
 
       <EnCoursFilters
@@ -322,6 +374,9 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
                 canCancel={canCancel}
                 onCancel={handleCancel}
                 onChangerNacelle={canCancel ? setChangerMachine : undefined}
+                selection={estSuperAdmin && nettoyage ? { checked: selection.has(m.id), onToggle: () => basculer(m.id) } : undefined}
+                onRetourDispo={estSuperAdmin ? (x: Machine) => retourDispo([x]) : undefined}
+                onForcerFin={estSuperAdmin ? (x: Machine) => forcerFin([x]) : undefined}
                 onResigner={canCancel ? handleResigner : undefined}
               />
             ))}
@@ -359,6 +414,9 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
                 canCancel={canCancel}
                 onCancel={handleCancel}
                 onChangerNacelle={canCancel ? setChangerMachine : undefined}
+                selection={estSuperAdmin && nettoyage ? { checked: selection.has(m.id), onToggle: () => basculer(m.id) } : undefined}
+                onRetourDispo={estSuperAdmin ? (x: Machine) => retourDispo([x]) : undefined}
+                onForcerFin={estSuperAdmin ? (x: Machine) => forcerFin([x]) : undefined}
                 onResigner={canCancel ? handleResigner : undefined}
               />
             ))}
@@ -396,6 +454,9 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
                 canCancel={canCancel}
                 onCancel={handleCancel}
                 onChangerNacelle={canCancel ? setChangerMachine : undefined}
+                selection={estSuperAdmin && nettoyage ? { checked: selection.has(m.id), onToggle: () => basculer(m.id) } : undefined}
+                onRetourDispo={estSuperAdmin ? (x: Machine) => retourDispo([x]) : undefined}
+                onForcerFin={estSuperAdmin ? (x: Machine) => forcerFin([x]) : undefined}
                 onResigner={canCancel ? handleResigner : undefined}
               />
             ))}
@@ -427,6 +488,20 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
         />
       )}
 
+      {estSuperAdmin && nettoyage && (
+        <div style={{ position: "fixed", bottom: 20, left: "50%", transform: "translateX(-50%)", background: "#3d2c00", color: "white", padding: "10px 16px", borderRadius: 40, boxShadow: "0 4px 16px rgba(0,0,0,0.3)", display: "flex", gap: 10, alignItems: "center", zIndex: 1000, flexWrap: "wrap" }}>
+          <span style={{ fontWeight: 700 }}>🧹 {selection.size} sélectionnée(s)</span>
+          <button onClick={() => setSelection(new Set(filtered.map((m) => m.id)))} disabled={nettoyageEnCours}
+            style={{ background: "transparent", color: "white", border: "1px solid white", borderRadius: 20, padding: "6px 12px", cursor: "pointer" }}>Tout sélectionner ({filtered.length})</button>
+          <button onClick={() => retourDispo(filtered.filter((m) => selection.has(m.id)))} disabled={!selection.size || nettoyageEnCours}
+            style={{ background: "white", color: "#8a5a00", border: "none", borderRadius: 20, padding: "6px 14px", fontWeight: 700, cursor: "pointer" }}>↩ Retour en dispo</button>
+          <button onClick={() => forcerFin(filtered.filter((m) => selection.has(m.id)))} disabled={!selection.size || nettoyageEnCours}
+            style={{ background: "white", color: "#1e8e3e", border: "none", borderRadius: 20, padding: "6px 14px", fontWeight: 700, cursor: "pointer" }}>✅ Forcer fin de prépa</button>
+          {nettoyageEnCours && <span>⏳ …</span>}
+          <button onClick={() => setSelection(new Set())} disabled={nettoyageEnCours} title="Vider la sélection"
+            style={{ background: "transparent", color: "white", border: "none", cursor: "pointer", fontSize: 16 }}>✕</button>
+        </div>
+      )}
       {changerMachine && (
         <ChangerNacelleModal
           machine={changerMachine}

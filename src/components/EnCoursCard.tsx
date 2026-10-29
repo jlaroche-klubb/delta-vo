@@ -31,6 +31,10 @@ interface EnCoursCardProps {
   /** 🔁 Admin : changer la nacelle d'une vente signée / renvoyer le devis pour re-signature */
   onChangerNacelle?: (machine: Machine) => void;
   onResigner?: (machine: Machine) => void;
+  /** 🧹 Nettoyage (super admin) : case de sélection + retour en dispo / fin de prépa forcée */
+  selection?: { checked: boolean; onToggle: () => void };
+  onRetourDispo?: (machine: Machine) => void;
+  onForcerFin?: (machine: Machine) => void;
 }
 
 export default function EnCoursCard({
@@ -51,6 +55,9 @@ export default function EnCoursCard({
   onRemoveEtape,
   onChangerNacelle,
   onResigner,
+  selection,
+  onRetourDispo,
+  onForcerFin,
 }: EnCoursCardProps) {
   const [newEtapeLabel, setNewEtapeLabel] = useState("");
   const { t } = useTranslation();
@@ -110,6 +117,10 @@ export default function EnCoursCard({
     >
       <div className="encours-header">
         <div className="machine-thumb-row">
+          {selection && (
+            <input type="checkbox" checked={selection.checked} onChange={selection.onToggle} title="Sélectionner pour le nettoyage"
+              style={{ width: 20, height: 20, marginRight: 4, cursor: "pointer", flexShrink: 0 }} />
+          )}
           <MachineThumb machine={machine} size={56} />
         <div>
           <div className="encours-immat">{machine.immat}</div>
@@ -443,6 +454,18 @@ export default function EnCoursCard({
             <button onClick={() => onChangerNacelle(machine)} title="Remplacer cette nacelle par une autre sur le devis signé (prix inchangé)"
               style={{ background: 'white', color: '#1a73e8', border: '1px solid #1a73e8', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
               🔁 Changer de nacelle
+            </button>
+          )}
+          {onRetourDispo && (
+            <button onClick={() => onRetourDispo(machine)} title="🧹 Nettoyage : remettre cette nacelle en Disponibles (fiche en double archivée)"
+              style={{ background: 'white', color: '#8a5a00', border: '1px solid #d9a441', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
+              ↩ Retour en dispo
+            </button>
+          )}
+          {onForcerFin && !(isConfigured && (isEnEtat || prepaOK)) && (
+            <button onClick={() => onForcerFin(machine)} title="🧹 Nettoyage : cocher toutes les étapes, la nacelle passe en « Prêtes à facturer »"
+              style={{ background: 'white', color: '#1e8e3e', border: '1px solid #1e8e3e', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
+              ✅ Forcer fin de prépa
             </button>
           )}
           {onResigner && machine.devis_vente_a_resigner === true && (

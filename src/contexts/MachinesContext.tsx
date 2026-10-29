@@ -120,6 +120,9 @@ interface MachinesContextType {
     emailClient?: string
   ) => void;
   cancelEnCours: (machineId: string) => void;  // ✅ Annuler mise en préparation
+  /** 🧹 Nettoyage (super admin) : fin de préparation forcée / fiche en double archivée */
+  forcerFinPrepa: (machineId: string, par: string) => Promise<void>;
+  archiverDoublon: (machineId: string, doublonDe: string, par: string) => Promise<void>;
   modifierInfosVente: (machineId: string, infos: { acheteur: string; commercial_vendeur: string; date_vente: string; date_livraison_prevue: string; contrat?: string; email_client?: string }) => Promise<void>;
   rouvrirRestitution: (machineId: string, motif?: string) => Promise<void>;
   cloreRestitutionSansFrais: (machineId: string, par: string) => Promise<void>;
@@ -1471,6 +1474,42 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // 🧹 NETTOYAGE (super admin, 29/10/2026) — fin de préparation forcée : toutes
+  // les étapes cochées (type « en l'état » si la vente n'était pas configurée),
+  // la carte passe dans « Prêtes à facturer ». Pas de pré-départ Nacelle Expert
+  // (ce sont des dossiers anciens à solder, pas de vrais départs).
+  async function forcerFinPrepa(machineId: string, par: string) {
+    const m = machines.find((x) => x.id === machineId);
+    if (!m) return;
+    const now = new Date().toISOString();
+    const typePrepa = m.type_prepa || "en_etat";
+    const etapes = (m.etapes_prepa && m.etapes_prepa.length ? m.etapes_prepa : creerEtapesPrepa(typePrepa))
+      .map((e) => (e.done || e.non_necessaire ? e : { ...e, done: true, done_by: `${par} (forcé)`, done_at: now }));
+    await updateDoc(doc(db, "machines_vo", machineId), {
+      type_prepa: typePrepa,
+      etapes_prepa: etapes,
+      historique: traceStatut(m.statut, m.statut, "nettoyage", "fin de préparation forcée", par),
+      updatedAt: now,
+    });
+  }
+
+  // 🧹 Fiche en double (même immat ou même D0 qu'une autre fiche active) : archivée,
+  // jamais supprimée — l'autre fiche reste la bonne.
+  async function archiverDoublon(machineId: string, doublonDe: string, par: string) {
+    const m = machines.find((x) => x.id === machineId);
+    const now = new Date().toISOString();
+    await updateDoc(doc(db, "machines_vo", machineId), {
+      archived: true,
+      archived_at: now,
+      archived_by: par,
+      archive_motif: `doublon de ${doublonDe}`,
+      offre_en_cours: false, devis_ouverts: [], devis_vente_numero: null,
+      historique: traceStatut(m?.statut, m?.statut || "en_cours", "nettoyage", `fiche en double de ${doublonDe} — archivée`, par),
+      updatedAt: now,
+    });
+    syncHubspotProduct("archive", machineId);
+  }
+
   async function cancelEnCours(machineId: string) {
     // ✅ Annule la mise en préparation : retour en "disponible" — ou en
     // "restitution" si les frais Nacelle Expert de son retour ne sont pas
@@ -2193,6 +2232,8 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
       enregistrerChiffrageCorrige,
       configureEnCours,
       cancelEnCours,
+      forcerFinPrepa,
+      archiverDoublon,
       modifierInfosVente,
       rouvrirRestitution,
       cloreRestitutionSansFrais,

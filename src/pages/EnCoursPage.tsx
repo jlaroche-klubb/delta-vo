@@ -7,6 +7,7 @@ import {
 } from "../types/machine";
 import { useMachines } from "../contexts/MachinesContext";
 import EnCoursCard from "../components/EnCoursCard";
+import { exportEnPreparationExcel } from "../utils/exportEnPreparation";
 import ChangerNacelleModal from "../components/ChangerNacelleModal";
 import { chargerConfigDevis, lireDevisAdmin, resignerDevis } from "../services/devisVenteService";
 import { genererDevisPdf } from "../utils/generateDevisPdf";
@@ -279,6 +280,10 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
+        <button className="btn-secondary" onClick={() => exportEnPreparationExcel(filtered)}
+          title="Télécharger la liste affichée (filtres et recherche appliqués) en Excel" style={{ whiteSpace: "nowrap" }}>
+          ⬇ Export Excel ({filtered.length})
+        </button>
       </div>
 
       <EnCoursFilters

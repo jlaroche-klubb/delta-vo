@@ -1,229 +1,45 @@
 // ============================================================
-// CRÉATION DE DEAL + DEVIS HUBSPOT depuis Delta VO
+// 🏆 VENTE FACTURÉE → TRANSACTION GAGNÉE DANS HUBSPOT
 // ============================================================
-// Appelé par le front quand on valide une offre (vente en lot).
-// - Crée un Deal HubSpot "VO - [client]"
-// - Crée une ligne (line item) par nacelle (immat + prix)
-// - Crée un DEVIS en BROUILLON rattaché au deal + aux lignes
-//   (le vendeur le finalise/envoie ensuite dans HubSpot)
+// Décision Jonathan (03/11/2026) : les devis se font dans Delta VO, HubSpot ne
+// reçoit plus que les ventes FACTURÉES (ventes + locations financières, pas
+// les LLD). L'ancien usage de ce point d'entrée (deal + devis brouillon à
+// l'offre) est supprimé. Logique : api/_lib/hubspotVente.ts.
 //
-// La partie devis est "best-effort" : si le token de l'app privée
-// n'a pas encore les scopes quotes/line_items, le deal est quand
-// même créé et on renvoie un avertissement (quoteWarning).
+// POST { machine_id }  — appelé par l'appli juste après « Facturer », et par
+// le bouton « Renvoyer vers HubSpot » des Clôturées. Idempotent.
 // ============================================================
 
-import { cors, exigerUtilisateur, fetchAvecReessai } from "./_lib/auth.js";
-
-const HUBSPOT_API_BASE = "https://api.hubapi.com";
-
-interface NacelleOffre {
-  /** 🏷️ Référence commerciale (DS1587 / KF1642 / VO) — JAMAIS d'immat sur
-   *  le devis ni sur le deal : les commerciaux ne parlent qu'avec cette
-   *  référence (validé avec Jonathan). L'immat n'apparaît qu'à la facture. */
-  reference: string;
-  modele?: string;
-  montant: number;
-}
-
-interface CreateDealBody {
-  client: string;
-  nacelles: NacelleOffre[];
-  userEmail?: string;
-}
+import admin from "firebase-admin";
+import { cors, exigerUtilisateur } from "./_lib/auth.js";
+import { envoyerVenteGagnee } from "./_lib/hubspotVente.js";
 
 export const maxDuration = 30;
+
+function appAdmin(): admin.app.App {
+  const existante = admin.apps.find((a) => a?.name === "[DEFAULT]");
+  if (existante) return existante;
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT || "";
+  if (!raw) throw new Error("FIREBASE_SERVICE_ACCOUNT manquant");
+  return admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)), projectId: "delta-vo" });
+}
 
 export default async function handler(req: any, res: any) {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-  // 🔐 Jeton Firebase obligatoire (voir api/_lib/auth.ts)
-  const user = await exigerUtilisateur(req, res);
+  const user = await exigerUtilisateur(req, res, { roles: ["superadmin", "admin", "secretaire", "vendeur_fr", "chef"] });
   if (!user) return;
-
-  const token = process.env.HUBSPOT_TOKEN;
-  if (!token) {
-    console.error("❌ HUBSPOT_TOKEN manquant");
-    return res.status(500).json({ error: "Server misconfigured" });
-  }
-  // ID de modèle de devis Delta (optionnel) : pré-sélectionne le template.
-  const quoteTemplateId = process.env.HUBSPOT_QUOTE_TEMPLATE_ID || "";
-
-  const hs = async (path: string, method: string, body?: any) => {
-    const r = await fetchAvecReessai(`${HUBSPOT_API_BASE}${path}`, {
-      method,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    // ⚠️ Pas de réessai automatique sur les écritures HubSpot (risque de doublon
-    // de deal / ligne) : uniquement délai maximal ; les lectures GET réessaient.
-    }, { timeoutMs: 20_000, essais: method === "GET" ? 3 : 1 });
-    const text = await r.text();
-    let json: any = null;
-    try { json = text ? JSON.parse(text) : null; } catch { /* noop */ }
-    return { ok: r.ok, status: r.status, json, text };
-  };
-
   try {
-    const body: CreateDealBody = req.body;
-    if (!body?.client || !body?.nacelles || body.nacelles.length === 0) {
-      return res.status(400).json({ error: "client et nacelles requis" });
-    }
-
-    const amount = body.nacelles.reduce((sum, n) => sum + (Number(n.montant) || 0), 0);
-    const refs = body.nacelles.map((n) => n.reference).join(", ");
-    const dealName = `VO - ${body.client}`;
-    const description = body.nacelles
-      .map((n) => `• ${n.reference}${n.modele ? ` (${n.modele})` : ""} — ${(Number(n.montant) || 0).toLocaleString("fr-FR")} €`)
-      .join("\n");
-
-    // Propriétaire du deal = commercial connecté (retrouvé par email dans HubSpot).
-    // Ainsi chaque vendeur est propriétaire de ses deals et peut les éditer.
-    let ownerId = "";
-    let ownerWarning: string | null = null;
-    if (body.userEmail) {
-      try {
-        const ownerRes = await hs(
-          `/crm/v3/owners/?email=${encodeURIComponent(body.userEmail)}`,
-          "GET"
-        );
-        if (ownerRes.ok && ownerRes.json?.results?.length) {
-          ownerId = String(ownerRes.json.results[0].id);
-        } else {
-          ownerWarning = `Aucun owner HubSpot trouvé pour ${body.userEmail} (le deal sera sans propriétaire).`;
-        }
-      } catch (e) {
-        ownerWarning = "Lookup owner HubSpot impossible (scope crm.objects.owners.read manquant ?).";
-        console.warn("⚠️ owner lookup:", e);
-      }
-    }
-    if (ownerWarning) console.warn("⚠️", ownerWarning);
-
-    // 1) DEAL
-    const dealRes = await hs("/crm/v3/objects/deals", "POST", {
-      properties: {
-        dealname: dealName,
-        amount: String(amount),
-        ...(ownerId ? { hubspot_owner_id: ownerId } : {}),
-        description: `Offre VO Delta VO\n\nRéférences : ${refs}\n\nNacelles :\n${description}`,
-      },
-    });
-    if (!dealRes.ok) {
-      console.error(`❌ HubSpot deal ${dealRes.status}:`, dealRes.text);
-      return res.status(dealRes.status).json({
-        error: "Erreur lors de la création du Deal HubSpot",
-        details: dealRes.text,
-      });
-    }
-    const dealId = dealRes.json.id as string;
-    console.log(`✅ Deal HubSpot créé : ${dealId} - ${dealName}`);
-
-    // 1a) Placer le deal dans le KLUBB Sales Pipeline (pipeline + stage ENSEMBLE).
-    // Best-effort : si le couple pipeline/stage est refusé, le deal reste créé
-    // (dans le pipeline par défaut) et reste éditable.
-    try {
-      const movePatch = await hs(`/crm/v3/objects/deals/${dealId}`, "PATCH", {
-        properties: {
-          pipeline: "1310426306",   // KLUBB Sales Pipeline
-          dealstage: "1784881365",  // KLUBB - Analyse des besoin (Needs Analysis)
-        },
-      });
-      if (!movePatch.ok) {
-        console.warn(`⚠️ pipeline/stage KLUBB non appliqués (${movePatch.status}): ${movePatch.text}`);
-      }
-    } catch (e) {
-      console.warn("⚠️ pipeline/stage KLUBB:", e);
-    }
-
-    // 1b) Renseigner l'immatriculation sur le deal (propriété custom).
-    // Best-effort : si la propriété immatriculation_nacelle n'existe pas encore
-    // côté HubSpot, on ignore l'erreur (le deal reste créé).
-    // NB : cas mono-nacelle. Le multi-nacelles sera traité plus tard.
-    try {
-      const patch = await hs(`/crm/v3/objects/deals/${dealId}`, "PATCH", {
-        // 🏷️ La propriété interne porte désormais les RÉFÉRENCES (plus d'immat
-        // sur le deal, même en interne — c'est la langue des commerciaux)
-        properties: { immatriculation_nacelle: refs },
-      });
-      if (!patch.ok) {
-        console.warn(`⚠️ immatriculation_nacelle non renseignée (${patch.status}): ${patch.text}`);
-      }
-    } catch (e) {
-      console.warn("⚠️ immatriculation_nacelle:", e);
-    }
-
-    // 2) DEVIS (best-effort)
-    let quoteId: string | null = null;
-    let quoteWarning: string | null = null;
-    try {
-      // 2a) Lignes (line items)
-      const lineItemIds: string[] = [];
-      for (const n of body.nacelles) {
-        const liName = `${n.reference}${n.modele ? ` — ${n.modele}` : ""}`;
-        const liRes = await hs("/crm/v3/objects/line_items", "POST", {
-          properties: {
-            name: liName,
-            price: String(Number(n.montant) || 0),
-            quantity: "1",
-          },
-        });
-        if (!liRes.ok) throw new Error(`line_item ${liRes.status}: ${liRes.text}`);
-        lineItemIds.push(liRes.json.id);
-      }
-
-      // 2b) Devis brouillon
-      const expiration = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
-        .toISOString()
-        .slice(0, 10);
-      const quoteRes = await hs("/crm/v3/objects/quotes", "POST", {
-        properties: {
-          hs_title: `Offre VO - ${body.client}`,
-          hs_expiration_date: expiration,
-          hs_currency: "EUR",
-          hs_language: "fr",
-          hs_status: "DRAFT",
-        },
-      });
-      if (!quoteRes.ok) throw new Error(`quote ${quoteRes.status}: ${quoteRes.text}`);
-      quoteId = quoteRes.json.id;
-
-      // 2c) Associations (v4 "default")
-      const assoc = async (fromType: string, fromId: string, toType: string, toId: string) => {
-        const a = await hs(
-          `/crm/v4/objects/${fromType}/${fromId}/associations/default/${toType}/${toId}`,
-          "PUT"
-        );
-        if (!a.ok) console.warn(`⚠️ assoc ${fromType}->${toType} ${a.status}: ${a.text}`);
-      };
-
-      await assoc("quotes", quoteId!, "deals", dealId);
-      for (const li of lineItemIds) {
-        await assoc("quotes", quoteId!, "line_items", li);
-        await assoc("deals", dealId, "line_items", li);
-      }
-      if (quoteTemplateId) {
-        await assoc("quotes", quoteId!, "quote_templates", quoteTemplateId);
-      }
-      console.log(`✅ Devis brouillon créé : ${quoteId} (deal ${dealId})`);
-    } catch (qErr: any) {
-      quoteWarning =
-        "Le deal a été créé, mais pas le devis. Vérifiez que l'app privée HubSpot a les scopes " +
-        "crm.objects.quotes.write et crm.objects.line_items.write.";
-      console.error("⚠️ Création devis échouée :", qErr?.message || qErr);
-    }
-
-    return res.status(200).json({
-      status: "ok",
-      dealId,
-      dealName,
-      amount,
-      quoteId,
-      quoteWarning,
-      ownerWarning,
-    });
-  } catch (err: any) {
-    console.error("❌ Erreur création Deal/Devis:", err);
-    return res.status(500).json({ error: "Erreur serveur", message: err.message });
+    const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : req.body || {};
+    const machineId = String(body.machine_id || "").trim().slice(0, 40);
+    if (!machineId) return res.status(400).json({ error: "machine_id requis" });
+    const app = appAdmin();
+    const profil = (await admin.firestore(app).collection("users").doc(user.uid).get()).data() || {};
+    const par = `${profil.prenom || ""} ${profil.nom || ""}`.trim() || user.email;
+    const r = await envoyerVenteGagnee(app, machineId, par);
+    return res.status(r.ok ? 200 : 502).json(r);
+  } catch (e: any) {
+    console.error("❌ hubspot vente:", e);
+    return res.status(500).json({ ok: false, detail: e?.message || "erreur" });
   }
 }

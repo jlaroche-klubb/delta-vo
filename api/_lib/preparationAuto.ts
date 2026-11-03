@@ -46,7 +46,12 @@ async function jetonService(app: admin.app.App): Promise<string> {
 }
 
 /** Remet le produit dans le catalogue HubSpot (nacelle revenue en vente) — même fonction serveur que l'appli */
+// ⛔ Synchro du catalogue produits HubSpot arrêtée (décision Jonathan 03/11/2026) :
+// ces deux fonctions ne font plus rien (HubSpot ne reçoit que les ventes facturées).
+const CATALOGUE_HUBSPOT_ACTIF = false;
+
 export async function publierHubspot(app: admin.app.App, immat: string, modele: string | undefined, prix: number): Promise<void> {
+  if (!CATALOGUE_HUBSPOT_ACTIF) return;
   try {
     await fetch(`${DELTA_VO_URL}/api/hubspot-sync-product`, {
       method: "POST",
@@ -60,6 +65,7 @@ export async function publierHubspot(app: admin.app.App, immat: string, modele: 
 }
 
 export async function archiverHubspot(app: admin.app.App, immat: string): Promise<void> {
+  if (!CATALOGUE_HUBSPOT_ACTIF) return;
   try {
     await fetch(`${DELTA_VO_URL}/api/hubspot-sync-product`, {
       method: "POST",

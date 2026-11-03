@@ -324,6 +324,10 @@ export interface Machine {
   client_offre?: string;
   montant_offre?: number;
   hubspot_deal_id?: string;
+  /** 🏆 Vente facturée envoyée dans HubSpot (transaction gagnée + parc Machines) */
+  hubspot_vente?: { deal_id: string; machine_hs_id?: string | null; envoye_le: string; par?: string; erreur_parc?: string };
+  /** ⚠ Échec de l'envoi HubSpot de la vente facturée (bouton « Renvoyer » dans Clôturées) */
+  hubspot_vente_erreur?: { message: string; le: string };
   date_offre?: string;
   /** 🧾 Devis de vente Delta VO (collection devis_vente) */
   devis_vente_numero?: string;

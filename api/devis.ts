@@ -192,6 +192,55 @@ async function envoyerEmailClient(dv: any, numero: string, pdf: string, lien: st
   return { ok: true, status: 200 };
 }
 
+/**
+ * 📧 Loc fi en série (décision Jonathan 03/11/2026) : plusieurs contrats de
+ * location financière pour le même client, un par nacelle → UN SEUL email avec
+ * tous les contrats en pièce jointe et un bouton « Signer » par contrat
+ * (une signature par contrat). Commercial en copie.
+ */
+async function envoyerEmailGroupeLocFi(dvs: any[], pdfs: string[], liens: string[], dest: string): Promise<{ ok: boolean; status: number; error?: string }> {
+  const apiKey = process.env.BREVO_API_KEY;
+  const sender = process.env.BREVO_SENDER_EMAIL;
+  if (!apiKey || !sender) return { ok: false, status: 500, error: "Brevo non configuré" };
+  const d0 = dvs[0];
+  const blocs = dvs.map((dv, i) => {
+    const lf = dv.locfi || {};
+    const l = dv.lignes?.[0] || {};
+    return `<div style="border:1px solid #dfe5ee;border-radius:8px;padding:12px 14px;margin:0 0 12px">` +
+      `<div style="font-weight:bold;color:#1f4282">Contrat N°${esc(lf.numero_contrat)} — ${esc(l.reference)}</div>` +
+      `<div style="font-size:13px;color:#444;margin:2px 0 6px">${esc(l.designation)}</div>` +
+      `<div style="font-size:14px">Prix : <b>${eur(dv.total_ht)} HT</b> · ${lf.duree_mois} mois · 1er loyer majoré à la signature : <b>${eur(lf.premier_loyer_ht)} HT</b> (${eur(lf.premier_loyer_ht * 1.2)} TTC)` +
+      `${lf.duree_mois > 1 ? `, puis ${lf.duree_mois - 1} × ${eur(lf.loyer_mensuel_ht)} HT (${eur(lf.loyer_mensuel_ht * 1.2)} TTC) le 20 du mois` : ""}</div>` +
+      `<p style="margin:10px 0 0"><a href="${liens[i]}" style="background:#1e8e3e;color:#ffffff;text-decoration:none;font-weight:bold;padding:10px 18px;border-radius:6px;display:inline-block">✍️ Accepter et signer le contrat ${esc(lf.numero_contrat)}</a></p></div>`;
+  }).join("");
+  const html =
+    `<p>Bonjour${d0.client?.contact_nom ? " " + esc(d0.client.contact_nom) : ""},</p>` +
+    (dvs.length > 1
+      ? `<p>Veuillez trouver ci-joint nos <b>${dvs.length} contrats de location financière</b>, un par nacelle. Chaque contrat se signe séparément : cliquez sur le bouton de chaque contrat et signez en ligne (ou retournez-les datés, paraphés et signés en réponse à cet email).</p>`
+      : `<p>Veuillez trouver ci-joint notre <b>contrat de location financière</b>. Pour l'accepter, cliquez sur le bouton ci-dessous et signez en ligne (ou retournez-le daté, paraphé et signé en réponse à cet email).</p>`) +
+    blocs +
+    `<p>Valeur de rachat au terme de chaque contrat : offerte. Offre valable jusqu'au ${esc(String(d0.date_expiration).split("-").reverse().join("/"))}.</p>` +
+    `<p>Cordialement,<br/>${esc(d0.commercial?.nom || "")}<br/>Delta Services${d0.commercial?.tel ? "<br/>" + esc(d0.commercial.tel) : ""}<br/>${esc(d0.commercial?.email || "")}</p>`;
+  const r = await fetchAvecReessai("https://api.brevo.com/v3/smtp/email", {
+    method: "POST",
+    headers: { "api-key": apiKey, "Content-Type": "application/json", accept: "application/json" },
+    body: JSON.stringify({
+      sender: { email: sender, name: process.env.BREVO_SENDER_NAME || "Delta Services" },
+      to: [{ email: dest, ...(d0.client?.contact_nom ? { name: d0.client.contact_nom } : {}) }],
+      cc: d0.commercial?.email && d0.commercial.email !== dest ? [{ email: d0.commercial.email }] : undefined,
+      replyTo: d0.commercial?.email ? { email: d0.commercial.email, name: d0.commercial.nom } : undefined,
+      subject: `Contrats de location financière N°${dvs.map((d) => d.locfi?.numero_contrat).join(", ")} — Delta Services`,
+      htmlContent: html,
+      attachment: dvs.map((d, i) => ({ name: `Contrat_location_financiere_${d.locfi?.numero_contrat}.pdf`, content: pdfs[i] })),
+    }),
+  }, { timeoutMs: 25_000, essais: 1 });
+  if (!r.ok) {
+    console.error("❌ Brevo loc fi groupée", r.status, (await r.text()).slice(0, 300));
+    return { ok: false, status: 502, error: "Envoi de l'email impossible — les contrats sont enregistrés, réessayez l'envoi" };
+  }
+  return { ok: true, status: 200 };
+}
+
 /** ✍️ Envoi DocuSign (signature électronique) */
 async function lancerDocusign(dv: any, numero: string, pdf: string, hote: string): Promise<{ envelopeId: string; email: string }> {
   const email = str(dv.client?.contact_email, 120);
@@ -871,6 +920,8 @@ export default async function handler(req: any, res: any) {
           validation,
           type: estLocFi ? "locfi" : "vente",
           ...(estLocFi ? { locfi: { numero_contrat: numeroContrat, duree_mois: dureeMois, premier_loyer_ht: premierLoyer, loyer_mensuel_ht: loyerMensuel } } : {}),
+          // Loc fi en série (un contrat par nacelle) : rang du contrat dans la série
+          ...(estLocFi && Number(body.serie?.nb) > 1 ? { serie: { rang: Math.max(1, Math.round(Number(body.serie.rang) || 1)), nb: Math.min(50, Math.round(Number(body.serie.nb))) } } : {}),
           preparation: {
             type_prepa: body.type_prepa === "en_etat" ? "en_etat" : "normale",
             date_livraison: /^\d{4}-\d{2}-\d{2}$/.test(String(body.date_livraison || "")) ? String(body.date_livraison) : "",
@@ -914,7 +965,10 @@ export default async function handler(req: any, res: any) {
 
       // 🔒 Remise > 1 000 € / nacelle (hors admin) : validation Jonathan / Nathalie avant tout envoi
       if (dv.validation?.requise && dv.validation.statut !== "validee") {
-        const v = await demanderValidation(db, ref, { ...dv, pdf_url: pdfUrl }, numero, body.envoyer_email !== false ? "email" : "pdf", String(hote), commercial.nom, { signature_jeton: jeton, ...(zone ? { zone_signature: zone } : {}) });
+        // Loc fi en série : le contrat n'est pas envoyé seul maintenant (mail groupé), mais
+        // s'il attend une dérogation il partira seul par email une fois validé
+        const prevu: "email" | "pdf" = body.envoi_prevu === "email" || body.envoi_prevu === "pdf" ? body.envoi_prevu : body.envoyer_email !== false ? "email" : "pdf";
+        const v = await demanderValidation(db, ref, { ...dv, pdf_url: pdfUrl }, numero, prevu, String(hote), commercial.nom, { signature_jeton: jeton, ...(zone ? { zone_signature: zone } : {}) });
         return res.status(200).json({ ok: true, pdf_url: pdfUrl, email_envoye: false, validation: "en_attente", valideurs: v.valideurs });
       }
 
@@ -938,6 +992,42 @@ export default async function handler(req: any, res: any) {
       });
       console.log(`📧 Devis ${numero} ${emailEnvoye ? `envoyé à ${dest}` : "PDF enregistré"}`);
       return res.status(200).json({ ok: true, pdf_url: pdfUrl, email_envoye: emailEnvoye, to: dest, lien_signature: lien });
+    }
+
+    // ───────────── LOC FI EN SÉRIE : un seul email pour tous les contrats ─────────────
+    if (action === "envoyer_groupe") {
+      const numeros: string[] = [...new Set<string>((Array.isArray(body.numeros) ? body.numeros : []).map((n: any) => str(n, 20)))]
+        .filter((n) => /^DV-\d{4}-\d{4}$/.test(n)).slice(0, 20);
+      if (!numeros.length) return res.status(400).json({ error: "Aucun contrat à envoyer" });
+      const admin_ = ["admin", "superadmin"].includes(String(profil.role || ""));
+      const refs = numeros.map((n) => db.collection("devis_vente").doc(n));
+      const dvs: any[] = [];
+      for (const [i, ref] of refs.entries()) {
+        const d: any = (await ref.get()).data();
+        if (!d) return res.status(404).json({ error: `Contrat ${numeros[i]} introuvable` });
+        if (d.type !== "locfi") return res.status(400).json({ error: `${numeros[i]} n'est pas une location financière` });
+        if (!admin_ && d.cree_par_uid !== user.uid) return res.status(403).json({ error: `${numeros[i]} a été créé par un autre commercial` });
+        if (!["genere", "envoye", "valide"].includes(d.statut)) return res.status(400).json({ error: `Contrat ${d.locfi?.numero_contrat || numeros[i]} : statut « ${d.statut} », il ne peut pas partir` });
+        if (!/^[a-f0-9]{32}$/.test(String(d.signature_jeton || ""))) return res.status(400).json({ error: `Contrat ${numeros[i]} : PDF pas encore enregistré` });
+        dvs.push(d);
+      }
+      if (new Set(dvs.map((d) => String(d.client?.raison_sociale || "").toLowerCase())).size > 1) return res.status(400).json({ error: "Les contrats d'un même envoi doivent être pour le même client" });
+      const dest = str(body.email || dvs[0].client?.contact_email, 120);
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(dest)) return res.status(400).json({ error: "Email du client manquant ou invalide" });
+      const bucket = admin.storage(appAdmin()).bucket(BUCKET);
+      const pdfs = await Promise.all(numeros.map(async (n) => (await bucket.file(`devis_vente/${n}.pdf`).download())[0].toString("base64")));
+      const hote = String(req.headers["x-forwarded-host"] || req.headers.host || "delta-vo.vercel.app");
+      const liens = dvs.map((d, i) => lienSignature(hote, numeros[i], d.signature_jeton));
+      const e = await envoyerEmailGroupeLocFi(dvs, pdfs, liens, dest);
+      if (!e.ok) return res.status(e.status).json({ error: e.error });
+      const now = new Date().toISOString();
+      const contrats = dvs.map((d) => d.locfi?.numero_contrat).join(", ");
+      for (const ref of refs) {
+        await ref.update({ statut: "envoye", envoye_le: now, envoye_a: dest,
+          historique: admin.firestore.FieldValue.arrayUnion({ date: now, action: `envoyé à ${dest} (email groupé : contrats ${contrats})`, par: commercial.nom }) });
+      }
+      console.log(`📧 Loc fi groupée ${contrats} envoyée à ${dest}`);
+      return res.status(200).json({ ok: true, to: dest, contrats: dvs.map((d) => d.locfi?.numero_contrat) });
     }
 
     // ───────────── RAPPORT HEBDO : envoi immédiat (Admin → bouton « Envoyer maintenant ») ─────────────

@@ -5,6 +5,7 @@ import { referenceCommerciale } from "../utils/reference";
 import {
   chargerConfigDevis,
   creerDevisVente,
+  envoyerContratsGroupes,
   envoyerDevisVente,
   signatureDisponible,
   signerDevisVente,
@@ -100,6 +101,14 @@ export default function DevisModal({ machines, autresMachines = [], prixDealer, 
   const [dureeMois, setDureeMois] = useState(3);
   const [premierLoyer, setPremierLoyer] = useState(0);
   const [validite, setValidite] = useState(30);
+  // 📄📄 Loc fi en série (décision Jonathan 03/11/2026) : plusieurs nacelles, prix
+  // différents → un contrat par nacelle, saisis l'un après l'autre. Client et
+  // préparation saisis au 1er contrat puis grisés ; seule la partie financière
+  // change. Un seul email au client, une signature par contrat.
+  const [unParNacelle, setUnParNacelle] = useState(true);
+  const [etape, setEtape] = useState(0);
+  const [finances, setFinances] = useState<Record<string, { duree: number; premier: number }>>({});
+  const [progression, setProgression] = useState("");
   // 🔧 À la signature, les nacelles passent seules en préparation avec ces choix
   const [typePrepa, setTypePrepa] = useState<"normale" | "en_etat">("normale");
   const [dateLivraison, setDateLivraison] = useState(() => new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10));
@@ -158,17 +167,25 @@ export default function DevisModal({ machines, autresMachines = [], prixDealer, 
     setClient((c) => ({ ...c, adresse: a.adresse, cp: a.cp, ville: a.ville }));
   }
 
+  const serie = typeDoc === "locfi" && unParNacelle && lignes.length > 1 && !lot;
+  const idx = Math.min(etape, lignes.length - 1);
+  const courante = lignes[idx];
+  const derniere = serie && idx === lignes.length - 1;
+  /** Client, préparation, validité : saisis au 1er contrat de la série, grisés ensuite */
+  const verrou = serie && idx > 0;
+  /** Lignes du contrat affiché : en série, la seule nacelle de l'étape en cours */
+  const lignesCalc = serie ? [courante] : lignes;
   const totalCatalogue = useMemo(() => lignes.reduce((s, l) => s + (Number(l.prix_ht) || 0), 0), [lignes]);
-  const totalHt = lot ? prixLot : totalCatalogue;
+  const totalHt = serie ? Number(courante?.prix_ht) || 0 : lot ? prixLot : totalCatalogue;
   const totalTtc = totalHt * (1 + tva / 100);
 
   // 🔒 Remise max 1 000 € HT / nacelle sous le prix catalogue (hors admin) — au-delà : validation Jonathan / Nathalie
   const SEUIL_REMISE = 1000;
   const catalogue = (id: string) => { const m = toutes.get(id); return Number(prixDealer ? m?.prix_dealer ?? m?.prix_fr : m?.prix_fr ?? m?.prix_dealer) || 0; };
   const totalCat = lignes.reduce((t, l) => t + catalogue(l.machine_id), 0);
-  const depassements = estAdmin ? [] : lot
+  const depassements = estAdmin ? [] : lot && !serie
     ? (totalCat - prixLot > SEUIL_REMISE * lignes.length ? [`lot : remise de ${eur(totalCat - prixLot)} (max ${eur(SEUIL_REMISE * lignes.length)} sans validation)`] : [])
-    : lignes.filter((l) => catalogue(l.machine_id) - (Number(l.prix_ht) || 0) > SEUIL_REMISE).map((l) => `${l.reference} : remise de ${eur(catalogue(l.machine_id) - (Number(l.prix_ht) || 0))}`);
+    : lignesCalc.filter((l) => catalogue(l.machine_id) - (Number(l.prix_ht) || 0) > SEUIL_REMISE).map((l) => `${l.reference} : remise de ${eur(catalogue(l.machine_id) - (Number(l.prix_ht) || 0))}`);
   // 📄 Location financière : 1er loyer ≥ 30 % du prix HT, 4 loyers mensuels max après le 1er (au-delà : dérogation)
   const locFi = typeDoc === "locfi";
   const calcLf = calculerLocFi(totalHt, premierLoyer, dureeMois);
@@ -183,11 +200,108 @@ export default function DevisModal({ machines, autresMachines = [], prixDealer, 
     if (t === "locfi") {
       changerLangue("fr");
       setTva(20);
-      if (!premierLoyer) setPremierLoyer(Math.ceil((totalHt * 0.3) / 10) * 10);
+      const enSerie = unParNacelle && lignes.length > 1 && !lot;
+      if (!premierLoyer) setPremierLoyer(premierDefaut(enSerie ? Number(lignes[0]?.prix_ht) || 0 : totalHt));
+      if (enSerie) setEtape(0);
     }
   }
   const setC = (k: keyof ClientDevis, v: string) => setClient((c) => ({ ...c, [k]: v }));
   const setL = (i: number, k: keyof LigneDevis, v: any) => setLignes((ls) => ls.map((l, j) => (j === i ? { ...l, [k]: v } : l)));
+
+  // ───────── Loc fi en série : navigation entre les contrats ─────────
+  const premierDefaut = (prix: number) => Math.ceil((prix * 0.3) / 10) * 10;
+  /** Conditions financières de chaque nacelle, celles de l'écran en cours comprises */
+  const financesCompletes = (): Record<string, { duree: number; premier: number }> =>
+    courante ? { ...finances, [courante.machine_id]: { duree: dureeMois, premier: premierLoyer } } : finances;
+  function allerA(i: number) {
+    const f = financesCompletes();
+    setFinances(f);
+    const cible = lignes[i];
+    const fc = f[cible.machine_id];
+    setDureeMois(fc?.duree ?? dureeMois);
+    setPremierLoyer(fc?.premier ?? premierDefaut(Number(cible.prix_ht) || 0));
+    setEtape(i);
+    setErreur("");
+  }
+  /** Contrôle du contrat affiché avant de passer au suivant */
+  function contratCourantOk(): boolean {
+    setErreur("");
+    setTente(true);
+    if (Object.keys(manquants).length) return false;
+    if (!(Number(courante?.prix_ht) > 0)) { setErreur(`${courante?.reference} : indiquez le prix HT.`); return false; }
+    if (!(premierLoyer > 0)) { setErreur("Indiquez le 1er loyer majoré (HT)."); return false; }
+    return true;
+  }
+  /** Règles d'un contrat de la série (récapitulatif final) */
+  function horsRegles(l: LigneDevis, f: { duree: number; premier: number }): string[] {
+    const prix = Number(l.prix_ht) || 0;
+    const c = calculerLocFi(prix, f.premier, f.duree);
+    if (estAdmin) return [];
+    return [
+      ...(catalogue(l.machine_id) - prix > SEUIL_REMISE ? [`remise de ${eur(catalogue(l.machine_id) - prix)}`] : []),
+      ...(c.pct_premier < 30 ? [`1er loyer à ${c.pct_premier.toFixed(1).replace(".", ",")} %`] : []),
+      ...(c.nb_loyers_suivants > 4 ? [`${c.nb_loyers_suivants} loyers après le 1er`] : []),
+    ];
+  }
+
+  /** Création des N contrats (un par nacelle), puis un seul email au client si demandé */
+  async function validerSerie(mode: "pdf" | "email") {
+    if (!contratCourantOk() || !cfg) return;
+    if (mode === "email" && !emailValide(client.contact_email)) return setErreur("Indiquez l'email du contact pour l'envoi.");
+    const f = financesCompletes();
+    setFinances(f);
+    setEnCours(mode);
+    const crees: { numero: string; contrat: string; reference: string; enValidation: boolean }[] = [];
+    try {
+      for (const [i, l] of lignes.entries()) {
+        const fl = f[l.machine_id] || { duree: dureeMois, premier: premierDefaut(Number(l.prix_ht) || 0) };
+        setProgression(`Contrat ${i + 1}/${lignes.length} (${l.reference})…`);
+        const r = await creerDevisVente({ type: "locfi", locfi: { duree_mois: fl.duree, premier_loyer_ht: fl.premier }, client, lignes: [l], lot: false, tva_taux: 20, exoneration: "", acompte_pct: acompte, validite_jours: validite, conditions, langue: "fr", type_prepa: typePrepa, date_livraison: dateLivraison, serie: { rang: i + 1, nb: lignes.length } });
+        const now = new Date();
+        const dv: DevisVente = {
+          numero: r.numero, date: now.toISOString(),
+          date_expiration: new Date(now.getTime() + validite * 86400000).toISOString().slice(0, 10),
+          client, lignes: [l], lot: false, tva_taux: 20, exoneration: "",
+          total_ht: r.total_ht, tva: r.tva, total_ttc: r.total_ttc,
+          acompte_pct: acompte, acompte_ttc: Math.round(r.total_ttc * acompte) / 100,
+          conditions, commercial: r.commercial, langue: "fr", type: "locfi", locfi: r.locfi,
+        };
+        const m = toutes.get(l.machine_id);
+        const pdf = genererContratLocFiPdf({ ...dv, locfi: r.locfi! }, [{ reference: l.reference, type: m?.type_nacelle, immat: m?.immat }]);
+        const enValidation = !!r.validation_requise;
+        const env = await envoyerDevisVente(r.numero, pdf.base64, false, pdf.zoneSignature, mode);
+        if (mode === "pdf" && !enValidation) {
+          const a = document.createElement("a");
+          a.href = URL.createObjectURL(pdf.blob);
+          a.download = pdf.filename;
+          a.click();
+          setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+        }
+        await onCree({ numero: r.numero, client: client.raison_sociale.trim(), montants: { [l.machine_id]: Number(l.prix_ht) || 0 }, pdfUrl: enValidation ? undefined : env.pdf_url, enValidation });
+        crees.push({ numero: r.numero, contrat: r.locfi?.numero_contrat || r.numero, reference: l.reference, enValidation });
+      }
+      const prets = crees.filter((c) => !c.enValidation);
+      const attente = crees.filter((c) => c.enValidation);
+      let envoi = "";
+      if (mode === "email" && prets.length) {
+        setProgression("Envoi de l'email au client…");
+        const g = await envoyerContratsGroupes(prets.map((c) => c.numero));
+        envoi = `📧 ${prets.length} contrat${prets.length > 1 ? "s envoyés" : " envoyé"} à ${g.to} dans un seul email (un bouton « Signer » par contrat).`;
+      }
+      alert([
+        `✅ ${crees.length} contrats de location financière créés :`,
+        ...crees.map((c) => `• ${c.contrat} — ${c.reference}${c.enValidation ? " 🔒 dérogation demandée" : ""}`),
+        envoi,
+        attente.length ? `🔒 ${attente.length} contrat${attente.length > 1 ? "s attendent" : " attend"} la validation de Jonathan ou Nathalie : ${mode === "email" ? "il partira seul par email au client dès validation" : "le PDF sera disponible sur la carte dès validation"}.` : "",
+      ].filter(Boolean).join("\n"));
+      onClose();
+    } catch (e: any) {
+      setErreur(`${e?.message || "Erreur lors de la création des contrats"}${crees.length ? ` — déjà créés : ${crees.map((c) => c.contrat).join(", ")} (ne les recréez pas : retrouvez-les sur les cartes des nacelles)` : ""}`);
+    } finally {
+      setEnCours("");
+      setProgression("");
+    }
+  }
 
   async function valider(mode: "pdf" | "email" | "signature") {
     setErreur("");
@@ -256,7 +370,7 @@ export default function DevisModal({ machines, autresMachines = [], prixDealer, 
       style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000, padding: 20 }}>
       <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 760, width: "95%", maxHeight: "92vh", background: "white", borderRadius: 8, display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 10px 40px rgba(0,0,0,0.3)" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 20px", borderBottom: "1px solid #eee" }}>
-          <h2 style={{ margin: 0, fontSize: 18 }}>{locFi ? "📄 Nouveau contrat de location financière" : "🧾 Nouveau devis de vente"}</h2>
+          <h2 style={{ margin: 0, fontSize: 18 }}>{serie ? `📄 Location financière — contrat ${idx + 1}/${lignes.length} (${courante?.reference})` : locFi ? "📄 Nouveau contrat de location financière" : "🧾 Nouveau devis de vente"}</h2>
           <button onClick={onClose} disabled={!!enCours} style={{ background: "transparent", border: "none", fontSize: 20, cursor: "pointer", color: "#666" }}>✕</button>
         </div>
 
@@ -277,16 +391,17 @@ export default function DevisModal({ machines, autresMachines = [], prixDealer, 
               {/* Type de document */}
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
                 {([["vente", "🧾 Devis de vente"], ["locfi", "📄 Location financière"]] as const).map(([v, lib]) => (
-                  <button key={v} type="button" onClick={() => choisirType(v)}
+                  <button key={v} type="button" onClick={() => choisirType(v)} disabled={verrou}
                     style={{ flex: "1 1 200px", padding: "9px 12px", borderRadius: 6, cursor: "pointer", fontSize: 14, fontWeight: 700, border: `2px solid ${typeDoc === v ? "#1a73e8" : "#ddd"}`, background: typeDoc === v ? "#eef4fd" : "white", color: typeDoc === v ? "#1a73e8" : "#444" }}>
                     {lib}
                   </button>
                 ))}
               </div>
 
-              {/* Client */}
+              {/* Client — en série, saisi au 1er contrat puis grisé */}
+              <fieldset disabled={verrou} style={{ border: "none", padding: 0, margin: 0, minWidth: 0, ...(verrou ? { opacity: 0.55 } : {}) }}>
               <div style={{ display: "flex", alignItems: "baseline", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
-                <span style={{ fontWeight: 700, color: "#1a2a6e" }}>Client</span>
+                <span style={{ fontWeight: 700, color: "#1a2a6e" }}>Client{verrou ? " 🔒 (repris du contrat 1)" : ""}</span>
                 <span style={{ fontSize: 11, color: "#888" }}>
                   {france
                     ? "🇫🇷 Client en France : tapez le nom ou le SIREN et choisissez l'entreprise (annuaire officiel) — tous les champs sont obligatoires"
@@ -338,11 +453,60 @@ export default function DevisModal({ machines, autresMachines = [], prixDealer, 
                 <div><label style={LABEL}>Email du contact{etoile("contact_email")}</label><input style={{ ...CHAMP, ...rouge("contact_email") }} type="email" value={client.contact_email || ""} onChange={(e) => setC("contact_email", e.target.value)} /></div>
                 <div><label style={LABEL}>Téléphone{etoile("contact_tel")}</label><input style={{ ...CHAMP, ...rouge("contact_tel") }} value={client.contact_tel || ""} onChange={(e) => setC("contact_tel", e.target.value)} /></div>
               </div>
+              </fieldset>
+
+              {/* 📄📄 Loc fi en série : un contrat par nacelle */}
+              {locFi && lignes.length > 1 && (
+                <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, cursor: verrou ? "default" : "pointer", marginBottom: 10, padding: "8px 10px", background: "#f5f9fd", border: "1px solid #d6e2f0", borderRadius: 6 }}>
+                  <input type="checkbox" checked={unParNacelle} disabled={verrou || !!enCours} onChange={(e) => { setUnParNacelle(e.target.checked); setEtape(0); if (e.target.checked) { setLot(false); setPremierLoyer(premierDefaut(Number(lignes[0]?.prix_ht) || 0)); } else setPremierLoyer(premierDefaut(totalCatalogue)); }} style={{ width: "auto", margin: 0 }} />
+                  📄📄 Un contrat par nacelle ({lignes.length} contrats, saisis l'un après l'autre — un seul email au client, une signature par contrat)
+                </label>
+              )}
 
               {/* Nacelles */}
+              {serie && (
+                <div style={{ border: "1px solid #eee", borderRadius: 6, marginBottom: 8 }}>
+                  {lignes.map((l, i) => {
+                    const f = i === idx ? { duree: dureeMois, premier: premierLoyer } : finances[l.machine_id];
+                    const fait = i !== idx && !!finances[l.machine_id];
+                    return (
+                      <div key={l.machine_id} style={{ padding: "8px 10px", borderBottom: i < lignes.length - 1 ? "1px solid #f0f0f0" : "none", background: i === idx ? "#eef4fd" : "white" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: i === idx ? "#1a73e8" : fait ? "#1e8e3e" : "#999", minWidth: 92 }}>
+                            {i === idx ? "● " : fait ? "✓ " : "○ "}Contrat {i + 1}/{lignes.length}
+                          </span>
+                          <b style={{ fontSize: 13 }} title={l.immat}>{l.reference}</b>
+                          {i === idx ? null : (
+                            <span style={{ fontSize: 12, color: "#666", flex: 1 }}>
+                              {eur(Number(l.prix_ht) || 0)} HT{f ? ` · 1er loyer ${eur(f.premier)} · ${f.duree} mois` : " · à saisir"}
+                            </span>
+                          )}
+                          {i !== idx && (fait || i < idx) && !enCours && (
+                            <button type="button" onClick={() => { if (i < idx || contratCourantOk()) allerA(i); }} style={{ border: "none", background: "transparent", color: "#1a73e8", fontSize: 12, cursor: "pointer", textDecoration: "underline" }}>modifier</button>
+                          )}
+                          {idx === 0 && i !== idx && !enCours && (
+                            <button type="button" onClick={() => { retirerLigne(l.machine_id); setFinances((fs) => { const n = { ...fs }; delete n[l.machine_id]; return n; }); }} title="Retirer cette nacelle"
+                              style={{ border: "none", background: "transparent", color: "#c0392b", fontSize: 14, cursor: "pointer" }}>✕</button>
+                          )}
+                        </div>
+                        {i === idx && (
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 120px", gap: 8, alignItems: "center", marginTop: 6 }}>
+                            <input style={{ ...CHAMP, fontSize: 13 }} value={l.designation} onChange={(e) => setL(i, "designation", e.target.value)} />
+                            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                              <input style={{ ...CHAMP, textAlign: "right" }} value={l.prix_ht || ""} onChange={(e) => setL(i, "prix_ht", Number(e.target.value.replace(/\s/g, "").replace(",", ".")) || 0)} />
+                              <span style={{ fontSize: 12, color: "#666" }}>HT</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {!serie && (<>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap", marginBottom: 8 }}>
                 <span style={{ fontWeight: 700, color: "#1a2a6e" }}>Nacelles ({lignes.length})</span>
-                {lignes.length > 1 && (
+                {lignes.length > 1 && !(locFi && unParNacelle) && (
                   <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
                     <input type="checkbox" checked={lot} onChange={(e) => { setLot(e.target.checked); if (e.target.checked && !prixLot) setPrixLot(totalCatalogue); }} style={{ width: "auto", margin: 0 }} />
                     📦 Vente en lot (prix global)
@@ -373,7 +537,8 @@ export default function DevisModal({ machines, autresMachines = [], prixDealer, 
                   </div>
                 )}
               </div>
-              {autresMachines.length > 0 && (
+              </>)}
+              {autresMachines.length > 0 && !(serie && idx > 0) && (
                 <div style={{ position: "relative", marginBottom: 8 }}>
                   <input style={{ ...CHAMP, fontSize: 13 }} value={recherche} onChange={(e) => setRecherche(e.target.value)} placeholder="➕ Ajouter une nacelle au devis : référence, type, porteur, D0…" />
                   {ajoutables.length > 0 && (
@@ -389,7 +554,8 @@ export default function DevisModal({ machines, autresMachines = [], prixDealer, 
               )}
               <div style={{ fontSize: 11, color: "#888", marginBottom: 18 }}>Référence commerciale uniquement : l'immatriculation n'apparaît pas sur le devis.</div>
 
-              {/* TVA + validité */}
+              {/* TVA + validité + préparation — en série, communs à tous les contrats (grisés après le 1er) */}
+              <fieldset disabled={verrou} style={{ border: "none", padding: 0, margin: 0, minWidth: 0, ...(verrou ? { opacity: 0.55 } : {}) }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
                 <div>
                   <label style={LABEL}>TVA</label>
@@ -410,14 +576,15 @@ export default function DevisModal({ machines, autresMachines = [], prixDealer, 
                 </div>
                 <div><label style={LABEL}>Livraison souhaitée</label><input style={CHAMP} type="date" value={dateLivraison} onChange={(e) => setDateLivraison(e.target.value)} /></div>
               </div>
-              <div style={{ fontSize: 11, color: "#888", marginBottom: 10 }}>🔧 Dès que le client signe, la ou les nacelles passent automatiquement en préparation (vente) et les préparateurs du site sont prévenus.</div>
+              <div style={{ fontSize: 11, color: "#888", marginBottom: 10 }}>🔧 Dès que le client signe, la ou les nacelles passent automatiquement en préparation (vente) et les préparateurs du site sont prévenus.{serie ? " En série : chaque nacelle part en préparation à la signature de son contrat." : ""}</div>
+              </fieldset>
               {tva === 0 && (
                 <div style={{ marginBottom: 10 }}><label style={LABEL}>Mention d'exonération (imprimée sur le devis)</label><input style={CHAMP} value={exoneration} onChange={(e) => setExoneration(e.target.value)} /></div>
               )}
 
               {locFi ? (
                 <div style={{ border: "1px solid #d6e2f0", background: "#f5f9fd", borderRadius: 6, padding: 12, marginBottom: 14, marginTop: 8 }}>
-                  <div style={{ fontWeight: 700, color: "#1a2a6e", marginBottom: 8 }}>📄 Conditions de la location financière</div>
+                  <div style={{ fontWeight: 700, color: "#1a2a6e", marginBottom: 8 }}>📄 Conditions de la location financière{serie ? ` — contrat ${idx + 1}/${lignes.length} : ${courante?.reference} (${eur(totalHt)} HT)` : ""}</div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                     <div><label style={LABEL}>Durée irrévocable (mois)</label><input style={CHAMP} type="number" min={1} max={60} value={dureeMois} onChange={(e) => setDureeMois(Math.max(1, Number(e.target.value) || 1))} /></div>
                     <div><label style={LABEL}>1er loyer majoré HT (à la signature)</label><input style={CHAMP} value={premierLoyer || ""} onChange={(e) => setPremierLoyer(Number(e.target.value.replace(/\s/g, "").replace(",", ".")) || 0)} /></div>
@@ -455,7 +622,40 @@ export default function DevisModal({ machines, autresMachines = [], prixDealer, 
               {aValider && (
                 <div style={{ marginTop: 14, padding: "10px 14px", background: "#fff6e5", border: "1px solid #f0c36d", borderRadius: 6, fontSize: 13, color: "#7a4b00" }}>
                   🔒 <b>{reglesLf.length && depassements.length === reglesLf.length ? "Location financière hors règles" : `Dérogation nécessaire (remise > ${eur(SEUIL_REMISE)} HT par nacelle ou location financière hors règles)`}</b> : {depassements.join(" ; ")}.<br />
-                  Le devis sera d'abord soumis à <b>validation</b> (Jonathan Laroche ou Nathalie Neguy) et partira au client dès qu'elle est donnée.
+                  {serie
+                    ? <>Ce contrat sera d'abord soumis à <b>validation</b> (Jonathan Laroche ou Nathalie Neguy) ; les autres partent sans l'attendre, celui-ci partira seul au client dès qu'elle est donnée.</>
+                    : <>Le devis sera d'abord soumis à <b>validation</b> (Jonathan Laroche ou Nathalie Neguy) et partira au client dès qu'elle est donnée.</>}
+                </div>
+              )}
+              {derniere && (
+                <div style={{ marginTop: 14, border: "1px solid #d6e2f0", borderRadius: 6, overflow: "hidden" }}>
+                  <div style={{ padding: "8px 12px", background: "#1f4282", color: "white", fontWeight: 700, fontSize: 13 }}>Récapitulatif des {lignes.length} contrats — {client.raison_sociale || "client"}</div>
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ background: "#f5f9fd", textAlign: "right" }}>
+                          <th style={{ textAlign: "left", padding: "6px 10px" }}>Nacelle</th><th style={{ padding: "6px 10px" }}>Prix HT</th><th style={{ padding: "6px 10px" }}>1er loyer HT</th><th style={{ padding: "6px 10px" }}>Durée</th><th style={{ padding: "6px 10px" }}>Mensualités HT</th><th style={{ textAlign: "left", padding: "6px 10px" }}>Validation</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {lignes.map((l) => {
+                          const f = financesCompletes()[l.machine_id] || { duree: dureeMois, premier: premierDefaut(Number(l.prix_ht) || 0) };
+                          const c = calculerLocFi(Number(l.prix_ht) || 0, f.premier, f.duree);
+                          const hr = horsRegles(l, f);
+                          return (
+                            <tr key={l.machine_id} style={{ borderTop: "1px solid #eef0f4", textAlign: "right" }}>
+                              <td style={{ textAlign: "left", padding: "6px 10px", fontWeight: 700 }}>{l.reference}</td>
+                              <td style={{ padding: "6px 10px" }}>{eur(Number(l.prix_ht) || 0)}</td>
+                              <td style={{ padding: "6px 10px" }}>{eur(f.premier)} <span style={{ color: c.pct_premier < 30 ? "#c0392b" : "#888" }}>({c.pct_premier.toFixed(0)} %)</span></td>
+                              <td style={{ padding: "6px 10px" }}>{f.duree} mois</td>
+                              <td style={{ padding: "6px 10px" }}>{c.nb_loyers_suivants ? `${c.nb_loyers_suivants} × ${eur(c.loyer_mensuel_ht)}` : "—"}</td>
+                              <td style={{ textAlign: "left", padding: "6px 10px", color: hr.length ? "#8a5a00" : "#1e8e3e" }}>{hr.length ? `🔒 ${hr.join(", ")}` : "✓ OK"}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
               {/* Récap */}
@@ -475,10 +675,34 @@ export default function DevisModal({ machines, autresMachines = [], prixDealer, 
                 </div>
               )}
               {erreur && <div style={{ marginTop: 10, color: "#c0392b", fontWeight: 600 }}>⚠ {erreur}</div>}
+              {progression && <div style={{ marginTop: 10, color: "#1a73e8", fontWeight: 600 }}>⏳ {progression}</div>}
             </>
           )}
         </div>
 
+        {serie ? (
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, padding: 14, borderTop: "1px solid #eee", background: "#fafafa", flexWrap: "wrap" }}>
+            <button onClick={onClose} disabled={!!enCours} style={{ padding: "10px 16px", borderRadius: 6, border: "1px solid #ccc", background: "white", cursor: "pointer" }}>Annuler</button>
+            {idx > 0 && (
+              <button onClick={() => allerA(idx - 1)} disabled={!!enCours} style={{ padding: "10px 16px", borderRadius: 6, border: "1px solid #ccc", background: "white", cursor: "pointer" }}>← Contrat {idx}/{lignes.length}</button>
+            )}
+            {!derniere ? (
+              <button onClick={() => { if (contratCourantOk()) allerA(idx + 1); }} disabled={!cfg || !!enCours}
+                style={{ padding: "10px 16px", borderRadius: 6, border: "none", background: "#1a73e8", color: "white", fontWeight: 600, cursor: "pointer" }}>
+                Valider ce contrat → contrat {idx + 2}/{lignes.length}
+              </button>
+            ) : (
+              <>
+                <button onClick={() => validerSerie("pdf")} disabled={!cfg || !!enCours} style={{ padding: "10px 16px", borderRadius: 6, border: "1px solid #1a73e8", background: "white", color: "#1a73e8", fontWeight: 600, cursor: "pointer" }}>
+                  {enCours === "pdf" ? "⏳ …" : `⬇ Créer les ${lignes.length} contrats et télécharger`}
+                </button>
+                <button onClick={() => validerSerie("email")} disabled={!cfg || !!enCours} style={{ padding: "10px 16px", borderRadius: 6, border: "none", background: "#1a73e8", color: "white", fontWeight: 600, cursor: "pointer" }}>
+                  {enCours === "email" ? "⏳ Envoi…" : `📧 Créer et envoyer au client (1 seul email)`}
+                </button>
+              </>
+            )}
+          </div>
+        ) : (
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, padding: 14, borderTop: "1px solid #eee", background: "#fafafa", flexWrap: "wrap" }}>
           <button onClick={onClose} disabled={!!enCours} style={{ padding: "10px 16px", borderRadius: 6, border: "1px solid #ccc", background: "white", cursor: "pointer" }}>Annuler</button>
           <button onClick={() => valider("pdf")} disabled={!cfg || !!enCours} style={{ padding: "10px 16px", borderRadius: 6, border: "1px solid #1a73e8", background: "white", color: "#1a73e8", fontWeight: 600, cursor: "pointer" }}>
@@ -494,6 +718,7 @@ export default function DevisModal({ machines, autresMachines = [], prixDealer, 
             </button>
           )}
         </div>
+        )}
       </div>
     </div>
   );

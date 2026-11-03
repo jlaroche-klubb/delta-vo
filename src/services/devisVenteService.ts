@@ -150,12 +150,19 @@ export function creerDevisVente(d: {
   langue: LangueDevis;
   type_prepa: "normale" | "en_etat";
   date_livraison: string;
+  /** Loc fi en série : rang du contrat (1..nb) */
+  serie?: { rang: number; nb: number };
 }): Promise<{ numero: string; commercial: DevisVente["commercial"]; total_ht: number; tva: number; total_ttc: number; validation_requise?: boolean; motifs_validation?: string[]; locfi?: LocFi }> {
   return appel({ action: "creer", ...d });
 }
 
-export function envoyerDevisVente(numero: string, pdfBase64: string, envoyerEmail: boolean, zoneSignature?: ZoneSignature): Promise<{ pdf_url: string; email_envoye: boolean; to?: string; lien_signature?: string; validation?: "en_attente"; valideurs?: string[] }> {
-  return appel({ action: "envoyer", numero, pdfBase64, envoyer_email: envoyerEmail, zone_signature: zoneSignature });
+export function envoyerDevisVente(numero: string, pdfBase64: string, envoyerEmail: boolean, zoneSignature?: ZoneSignature, envoiPrevu?: "email" | "pdf"): Promise<{ pdf_url: string; email_envoye: boolean; to?: string; lien_signature?: string; validation?: "en_attente"; valideurs?: string[] }> {
+  return appel({ action: "envoyer", numero, pdfBase64, envoyer_email: envoyerEmail, zone_signature: zoneSignature, ...(envoiPrevu ? { envoi_prevu: envoiPrevu } : {}) });
+}
+
+/** 📧 Loc fi en série : un seul email au client avec tous les contrats (un bouton « Signer » par contrat) */
+export function envoyerContratsGroupes(numeros: string[]): Promise<{ to: string; contrats: string[] }> {
+  return appel({ action: "envoyer_groupe", numeros });
 }
 
 // ───────── Page publique « Accepter et signer » (lien de l'email, sans compte) ─────────

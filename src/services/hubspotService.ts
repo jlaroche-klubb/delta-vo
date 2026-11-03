@@ -1,79 +1,55 @@
 // ============================================================
 // SERVICE HUBSPOT (côté client)
 // ============================================================
-// Appelle les endpoints serverless Vercel pour interagir avec HubSpot.
+// Décision Jonathan (03/11/2026) : les devis se font dans Delta VO.
+// - Le catalogue produits HubSpot n'est PLUS synchronisé (syncHubspotProduct
+//   ne fait plus rien ; les appels existants restent inoffensifs).
+// - Seules les ventes FACTURÉES (ventes + locations financières, pas les LLD)
+//   partent dans HubSpot : transaction « Gagnée » dans le DELTA Sales Pipeline
+//   + mise à jour du parc « Machines » (envoyerVenteHubspot).
 // Le token reste côté serveur (jamais exposé au navigateur).
 // ============================================================
 
 import { apiFetch } from "./apiFetch";
 
-export interface NacelleOffre {
-  /** Référence commerciale (DS1587...) — jamais d'immat sur le devis */
-  reference: string;
-  modele?: string;
-  montant: number;
-}
+export interface ResultatVenteHubspot { ok: boolean; deal_id?: string; detail: string }
 
-export interface CreateDealResult {
-  status: "ok";
-  dealId: string;
-  dealName: string;
-  amount: number;
-  quoteId?: string | null;
-  quoteWarning?: string | null;
-  ownerWarning?: string | null;
-}
-
-/**
- * Crée un Deal HubSpot pour une offre de nacelles VO.
- * Appelle l'endpoint serverless /api/hubspot-create-deal.
- */
-export async function createHubspotDeal(
-  client: string,
-  nacelles: NacelleOffre[],
-  userEmail?: string
-): Promise<CreateDealResult> {
-  const response = await apiFetch("/api/hubspot-create-deal", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ client, nacelles, userEmail }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      errorData.error ||
-        errorData.message ||
-        `Erreur HubSpot (${response.status})`
-    );
-  }
-
-  return response.json();
-}
-
-/**
- * Synchronise une nacelle vers la bibliothèque de produits HubSpot.
- * - action "upsert"  : crée/met à jour le produit (machine disponible avec prix)
- * - action "archive" : archive le produit (machine vendue / sortie du stock)
- * Best-effort : n'échoue jamais (les erreurs sont seulement loguées).
- */
-export async function syncHubspotProduct(
-  action: "upsert" | "archive",
-  immat: string,
-  modele?: string,
-  prix?: number | null
-): Promise<void> {
+/** 🏆 Vente facturée → transaction gagnée HubSpot (idempotent, ne lève jamais) */
+export async function envoyerVenteHubspot(machineId: string): Promise<ResultatVenteHubspot> {
   try {
-    const response = await apiFetch("/api/hubspot-sync-product", {
+    const r = await apiFetch("/api/hubspot-create-deal", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, immat, modele, prix }),
+      body: JSON.stringify({ machine_id: machineId }),
     });
-    const data = await response.json().catch(() => ({}));
-    if (data?.warning) {
-      console.warn(`⚠️ Sync produit HubSpot (${immat}):`, data.warning);
-    }
-  } catch (err) {
-    console.warn(`⚠️ Sync produit HubSpot impossible (${immat}):`, err);
+    const j = await r.json().catch(() => ({}));
+    return { ok: !!j.ok, deal_id: j.deal_id, detail: j.detail || j.error || `erreur ${r.status}` };
+  } catch (e: any) {
+    return { ok: false, detail: e?.message || "HubSpot injoignable" };
   }
+}
+
+/** 🧹 Super admin : retire du catalogue produits HubSpot les produits créés par Delta VO */
+export async function viderCatalogueHubspot(): Promise<{ supprimes: number; ignores: number }> {
+  const r = await apiFetch("/api/hubspot-sync-product", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "vider_catalogue", immat: "-" }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || `Erreur ${r.status}`);
+  return { supprimes: Number(j.supprimes) || 0, ignores: Number(j.ignores) || 0 };
+}
+
+/**
+ * ⛔ Synchro du catalogue produits HubSpot arrêtée : ne fait plus rien.
+ * Conservée pour ne pas toucher aux nombreux appels existants.
+ */
+export async function syncHubspotProduct(
+  _action: "upsert" | "archive",
+  _immat: string,
+  _modele?: string,
+  _prix?: number | null
+): Promise<void> {
+  return;
 }

@@ -130,7 +130,7 @@ interface MachinesContextType {
     machineId: string,
     numeroFacture: string,
     dateFacturation: string
-  ) => void;
+  ) => Promise<void>;
   marquerPayee: (machineId: string, dateReglement: string) => void;
   marquerLivree: (machineId: string, par: string) => void;
   enregistrerEtudeMarche: (machineId: string, etude: any) => void;
@@ -471,6 +471,8 @@ export function MachinesProvider({ children }: { children: ReactNode }) {
             client_offre: data.client_offre || undefined,
             montant_offre: data.montant_offre ?? undefined,
             hubspot_deal_id: data.hubspot_deal_id || undefined,
+            hubspot_vente: data.hubspot_vente || undefined,
+            hubspot_vente_erreur: data.hubspot_vente_erreur || undefined,
             date_offre: data.date_offre || undefined,
               
             createdAt: data.date_ajout?.toDate?.()?.toISOString?.() || new Date().toISOString(),

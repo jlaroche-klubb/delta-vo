@@ -11,6 +11,7 @@ import {
 } from "../services/preparationNotify";
 import { useTranslation } from "react-i18next";
 import { chargerConfigDevis, enregistrerConfigDevis, envoyerRapportVentes, type ConfigDevis } from "../services/devisVenteService";
+import { viderCatalogueHubspot } from "../services/hubspotService";
 
 interface PendingUser {
   id: string;
@@ -65,6 +66,7 @@ export default function AdminPage() {
   const [cfgDevisDirty, setCfgDevisDirty] = useState(false);
   const [cfgDevisSaving, setCfgDevisSaving] = useState(false);
   const [rapportEnvoi, setRapportEnvoi] = useState(false);
+  const [videCatalogue, setVideCatalogue] = useState(false);
   useEffect(() => { chargerConfigDevis().then(setCfgDevis); }, []);
   const setCD = (k: keyof ConfigDevis, v: any) => { setCfgDevis((c) => (c ? { ...c, [k]: v } : c)); setCfgDevisDirty(true); };
   async function saveCfgDevis() {
@@ -430,6 +432,19 @@ export default function AdminPage() {
                 }}>
                 {rapportEnvoi ? "⏳ …" : "📊 M'envoyer le rapport des ventes maintenant"}
               </button>
+              {profile?.role === "superadmin" && (
+                <button className="btn-secondary" disabled={videCatalogue}
+                  title="La synchro du catalogue produits est arrêtée : retire de HubSpot les produits créés par Delta VO (jamais ceux de CPL ou des autres sociétés)"
+                  onClick={async () => {
+                    if (!window.confirm("🧹 Retirer du catalogue produits HubSpot tous les produits créés par Delta VO ?\n\nLes produits de CPL, du configurateur et des autres sociétés ne sont pas touchés.\nLes transactions et lignes de devis existantes ne changent pas.")) return;
+                    setVideCatalogue(true);
+                    try { const r = await viderCatalogueHubspot(); alert(`🧹 Catalogue HubSpot : ${r.supprimes} produit(s) Delta VO retiré(s)${r.ignores ? `, ${r.ignores} produit(s) d'autres sociétés laissé(s) en place` : ""}.`); }
+                    catch (e: any) { alert(`❌ ${e?.message || "Opération impossible"}`); }
+                    finally { setVideCatalogue(false); }
+                  }}>
+                  {videCatalogue ? "⏳ …" : "🧹 Vider le catalogue HubSpot Delta VO"}
+                </button>
+              )}
             </div>
           </>
         )}

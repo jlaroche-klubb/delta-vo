@@ -25,6 +25,7 @@
 // ============================================================
 
 import admin from "firebase-admin";
+import { envoyerVenteGagnee } from "../_lib/hubspotVente.js";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -248,20 +249,10 @@ async function jetonConnecteur(): Promise<string> {
   return j.idToken;
 }
 
-/** Synchro produit HubSpot — même fonction serveur que l'appli (best-effort) */
-async function hubspot(action: "upsert" | "archive", immat: string, modele?: string, prix?: number | null): Promise<string> {
-  try {
-    const r = await fetch(`${DELTA_VO_URL}/api/hubspot-sync-product`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${await jetonConnecteur()}` },
-      body: JSON.stringify({ action, immat, modele, prix }),
-      signal: AbortSignal.timeout(25_000),
-    });
-    const j: any = await r.json().catch(() => ({}));
-    return `HubSpot ${action} : ${j.status || r.status}${j.warning ? ` (${j.warning})` : ""}`;
-  } catch (e: any) {
-    return `HubSpot ${action} : non synchronisé (${e?.message || e})`;
-  }
+/** ⛔ Synchro du catalogue produits HubSpot arrêtée (décision Jonathan 03/11/2026) :
+ *  HubSpot ne reçoit plus que les ventes facturées (transaction gagnée, voir facturer_vente). */
+async function hubspot(_action: "upsert" | "archive", _immat: string, _modele?: string, _prix?: number | null): Promise<string> {
+  return "HubSpot : catalogue produits non synchronisé (seules les ventes facturées partent dans HubSpot)";
 }
 
 /** Libellé « type + porteur » pour le nom du produit HubSpot (comme modeleLabel du front) */
@@ -784,7 +775,9 @@ function construireServeur(): McpServer {
         ? { historique: trace(st, "louee_lld", "facturation", "mise à disposition LLD"), statut: "louee_lld", date_mise_dispo_lld: dateF, ...(a.numero_facture ? { numero_facture: a.numero_facture.trim() } : {}), updatedAt: nowIso() }
         : { historique: trace(st, "cloturee", "facturation", `facture ${a.numero_facture!.trim()}`), numero_facture: a.numero_facture!.trim(), date_facturation: dateF, statut: "cloturee", ...(a.date_reglement ? { date_reglement: a.date_reglement } : {}), updatedAt: nowIso() };
       await machinesCol().doc(id).update(u);
-      return { immat: id, resultat: `✅ ${id} : ${estLoc ? `mise à disposition LLD le ${dateF} → louée` : `facture ${a.numero_facture!.trim()} du ${dateF} → clôturée`}` };
+      // 🏆 Vente / location financière facturée → transaction gagnée dans HubSpot (pas les LLD)
+      const hsv = estLoc ? null : await envoyerVenteGagnee(app(), id, PAR).catch((e: any) => ({ ok: false, detail: String(e?.message || e) }));
+      return { immat: id, resultat: `✅ ${id} : ${estLoc ? `mise à disposition LLD le ${dateF} → louée` : `facture ${a.numero_facture!.trim()} du ${dateF} → clôturée`}${hsv ? ` — HubSpot : ${hsv.ok ? "" : "⚠ "}${hsv.detail}` : ""}` };
     });
 
   action("devis_action", "Devis Nacelle Assistance : relancer / annuler / valider",

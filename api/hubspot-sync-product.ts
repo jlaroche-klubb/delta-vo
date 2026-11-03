@@ -13,7 +13,17 @@
 // échoue proprement et renvoie un warning, sans casser l'app.
 // ============================================================
 
+import admin from "firebase-admin";
 import { cors, exigerUtilisateur, fetchAvecReessai } from "./_lib/auth.js";
+import { viderCatalogueDeltaVo } from "./_lib/hubspotVente.js";
+
+function appAdmin(): admin.app.App {
+  const existante = admin.apps.find((a) => a?.name === "[DEFAULT]");
+  if (existante) return existante;
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT || "";
+  if (!raw) throw new Error("FIREBASE_SERVICE_ACCOUNT manquant");
+  return admin.initializeApp({ credential: admin.credential.cert(JSON.parse(raw)), projectId: "delta-vo" });
+}
 
 const HUBSPOT_API_BASE = "https://api.hubapi.com";
 
@@ -60,6 +70,20 @@ export default async function handler(req: any, res: any) {
     const body: SyncProductBody = req.body;
     const action = body?.action;
     const immat = (body?.immat || "").trim().toUpperCase(); // SKU = immat MAJUSCULES
+
+    // ⛔ Synchro du catalogue ARRÊTÉE (décision Jonathan 03/11/2026) : les devis se
+    // font dans Delta VO, HubSpot ne reçoit plus que les ventes facturées
+    // (api/hubspot-create-deal). Plus aucune création / suppression de produit,
+    // sauf le vidage ponctuel (super admin) des produits créés par Delta VO.
+    if ((action as string) === "vider_catalogue") {
+      const u = await exigerUtilisateur(req, res, { roles: ["superadmin"] });
+      if (!u) return;
+      const r = await viderCatalogueDeltaVo(appAdmin());
+      return res.status(200).json({ status: "ok", ...r });
+    }
+    if (action === "upsert" || action === "archive") {
+      return res.status(200).json({ status: "disabled", note: "Synchro du catalogue produits HubSpot arrêtée" });
+    }
 
     if (!immat || (action !== "upsert" && action !== "archive")) {
       return res.status(400).json({ error: "action ('upsert'|'archive') et immat requis" });

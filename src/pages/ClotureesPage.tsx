@@ -10,6 +10,7 @@ import { useMachinesFiltered } from "../contexts/MachinesContext";
 import MarkPaidModal from "../components/MarkPaidModal";
 import { useTranslation } from "react-i18next";
 import { normalizeLocalite } from "../utils/localites";
+import { envoyerVenteHubspot } from "../services/hubspotService";
 
 interface ClotureesPageProps {
   userRole: string;
@@ -506,6 +507,7 @@ function ClotureeRow({
         <PaiementBadge statut={statut} jours={jours} dateReglement={machine.date_reglement} />
       </td>
       <td className="col-actions">
+        <HubspotVente machine={machine} canEdit={canEdit} />
         {statut !== "payee" && canEdit && !machine.archived && (
           <button className="btn-mark-paid" onClick={() => onMarkPaid(machine)}>
             ✓ {t("clot.markPaid")}
@@ -597,4 +599,30 @@ function countActiveFilters(f: {
   if (f.filterStatutPaiement !== "tous") n++;
   if (f.filterLocalite) n++;
   return n;
+}
+
+/** 🏆 Vente facturée dans HubSpot : lien vers la transaction, ou bouton « Renvoyer » si l'envoi a échoué */
+function HubspotVente({ machine, canEdit }: { machine: Machine; canEdit: boolean }) {
+  const [enCours, setEnCours] = useState(false);
+  if (machine.type_sortie === "lld") return null;
+  if (machine.hubspot_vente?.deal_id) {
+    return (
+      <a href={`https://app.hubspot.com/contacts/144239378/record/0-3/${machine.hubspot_vente.deal_id}`} target="_blank" rel="noopener noreferrer"
+        title={machine.hubspot_vente.erreur_parc ? `Transaction gagnée dans HubSpot — ⚠ parc Machines non mis à jour : ${machine.hubspot_vente.erreur_parc}` : "Transaction gagnée dans HubSpot"}
+        style={{ fontSize: 12, marginRight: 6, textDecoration: "none" }}>🏆 HubSpot{machine.hubspot_vente.erreur_parc ? " ⚠" : ""}</a>
+    );
+  }
+  if (!machine.hubspot_vente_erreur || !canEdit) return null;
+  async function renvoyer() {
+    setEnCours(true);
+    const r = await envoyerVenteHubspot(machine.id);
+    setEnCours(false);
+    alert(r.ok ? `🏆 Vente envoyée dans HubSpot : ${r.detail}` : `⚠ Envoi HubSpot impossible : ${r.detail}`);
+  }
+  return (
+    <button onClick={renvoyer} disabled={enCours} title={`Échec de l'envoi HubSpot : ${machine.hubspot_vente_erreur.message}`}
+      style={{ background: "#fff6e5", color: "#8a5a00", border: "1px solid #f0c36d", padding: "5px 10px", borderRadius: 4, cursor: "pointer", fontSize: 12, marginRight: 6 }}>
+      {enCours ? "⏳ …" : "🔄 Renvoyer vers HubSpot"}
+    </button>
+  );
 }

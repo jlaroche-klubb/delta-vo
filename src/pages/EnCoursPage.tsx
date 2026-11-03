@@ -8,6 +8,7 @@ import {
 import { useMachines } from "../contexts/MachinesContext";
 import EnCoursCard from "../components/EnCoursCard";
 import { exportEnPreparationExcel } from "../utils/exportEnPreparation";
+import { envoyerVenteHubspot } from "../services/hubspotService";
 import ChangerNacelleModal from "../components/ChangerNacelleModal";
 import { chargerConfigDevis, lireDevisAdmin, resignerDevis } from "../services/devisVenteService";
 import { genererDevisPdf } from "../utils/generateDevisPdf";
@@ -252,8 +253,16 @@ export default function EnCoursPage({ userRole, userName }: EnCoursPageProps) {
     cancelEnCours(machineId);
   }
 
-  function handleFacturer(machineId: string, numeroFacture: string, dateFacturation: string) {
-    marquerFacturee(machineId, numeroFacture, dateFacturation);
+  async function handleFacturer(machineId: string, numeroFacture: string, dateFacturation: string) {
+    const m = machines.find((x) => x.id === machineId);
+    await marquerFacturee(machineId, numeroFacture, dateFacturation);
+    // 🏆 Vente / location financière facturée → transaction gagnée dans HubSpot (pas les LLD).
+    // En cas d'échec : Jonathan est alerté par email, bouton « Renvoyer » dans Clôturées.
+    if (m && m.type_sortie !== "lld") {
+      envoyerVenteHubspot(machineId).then((r) => {
+        if (!r.ok) alert(`⚠ Facture enregistrée, mais la vente n'a pas pu être envoyée dans HubSpot (${r.detail}).\nJonathan est prévenu ; bouton « Renvoyer vers HubSpot » dans Clôturées.`);
+      });
+    }
   }
 
   // 🚚 « ✓ Livrée » (ventes) : la machine est physiquement partie chez le

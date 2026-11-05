@@ -18,6 +18,9 @@ import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { coupe, propre, signerPdf } from "./signatureDevis.js";
 import { fetchAvecReessai } from "./auth.js";
 import { demanderIA, extraireJSON } from "./ia.js";
+import { archiverHubspot, creerEtapesPrepa, notifierPreparateurs } from "./preparationAuto.js";
+import { pousserProchainDepartNE } from "./nacelleExpertServeur.js";
+
 
 const BUCKET = "delta-vo.firebasestorage.app";
 const COL = "contrats_lld";
@@ -557,13 +560,15 @@ export async function signerContrat(app: admin.app.App, ref: admin.firestore.Doc
     } catch (e: any) { console.error(`⚠ mémoire client ${c.client_id} :`, e?.message || e); }
   }
 
-  // 📧 Jonathan + commercial, puis le client avec le contrat signé (les assistantes et « À affecter » : lot 5)
+  // 📧 Jonathan + commercial, les assistantes du commercial (dossier à monter, nacelle à affecter), puis le client avec le contrat signé
   const resume = `<p><b>${esc(fiche.raison_sociale)}</b> a signé le contrat <b>${esc(c.numero)}</b> (${esc(c.modele)}${c.immat ? ` ${esc(c.immat)}` : ""}, ${c.duree_mois} mois, ${c.full_services ? "Full services" : "Sans entretien"}).</p>` +
     `<p>Loyer ${esc(eur(c.total_mensuel_ht))} HT / mois · caution ${esc(eur(c.caution_ttc))} TTC · livraison souhaitée : ${esc(c.date_livraison_souhaitee ? String(c.date_livraison_souhaitee).split("-").reverse().join("/") : "rapide")}</p>` +
     `<p>Signé par ${esc(nom)}${fonction ? ` (${esc(fonction)})` : ""} le ${date.toLocaleString("fr-FR", { timeZone: "Europe/Paris" })}. Mandat SEPA ${esc(c.rum || "")} enregistré${nouveau ? ", CNI et RIB déposés" : ""}.</p>` +
     `<p>📄 <a href="${url}">Contrat signé (PDF)</a> — pièces et données bancaires dans Delta VO → LLD → Contrats.</p>`;
   await emailBrevo([{ email: ALERTE }, ...(c.commercial?.email && c.commercial.email !== ALERTE ? [{ email: c.commercial.email, name: c.commercial.nom }] : [])],
     `✍️ Contrat LLD ${c.numero} signé — ${fiche.raison_sociale}`, `<p>Bonjour,</p>${resume}<p>— Delta VO</p>`);
+  const cSigne = { ...c, client: clientSigne, signature: { nom, fonction, email }, signe_le: now };
+  await prevenirAssistantesContrat(app, cSigne, url, signe.pdf, nouveau).catch((e: any) => console.warn("Email assistantes LLD :", e?.message || e));
   const destClient = email || fiche.email;
   if (destClient) {
     await emailBrevo([{ email: destClient, name: nom }], `Contrat de location ${c.numero} signé — Delta Services`,
@@ -571,4 +576,119 @@ export async function signerContrat(app: admin.app.App, ref: admin.firestore.Doc
       { attachment: [{ name: `Contrat_LLD_${c.numero}_signe.pdf`, content: signe.pdf.toString("base64") }], replyTo: c.commercial?.email ? { email: c.commercial.email, name: c.commercial.nom } : undefined });
   }
   return { ok: true, status: 200, contrat: await contratPublique(app, { ...c, statut: "signe", pdf_signe_url: url, signe_le: now, signature: { nom }, pieces: c.pieces }) };
+}
+
+// ════════════════════════════════════════════════════════════
+// 🚚 LOT 5 — après signature : assistantes prévenues, « À affecter », choix de
+// la nacelle, mise en préparation (sortie LLD), livraison
+// ════════════════════════════════════════════════════════════
+
+const ASSISTANTES_DEFAUT = [
+  "flarronde@klubb.com = anebotsaudin@delta-services.fr",
+  "flouis@klubb.com = bzucchi@delta-services.fr",
+  "lpotier@klubb.com = bzucchi@delta-services.fr",
+  "fmailleret@klubb.com = gcloarec@delta-services.fr",
+  "dcoulet@klubb.com = gcloarec@delta-services.fr",
+].join("\n");
+/** Assistantes du commercial (Admin → Paramètres des devis, table « commercial = assistante ») */
+function assistantesDe(cfg: any, emailCommercial: string): string[] {
+  const e = String(emailCommercial || "").trim().toLowerCase();
+  const out: string[] = [];
+  for (const ligne of String(cfg?.assistantes_commerciaux || ASSISTANTES_DEFAUT).split(/\n+/)) {
+    const [com, ass] = ligne.split(/=|→|->|:/).map((x) => x.trim().toLowerCase());
+    if (com && ass && com === e) out.push(...ass.split(/[\s,;]+/).filter((x) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(x)));
+  }
+  return [...new Set(out)];
+}
+const dateFrDe = (iso?: string) => (iso ? String(iso).slice(0, 10).split("-").reverse().join("/") : "");
+
+/** 📧 Contrat signé → assistantes du commercial : dossier à monter et nacelle à affecter (CDC « Après la signature ») */
+export async function prevenirAssistantesContrat(app: admin.app.App, c: any, url: string, pdf: Buffer, nouveau: boolean): Promise<string[]> {
+  const cfg: any = (await admin.firestore(app).collection("config").doc("devis").get()).data() || {};
+  const to = assistantesDe(cfg, c.commercial?.email);
+  if (!to.length) return [];
+  const cl = c.client || {};
+  const html =
+    `<p>Bonjour,</p><p><b>Contrat de location LLD ${esc(c.numero)}</b> signé le ${esc(dateFrDe(c.signe_le))} par ${esc(c.signature?.nom || cl.contact_nom || "le client")} — commercial : <b>${esc(c.commercial?.nom || "")}</b>.</p>` +
+    `<table style="border-collapse:collapse;font-size:13px">` +
+    [["Client", cl.raison_sociale], ["SIRET", cl.siret], ["Adresse", [cl.adresse, [cl.cp, cl.ville].filter(Boolean).join(" ")].filter(Boolean).join(", ")], ["Contact", [cl.contact_nom, cl.contact_email, cl.contact_tel].filter(Boolean).join(" · ")],
+      ["Nacelle", `${c.modele}${c.immat ? ` — ${c.immat} (pré-affectée)` : " — à affecter dans Delta VO → LLD → À affecter"}`], ["Formule", `${c.full_services ? "Full services" : "Sans entretien"}${c.assurance ? " · assurance tout risque" : ""}`],
+      ["Durée", `${c.duree_mois} mois`], ["Loyer", `${eur(c.total_mensuel_ht)} HT / mois (${eur(c.total_mensuel_ttc)} TTC, prélèvement le ${c.jour_prelevement || 20})`], ["Caution", `${eur(c.caution_ttc)} TTC`],
+      ["Livraison souhaitée", c.date_livraison_souhaitee ? dateFrDe(c.date_livraison_souhaitee) : "rapide"], ["Transport", c.transport?.mode === "chiffre" ? `${eur(c.transport.prix_ht || 0)} HT` : "offert"], ["Mandat SEPA", c.rum || ""]]
+      .filter(([, v]) => v).map(([k, v]) => `<tr><td style="padding:3px 10px 3px 0;color:#666">${esc(k)}</td><td style="padding:3px 0"><b>${esc(v)}</b></td></tr>`).join("") +
+    `</table>` +
+    `<p>📄 <a href="${url}">Contrat signé (PDF)</a> — également en pièce jointe. Pièces du dossier (CNI, RIB) et coordonnées bancaires : Delta VO → LLD → Contrats.</p>` +
+    `<p style="font-size:12px;color:#666">À faire : affecter la nacelle et lancer la préparation (LLD → À affecter), facture de la caution, mandat SEPA à enregistrer en banque${nouveau ? ", vérifier la CNI et le RIB déposés" : ""}, attestation d'assurance si le client n'a pas pris l'assurance Delta.</p>`;
+  await emailBrevo([{ email: to[0] }], `✍️ Contrat LLD ${c.numero} signé — ${cl.raison_sociale || ""} (${c.commercial?.nom || ""})`, html,
+    { ...(to.length > 1 ? { cc: to.slice(1).map((email) => ({ email })) } : {}), attachment: [{ name: `Contrat_LLD_${c.numero}_signe.pdf`, content: pdf.toString("base64") }], ...(c.commercial?.email ? { replyTo: { email: c.commercial.email, name: c.commercial.nom } } : {}) });
+  return to;
+}
+
+export interface AffectationLLD { machine_id: string; type_prepa: "normale" | "en_etat"; date_livraison?: string }
+
+/** 🚚 Affectation d'une nacelle + mise en préparation (sortie LLD) — même circuit que les ventes, sans annuler d'autres devis */
+export async function affecterContrat(app: admin.app.App, numero: string, a: AffectationLLD, par: string): Promise<{ immat: string; detail: string }> {
+  const db = admin.firestore(app);
+  const refC = db.collection(COL).doc(numero);
+  const c: any = (await refC.get()).data();
+  if (!c) throw new Error(`Contrat ${numero} introuvable`);
+  if (c.statut !== "signe") throw new Error(`Contrat ${numero} : statut « ${c.statut} », il doit être signé et sans nacelle affectée`);
+  const refM = db.collection("machines_vo").doc(str(a.machine_id, 60));
+  const typePrepa: "normale" | "en_etat" = a.type_prepa === "en_etat" ? "en_etat" : "normale";
+  const jourNow = new Date().toISOString().slice(0, 10);
+  const livraison = jour(a.date_livraison) || jour(c.date_livraison_souhaitee) || jourNow;
+  const client = str(c.client?.raison_sociale, 120);
+  const commercial = str(c.commercial?.nom, 80);
+  const email = str(c.client?.contact_email || c.client?.email, 120).toLowerCase();
+  const resultat = await db.runTransaction(async (tx) => {
+    const d: any = (await tx.get(refM)).data();
+    if (!d) throw new Error("Fiche machine introuvable");
+    const st = d.statut || "restitution";
+    if (d.archived) throw new Error(`${d.immat} est archivée`);
+    if (st === "en_cours" || st === "cloturee" || st === "louee_lld") throw new Error(`${d.immat} est déjà ${st === "en_cours" ? "en préparation" : st === "cloturee" ? "vendue" : "louée"}`);
+    if (st === "restitution" && !(d.expertise_recue ?? true)) throw new Error(`${d.immat} : expertise Nacelle Expert pas encore reçue (machine non louable)`);
+    const cur: any = (await tx.get(refC)).data();
+    if (cur?.statut !== "signe") throw new Error(`Contrat ${numero} déjà affecté`);
+    const now = new Date().toISOString();
+    tx.update(refM, {
+      historique: admin.firestore.FieldValue.arrayUnion({ date: now, de: st, vers: "en_cours", source: "mise_en_location", par, note: `location LLD ${numero} — ${client} (contrat signé)` }),
+      statut: "en_cours", type_sortie: "lld", type_prepa: typePrepa,
+      acheteur: client, client_lld: client, date_mise_dispo_lld: livraison, commercial_vendeur: commercial,
+      date_vente: jourNow, date_livraison_prevue: livraison, date_mise_en_cours: now,
+      contrat_sortie: numero, ...(email ? { email_sortie: email } : {}), contrat_lld_numero: numero,
+      etapes_prepa: creerEtapesPrepa(typePrepa), updatedAt: now,
+    });
+    tx.update(refC, {
+      statut: "en_preparation", immat: d.immat || refM.id, machine_id: refM.id, affecte_le: now, affecte_par: par, type_prepa: typePrepa, date_livraison_prevue: livraison, modifie_le: now,
+      historique: admin.firestore.FieldValue.arrayUnion({ date: now, action: `nacelle ${d.immat || refM.id} affectée, mise en préparation (${typePrepa === "normale" ? "préparation normale" : "en l'état"}, livraison ${dateFrDe(livraison)})`, par }),
+    });
+    return { ...d, _id: refM.id, immat: d.immat || refM.id };
+  });
+  const details: string[] = [];
+  await archiverHubspot(app, resultat.immat).then(() => details.push("HubSpot archivé")).catch((e: any) => details.push(`HubSpot : ${e?.message || e}`));
+  details.push(await notifierPreparateurs(app, resultat, typePrepa, client, commercial, livraison, par, "lld"));
+  details.push((await pousserProchainDepartNE(resultat.immat, resultat, client, numero, email).catch(() => false)) ? "prochain départ pré-rempli dans Nacelle Expert" : "⚠ Nacelle Expert non pré-rempli");
+  return { immat: resultat.immat, detail: details.join(" — ") };
+}
+
+/** ↩ Retire l'affectation côté contrat (la machine, elle, se remet en disponible depuis En préparation / le connecteur) */
+export async function desaffecterContrat(app: admin.app.App, numero: string, motif: string, par: string): Promise<void> {
+  const ref = admin.firestore(app).collection(COL).doc(numero);
+  const c: any = (await ref.get()).data();
+  if (!c) throw new Error(`Contrat ${numero} introuvable`);
+  if (!["affecte", "en_preparation"].includes(c.statut)) throw new Error(`Contrat ${numero} : statut « ${c.statut} »`);
+  const now = new Date().toISOString();
+  await ref.update({ statut: "signe", immat: "", machine_id: admin.firestore.FieldValue.delete(), affecte_le: admin.firestore.FieldValue.delete(), modifie_le: now,
+    historique: admin.firestore.FieldValue.arrayUnion({ date: now, action: `affectation de ${c.immat || ""} retirée${motif ? ` — ${motif}` : ""} (remettre la machine en disponible dans En préparation)`, par }) });
+}
+
+/** ✅ Livraison : contrat « livré » (la machine passe « louée » par la mise à disposition LLD, comme aujourd'hui) */
+export async function livrerContrat(app: admin.app.App, numero: string, dateLivraison: string, par: string): Promise<void> {
+  const ref = admin.firestore(app).collection(COL).doc(numero);
+  const c: any = (await ref.get()).data();
+  if (!c) throw new Error(`Contrat ${numero} introuvable`);
+  if (!["affecte", "en_preparation"].includes(c.statut)) throw new Error(`Contrat ${numero} : statut « ${c.statut} »`);
+  const now = new Date().toISOString();
+  const d = jour(dateLivraison) || now.slice(0, 10);
+  await ref.update({ statut: "livre", livre_le: d, modifie_le: now, historique: admin.firestore.FieldValue.arrayUnion({ date: now, action: `livré le ${dateFrDe(d)}`, par }) });
 }

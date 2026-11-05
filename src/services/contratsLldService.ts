@@ -57,6 +57,17 @@ export async function ouvrirPieceContratLLD(numero: string, piece: "cni" | "rib"
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
 
+// ───────── Lot 5 : affectation (Jonathan + assistantes) ─────────
+export function affecterContratLLD(numero: string, d: { machine_id: string; type_prepa: "normale" | "en_etat"; date_livraison?: string }): Promise<{ immat: string; detail: string }> {
+  return appel({ action: "contrat_affecter", numero, ...d });
+}
+export function desaffecterContratLLD(numero: string, motif = ""): Promise<void> {
+  return appel({ action: "contrat_desaffecter", numero, motif });
+}
+export function livrerContratLLD(numero: string, date_livraison = ""): Promise<void> {
+  return appel({ action: "contrat_livrer", numero, date_livraison });
+}
+
 export interface ContactPublic { nom?: string; fonction?: string; email?: string; tel?: string }
 export interface ContratPublic {
   numero: string; statut: "a_signer" | "signe" | "annule" | "indisponible"; date: string; rum: string; nouveau_client: boolean;

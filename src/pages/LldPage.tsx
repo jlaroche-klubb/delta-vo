@@ -4,12 +4,16 @@ import { canEditClientsLld, canManageOffresLld, canViewBanqueLld } from "../util
 import ClientsLld from "../components/lld/ClientsLld";
 import OffresLld from "../components/lld/OffresLld";
 import ContratsLld from "../components/lld/ContratsLld";
+import AffecterLld from "../components/lld/AffecterLld";
+import { ecouterContratsLLD } from "../services/contratsLldService";
+import type { ContratLLD } from "../types/lld";
 
 /**
  * 📄 Onglet LLD — locations longue durée (cahier des charges Jonathan 05/11/2026).
  * Lot 1 : mémoire client · lot 2 : offres (Jonathan) · lot 3 : contrats
  * (Jonathan gère, assistantes consultent, commerciaux voient les leurs).
- * Lot 5 : À affecter (assistantes).
+ * Lot 5 : À affecter (Jonathan + assistantes) — badge sur le nombre de
+ * contrats signés sans nacelle.
  */
 interface Props {
   userRole: UserRole;
@@ -21,12 +25,16 @@ type Onglet = "offres" | "contrats" | "affecter" | "clients";
 
 export default function LldPage({ userRole, userName, userEmail }: Props) {
   const estJonathan = canManageOffresLld(userRole);
+  const assistante = canEditClientsLld(userRole);
+  const [contrats, setContrats] = useState<ContratLLD[]>([]);
+  useEffect(() => (assistante ? ecouterContratsLLD(setContrats) : undefined), [assistante]);
+  const nbAffecter = useMemo(() => contrats.filter((c) => c.statut === "signe").length, [contrats]);
   const onglets = useMemo<{ id: Onglet; label: string; dispo: boolean }[]>(() => [
     ...(estJonathan ? [{ id: "offres" as Onglet, label: "Offres", dispo: true }] : []),
     { id: "contrats", label: "Contrats", dispo: true },
-    ...(canEditClientsLld(userRole) ? [{ id: "affecter" as Onglet, label: "À affecter", dispo: false }] : []),
+    ...(assistante ? [{ id: "affecter" as Onglet, label: `À affecter${nbAffecter ? ` (${nbAffecter})` : ""}`, dispo: true }] : []),
     { id: "clients", label: "Clients", dispo: true },
-  ], [estJonathan, userRole]);
+  ], [estJonathan, assistante, nbAffecter]);
   const [onglet, setOnglet] = useState<Onglet>(estJonathan ? "offres" : "clients");
   useEffect(() => { if (!onglets.some((o) => o.id === onglet && o.dispo)) setOnglet("clients"); }, [onglets, onglet]);
 
@@ -34,7 +42,7 @@ export default function LldPage({ userRole, userName, userEmail }: Props) {
     <div className="page" style={{ padding: "16px 20px 40px" }}>
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
         <h1 style={{ margin: 0, fontSize: 24, color: "#1a2a6e" }}>Locations longue durée</h1>
-        <span style={{ fontSize: 12, color: "#777" }}>Signature des contrats et affectation des nacelles arrivent aux lots suivants.</span>
+        {nbAffecter > 0 && <span style={{ fontSize: 13, fontWeight: 700, color: "#8a5a00", background: "#fff3d6", borderRadius: 12, padding: "3px 10px" }}>🚚 {nbAffecter} contrat{nbAffecter > 1 ? "s" : ""} signé{nbAffecter > 1 ? "s" : ""} à affecter</span>}
       </div>
       <div role="tablist" aria-label="Sections LLD" style={{ display: "flex", flexWrap: "wrap", gap: 4, borderBottom: "2px solid #dfe4ec", marginBottom: 16 }}>
         {onglets.map((o) => (
@@ -46,7 +54,8 @@ export default function LldPage({ userRole, userName, userEmail }: Props) {
         ))}
       </div>
       {onglet === "offres" && estJonathan && <OffresLld userName={userName} userEmail={userEmail} />}
-      {onglet === "contrats" && <ContratsLld userName={userName} userEmail={userEmail} peutGerer={estJonathan} voitTout={canEditClientsLld(userRole)} />}
+      {onglet === "contrats" && <ContratsLld userName={userName} userEmail={userEmail} peutGerer={estJonathan} voitTout={assistante} />}
+      {onglet === "affecter" && assistante && <AffecterLld contrats={contrats} userName={userName} />}
       {onglet === "clients" && (
         <ClientsLld userName={userName} userEmail={userEmail} peutModifier={canEditClientsLld(userRole)} voitBanque={canViewBanqueLld(userRole)} />
       )}

@@ -33,7 +33,7 @@ const TXT: Record<Lg, Record<string, string>> = {
 const MM = 72 / 25.4;
 
 /** Texte compatible avec la police PDF standard (accents latins OK, le reste translittéré) */
-function propre(f: PDFFont, t: string): string {
+export function propre(f: PDFFont, t: string): string {
   const s = String(t ?? "").replace(/[\u00a0\u202f\u2007]/g, " ");
   try { f.encodeText(s); return s; } catch { /* caractère hors WinAnsi : traité un par un */ }
   const SPECIAUX: Record<string, string> = { "Ł": "L", "ł": "l", "Đ": "D", "đ": "d", "ı": "i", "ß": "ss", "Ø": "O", "ø": "o" };
@@ -45,7 +45,7 @@ function propre(f: PDFFont, t: string): string {
   }).join("");
 }
 
-function coupe(f: PDFFont, t: string, taille: number, largeur: number): string[] {
+export function coupe(f: PDFFont, t: string, taille: number, largeur: number): string[] {
   const mots = propre(f, t).split(/\s+/);
   const lignes: string[] = [];
   let l = "";

@@ -6,6 +6,7 @@ import LoginPage from "./LoginPage";
 import SignerDevisPage from "./pages/SignerDevisPage";
 import ValidationDevisPage from "./pages/ValidationDevisPage";
 import SignerOffrePage from "./pages/SignerOffrePage";
+import SignerContratPage from "./pages/SignerContratPage";
 import GaleriePage from "./pages/GaleriePage";
 import RestitutionsPage from "./pages/RestitutionsPage";
 import DisponiblesPage from "./pages/DisponiblesPage";
@@ -276,6 +277,7 @@ export default function App() {
         <Route path="/devis-validation/:numero/:jeton" element={<ValidationDevisPage />} />
 
         <Route path="/offre-lld/:numero/:jeton" element={<SignerOffrePage />} />
+        <Route path="/contrat-lld/:numero/:jeton" element={<SignerContratPage />} />
 
         {/* Toute le reste de l'app interne, avec authentification + contextes. */}
         <Route

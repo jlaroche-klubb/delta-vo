@@ -12,6 +12,7 @@ const fr = {
   },
   nav: {
     restitutions: "Restitutions",
+    lld: "LLD",
     disponibles: "Disponibles",
     export: "Export",
     encours: "En préparation",

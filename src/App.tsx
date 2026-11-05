@@ -17,6 +17,7 @@ import UpdateBanner from "./components/UpdateBanner";
 import LanguageSwitcher from "./components/LanguageSwitcher";
 import { useTranslation } from "react-i18next";
 import AdminPage from "./pages/AdminPage";
+import LldPage from "./pages/LldPage";
 import { useNacelleExpertSync } from "./hooks/useNacelleExpertSync";
 import { getAccessiblePages } from "./utils/permissions";
 import "./App.css";
@@ -30,7 +31,7 @@ const FAKE_PROFILE = {
   createdAt: new Date().toISOString(),
 };
 
-type Page = "restitutions" | "disponibles" | "export" | "encours" | "cloturees" | "stats" | "admin";
+type Page = "restitutions" | "disponibles" | "lld" | "export" | "encours" | "cloturees" | "stats" | "admin";
 
 function AppContent() {
   const { user, profile, loading, logout, demoVendeur, setDemoVendeur, realProfile } = useAuth();
@@ -78,6 +79,7 @@ function AppContent() {
     switch (p) {
       case "restitutions": return t("nav.restitutions");
       case "disponibles": return t("nav.disponibles");
+      case "lld": return t("nav.lld");
       case "export": return "🌍 " + t("nav.export");
       case "encours": return t("nav.encours");
       case "cloturees": return t("nav.cloturees");
@@ -89,7 +91,7 @@ function AppContent() {
   // ✅ Liste des onglets selon les permissions du rôle
   const accessiblePages = getAccessiblePages(userRole as any);
   // Ordre d'affichage souhaité
-  const pageOrder: Page[] = ["restitutions", "disponibles", "export", "encours", "cloturees", "stats", "admin"];
+  const pageOrder: Page[] = ["restitutions", "disponibles", "lld", "export", "encours", "cloturees", "stats", "admin"];
   const tabs: Page[] = pageOrder.filter((p) => accessiblePages.includes(p));
   
   // ✅ Si la page active n'est pas accessible pour ce rôle, basculer sur la première dispo
@@ -240,6 +242,9 @@ function AppContent() {
         {effectivePage === "restitutions" && <RestitutionsPage />}
         {effectivePage === "disponibles" && (
           <DisponiblesPage userRole={userRole} userName={userName} userEmail={userEmail} />
+        )}
+        {effectivePage === "lld" && (
+          <LldPage userRole={userRole} userName={userName} userEmail={userEmail} />
         )}
         {effectivePage === "export" && (
           <ExportPage userName={userName} userEmail={userEmail} />

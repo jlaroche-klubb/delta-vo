@@ -15,6 +15,7 @@ const es = {
     // ligne comme en FR/EN (« Exportación » / « Estadísticas » faisaient
     // passer la barre sur deux lignes).
     restitutions: "Devoluciones",
+    lld: "LLD",
     disponibles: "Disponibles",
     export: "Export",
     encours: "Preparación",

@@ -36,6 +36,7 @@ import { signerPdf } from "./_lib/signatureDevis.js";
 import { archiverHubspot, creerEtapesPrepa, mettreEnPreparationDevis, notifierPreparateurs, publierHubspot } from "./_lib/preparationAuto.js";
 import { collecterVentes, construireRapport, semainePrecedente } from "./_lib/rapportVentes.js";
 import { changerStatutOffre, creerOffre, genererLienOffre, modifierOffre, offreDepuisCorps, offreParJeton, offrePublique, signerOffre } from "./_lib/offresLld.js";
+import { annulerContrat, contratDepuisCorps, controlerContrat, creerContratManuel, enregistrerPdfContrat, modifierContrat } from "./_lib/contratsLld.js";
 
 export const maxDuration = 30;
 
@@ -871,6 +872,25 @@ export default async function handler(req: any, res: any) {
           await changerStatutOffre(app, str(body.numero, 20), statut, str(body.motif, 300), commercial.nom);
           return res.status(200).json({ ok: true });
         }
+      } catch (e: any) { return res.status(400).json({ error: e?.message || "erreur" }); }
+      return res.status(400).json({ error: `Action inconnue : ${action}` });
+    }
+
+    // ───────────── CONTRATS LLD (Jonathan seul) ─────────────
+    if (action.startsWith("contrat_")) {
+      if (String(profil.role || "") !== "superadmin") return res.status(403).json({ error: "Les contrats LLD sont réservés à Jonathan" });
+      const app = appAdmin();
+      const numero = str(body.numero, 20);
+      try {
+        if (action === "contrat_creer") {
+          const d = contratDepuisCorps(body, commercial);
+          if (!d.client.raison_sociale || !d.modele || !(d.duree_mois > 0) || !(d.loyer_ht > 0)) return res.status(400).json({ error: "Indiquez le client, le modèle, la durée et le loyer" });
+          return res.status(200).json({ ok: true, ...(await creerContratManuel(app, d, commercial.nom)) });
+        }
+        if (action === "contrat_modifier") { await modifierContrat(app, numero, contratDepuisCorps(body, commercial), commercial.nom); return res.status(200).json({ ok: true }); }
+        if (action === "contrat_controler") return res.status(200).json({ ok: true, controle: await controlerContrat(app, numero, commercial.nom) });
+        if (action === "contrat_pdf") return res.status(200).json({ ok: true, ...(await enregistrerPdfContrat(app, numero, body.pdfBase64, body.zone_signature, commercial.nom)) });
+        if (action === "contrat_annuler") { await annulerContrat(app, numero, str(body.motif, 300), commercial.nom); return res.status(200).json({ ok: true }); }
       } catch (e: any) { return res.status(400).json({ error: e?.message || "erreur" }); }
       return res.status(400).json({ error: `Action inconnue : ${action}` });
     }

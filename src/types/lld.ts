@@ -161,6 +161,17 @@ export interface ConfigLLD {
     jour_prelevement: number;
   };
   agence: MembreAgenceLLD[];
+  /** Textes du contrat (lot 3) — vides = textes par défaut du modèle DS2026LD-08-01 */
+  textes_contrat?: {
+    cp_full?: string;
+    cp_sans?: string;
+    cg?: string;
+    cg_version?: string;
+    annexe_vetuste?: string;
+    annexe_tarifs?: string;
+    annexe_sinistres?: string;
+    annexe_contacts?: string;
+  };
   maj?: string;
 }
 
@@ -294,6 +305,69 @@ export interface OffreLLD {
   zone_signature?: { page: number; x: number; y: number; w: number; h: number };
   choix?: ChoixOffreLLD;
   signature?: { nom: string; fonction?: string; email?: string; date: string; ip?: string };
+  signe_le?: string;
+  cree_par?: string;
+  cree_le?: string;
+  modifie_le?: string;
+  historique?: { date: string; action: string; par: string }[];
+}
+
+// ───────────── Contrats (contrats_lld) — lot 3 ─────────────
+
+export type StatutContratLLD = "brouillon" | "controle" | "envoye" | "signe" | "affecte" | "en_preparation" | "livre" | "annule";
+
+export interface ControleContratLLD {
+  ok: boolean;
+  /** Règles en échec (libellés) */
+  erreurs: string[];
+  /** Écarts signalés mais non bloquants */
+  avertissements: string[];
+  le?: string;
+  par?: string;
+}
+
+export interface ContratLLD {
+  numero: string; // DS2026LD-11-01
+  statut: StatutContratLLD;
+  date: string;
+  client_id?: string;
+  /** Snapshot de la fiche locataire (p.16-17), prérempli depuis la mémoire client, complété par le client à la signature */
+  client: ClientOffreLLD & { siret?: string; tva_intra?: string; naf?: string; telephone?: string; fax?: string; email?: string; facturation_societe?: string; facturation_email?: string; facturation_adresse?: string; contact_compta?: ContactLLD; contact_maintenance?: ContactLLD; commande_obligatoire?: boolean; contact_commande?: ContactLLD };
+  commercial: { nom: string; email: string; tel?: string };
+  /** Offre d'origine (vide pour un client sous tarif) */
+  offre_numero?: string;
+  /** Rang du contrat dans l'offre (1/3, 2/3…) */
+  rang?: number;
+  rang_total?: number;
+  full_services: boolean;
+  materiel: "vo" | "neuf";
+  modele: string;
+  /** Immatriculation si la nacelle est déjà connue (sinon affectée après signature, lot 5) */
+  immat?: string;
+  machine_id?: string;
+  duree_mois: number;
+  loyer_ht: number;
+  assurance: boolean;
+  assurance_ht: number;
+  /** Options mensuelles retenues */
+  options: OptionOffreLLD[];
+  /** Loyer mensuel HT total = loyer + assurance + options */
+  total_mensuel_ht: number;
+  tva_ht: number;
+  total_mensuel_ttc: number;
+  caution_ttc: number;
+  km_an: number;
+  prix_km_sup: number;
+  transport: { mode: "offert" | "chiffre"; prix_ht?: number; adresse?: string };
+  date_livraison_souhaitee?: string;
+  jour_prelevement: number;
+  /** Version des CG figée à la création (date) */
+  cg_version: string;
+  controle?: ControleContratLLD;
+  pdf_url?: string;
+  pdf_signe_url?: string;
+  signature_jeton?: string;
+  zone_signature?: { page: number; x: number; y: number; w: number; h: number };
   signe_le?: string;
   cree_par?: string;
   cree_le?: string;

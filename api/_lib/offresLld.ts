@@ -14,6 +14,7 @@ import crypto from "node:crypto";
 import admin from "firebase-admin";
 import { fetchAvecReessai } from "./auth.js";
 import { signerPdf } from "./signatureDevis.js";
+import { creerContratsDepuisOffre } from "./contratsLld.js";
 
 const BUCKET = "delta-vo.firebasestorage.app";
 const COL = "offres_lld";
@@ -225,11 +226,14 @@ export async function signerOffre(app: admin.app.App, ref: admin.firestore.Docum
 
   const o2 = { ...o, statut: "signee", pdf_signe_url: url, choix, signature: { nom, fonction, email, date: now }, signe_le: now };
   const vue2 = offrePublique(o2);
+  // 📄 Lot 3 : un contrat en brouillon par nacelle (best-effort : la signature est déjà enregistrée)
+  let contrats: string[] = [];
+  try { contrats = await creerContratsDepuisOffre(app, o2); } catch (e: any) { console.error(`❌ contrats depuis l'offre ${o.numero} :`, e?.message || e); }
   // Emails : Jonathan + commercial local (best-effort), puis confirmation au client
   const resume = `<p><b>${esc(o.client.raison_sociale)}</b> a signé l'offre <b>${esc(o.numero)}</b> (${esc(o.modele)}${o.quantite > 1 ? ` × ${o.quantite}` : ""}, ${o.full_services ? "Full services" : "Sans entretien"}).</p>` +
     `<p>${esc(mention)}<br/>Caution : ${esc(eur(cautionTtc))} TTC · Transport : ${o.transport?.mode === "chiffre" ? esc(eur(o.transport.prix_ht || 0)) + " HT" : "offert"}</p>` +
     `<p>Signé par ${esc(nom)}${fonction ? ` (${esc(fonction)})` : ""} le ${date.toLocaleString("fr-FR", { timeZone: "Europe/Paris" })}.</p><p>📄 <a href="${url}">Offre signée (PDF)</a></p>` +
-    `<p>Prochaine étape : les contrats (un par nacelle) seront préparés dans Delta VO → LLD → Contrats.</p>`;
+    (contrats.length ? `<p>📄 ${contrats.length} contrat${contrats.length > 1 ? "s" : ""} en brouillon créé${contrats.length > 1 ? "s" : ""} dans Delta VO → LLD → Contrats : <b>${contrats.map(esc).join(", ")}</b>. À contrôler puis envoyer pour signature.</p>` : `<p>⚠ Les contrats n'ont pas pu être créés automatiquement : créez-les dans Delta VO → LLD → Contrats.</p>`);
   await emailBrevo([{ email: ALERTE }, ...(o.commercial?.email && o.commercial.email !== ALERTE ? [{ email: o.commercial.email, name: o.commercial.nom }] : [])],
     `✍️ Offre LLD ${o.numero} signée — ${o.client.raison_sociale}`, `<p>Bonjour,</p>${resume}<p>— Delta VO</p>`);
   const destClient = email || o.client?.contact_email;

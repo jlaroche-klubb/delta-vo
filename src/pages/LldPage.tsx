@@ -3,11 +3,13 @@ import type { UserRole } from "../types";
 import { canEditClientsLld, canManageOffresLld, canViewBanqueLld } from "../utils/permissions";
 import ClientsLld from "../components/lld/ClientsLld";
 import OffresLld from "../components/lld/OffresLld";
+import ContratsLld from "../components/lld/ContratsLld";
 
 /**
  * 📄 Onglet LLD — locations longue durée (cahier des charges Jonathan 05/11/2026).
- * Lot 1 : mémoire client. Lots suivants : Offres (Jonathan), Contrats,
- * À affecter (assistantes), puis Paramètres dans Admin.
+ * Lot 1 : mémoire client · lot 2 : offres (Jonathan) · lot 3 : contrats
+ * (Jonathan gère, assistantes consultent, commerciaux voient les leurs).
+ * Lot 5 : À affecter (assistantes).
  */
 interface Props {
   userRole: UserRole;
@@ -21,7 +23,7 @@ export default function LldPage({ userRole, userName, userEmail }: Props) {
   const estJonathan = canManageOffresLld(userRole);
   const onglets = useMemo<{ id: Onglet; label: string; dispo: boolean }[]>(() => [
     ...(estJonathan ? [{ id: "offres" as Onglet, label: "Offres", dispo: true }] : []),
-    { id: "contrats", label: "Contrats", dispo: false },
+    { id: "contrats", label: "Contrats", dispo: true },
     ...(canEditClientsLld(userRole) ? [{ id: "affecter" as Onglet, label: "À affecter", dispo: false }] : []),
     { id: "clients", label: "Clients", dispo: true },
   ], [estJonathan, userRole]);
@@ -32,7 +34,7 @@ export default function LldPage({ userRole, userName, userEmail }: Props) {
     <div className="page" style={{ padding: "16px 20px 40px" }}>
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
         <h1 style={{ margin: 0, fontSize: 24, color: "#1a2a6e" }}>Locations longue durée</h1>
-        <span style={{ fontSize: 12, color: "#777" }}>Contrats et affectation arrivent aux lots suivants.</span>
+        <span style={{ fontSize: 12, color: "#777" }}>Signature des contrats et affectation des nacelles arrivent aux lots suivants.</span>
       </div>
       <div role="tablist" aria-label="Sections LLD" style={{ display: "flex", flexWrap: "wrap", gap: 4, borderBottom: "2px solid #dfe4ec", marginBottom: 16 }}>
         {onglets.map((o) => (
@@ -44,6 +46,7 @@ export default function LldPage({ userRole, userName, userEmail }: Props) {
         ))}
       </div>
       {onglet === "offres" && estJonathan && <OffresLld userName={userName} userEmail={userEmail} />}
+      {onglet === "contrats" && <ContratsLld userName={userName} userEmail={userEmail} peutGerer={estJonathan} voitTout={canEditClientsLld(userRole)} />}
       {onglet === "clients" && (
         <ClientsLld userName={userName} userEmail={userEmail} peutModifier={canEditClientsLld(userRole)} voitBanque={canViewBanqueLld(userRole)} />
       )}

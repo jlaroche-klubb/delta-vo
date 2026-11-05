@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ConfigLLD } from "../../types/lld";
+import { ANNEXE_CONTACTS_DEFAUT, ANNEXE_SINISTRES_DEFAUT, ANNEXE_TARIFS_DEFAUT, ANNEXE_VETUSTE_DEFAUT, CG_LLD_DEFAUT, CG_LLD_VERSION, CP_FULL_SERVICES_DEFAUT, CP_SANS_ENTRETIEN_DEFAUT } from "../../data/contratLldTextes";
 import {
   agenceVersTexte, chargerConfigLLD, courteDureeVersTexte, enregistrerConfigLLD, grilleVersTexte, modelesVersTexte, optionsVersTexte, prestationsVersTexte,
   texteVersAgence, texteVersCourteDuree, texteVersGrille, texteVersModeles, texteVersOptions, texteVersPrestations,
@@ -16,8 +17,19 @@ const mono: React.CSSProperties = { ...champ, fontFamily: "ui-monospace, Menlo, 
 const lab: React.CSSProperties = { fontWeight: 700, color: "#1a2a6e", fontSize: 13, display: "block", marginBottom: 4 };
 const aide: React.CSSProperties = { fontSize: 11, color: "#777", marginTop: 3 };
 
+const TEXTES_CONTRAT: { cle: keyof NonNullable<ConfigLLD["textes_contrat"]>; lib: string; defaut: string; rows: number }[] = [
+  { cle: "cp_full", lib: "Conditions particulières — Full services (p. 2-4)", defaut: CP_FULL_SERVICES_DEFAUT, rows: 10 },
+  { cle: "cp_sans", lib: "Conditions particulières — Sans entretien (p. 2-4) — version dérivée, à relire", defaut: CP_SANS_ENTRETIEN_DEFAUT, rows: 10 },
+  { cle: "cg", lib: "Conditions générales — articles 1 à 16 (p. 7-14)", defaut: CG_LLD_DEFAUT, rows: 16 },
+  { cle: "annexe_vetuste", lib: "Annexe — taux de vétusté", defaut: ANNEXE_VETUSTE_DEFAUT, rows: 6 },
+  { cle: "annexe_tarifs", lib: "Annexe — tarifs des frais de remise en état (« libellé Facturé montant € »)", defaut: ANNEXE_TARIFS_DEFAUT, rows: 10 },
+  { cle: "annexe_sinistres", lib: "Annexe — démarches sinistres et dépannages", defaut: ANNEXE_SINISTRES_DEFAUT, rows: 10 },
+  { cle: "annexe_contacts", lib: "Annexe — liste des contacts Delta Services", defaut: ANNEXE_CONTACTS_DEFAUT, rows: 6 },
+];
+
 export default function ParametresLld() {
   const [cfg, setCfg] = useState<ConfigLLD | null>(null);
+  const [voirTextes, setVoirTextes] = useState(false);
   const [t, setT] = useState<Record<string, string>>({});
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -37,6 +49,9 @@ export default function ParametresLld() {
   const setTxt = (k: string, v: string) => { setT((x) => ({ ...x, [k]: v })); setDirty(true); };
   const setC = (patch: Partial<ConfigLLD>) => { setCfg({ ...cfg, ...patch }); setDirty(true); };
   const setS = (bloc: "societe" | "fournisseur" | "sepa", k: string, v: any) => setC({ [bloc]: { ...(cfg[bloc] as any), [k]: v } } as any);
+  const textes = cfg.textes_contrat || {};
+  /** Texte vide = texte par défaut (on n'enregistre que ce qui diffère du défaut) */
+  const setTexte = (k: keyof NonNullable<ConfigLLD["textes_contrat"]>, v: string, defaut: string) => setC({ textes_contrat: { ...textes, [k]: v.trim() === defaut.trim() ? "" : v } });
 
   const grille = texteVersGrille(t.grille || "");
   const modeles = texteVersModeles(t.modeles || "");
@@ -123,6 +138,29 @@ export default function ParametresLld() {
           <textarea style={champ} rows={2} value={cfg.sepa.adresse_creancier} onChange={(e) => setS("sepa", "adresse_creancier", e.target.value)} placeholder="Adresse du créancier (celle déclarée à la banque pour l'ICS)" />
           <div style={aide}>À vérifier avec la compta : 12 ou 14 avenue James de Rothschild (doit correspondre à l'ICS).</div>
         </div>
+      </div>
+
+      <div style={{ marginTop: 18, borderTop: "1px solid #e3e7ee", paddingTop: 12 }}>
+        <button type="button" className="btn-secondary" onClick={() => setVoirTextes((v) => !v)} style={{ fontWeight: 700 }}>{voirTextes ? "▲" : "▼"} 📑 Textes du contrat LLD (conditions particulières, générales, annexes)</button>
+        <div style={aide}>Textes du contrat DS2026LD-08-01 (août 2026) par défaut. Une ligne = un paragraphe ; « - » ou « o » en début de ligne = puce ; une ligne en MAJUSCULES ou « Article n - TITRE » = titre. Vider un champ remet le texte par défaut. Changer la version des CG fige la nouvelle version sur les contrats créés ensuite.</div>
+        {voirTextes && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 14, marginTop: 10 }}>
+            <div style={{ maxWidth: 260 }}>
+              <label style={lab}>Version des conditions générales</label>
+              <input style={champ} value={textes.cg_version || ""} onChange={(e) => setC({ textes_contrat: { ...textes, cg_version: e.target.value } })} placeholder={CG_LLD_VERSION} />
+            </div>
+            {TEXTES_CONTRAT.map((x) => {
+              const val = textes[x.cle] || "";
+              return (
+                <div key={x.cle}>
+                  <label style={lab}>{x.lib} {val ? <span style={{ color: "#8a5a00", fontWeight: 600 }}>— modifié</span> : <span style={{ color: "#777", fontWeight: 400 }}>— texte par défaut</span>}</label>
+                  <textarea style={{ ...mono, fontSize: 12 }} rows={x.rows} value={val || x.defaut} onChange={(e) => setTexte(x.cle, e.target.value, x.defaut)} />
+                  {val && <button type="button" className="btn-secondary" style={{ marginTop: 4, fontSize: 12 }} onClick={() => setTexte(x.cle, "", x.defaut)}>↺ Revenir au texte par défaut</button>}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
       <div className="admin-card-actions" style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <button className="btn-approve" onClick={enregistrer} disabled={saving || !dirty}>{saving ? "…" : "💾 Enregistrer les paramètres LLD"}</button>

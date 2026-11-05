@@ -172,21 +172,28 @@ export const CONFIG_LLD_DEFAUT: ConfigLLD = {
     { libelle: "4 pneumatiques / an", prix_mensuel_ht: 90 },
     { libelle: "Véhicule de remplacement", prix_mensuel_ht: 130 },
   ],
+  // Un libellé qui commence par « # » est un titre de groupe (colonne du PDF)
   prestations_full: [
-    { libelle: "Entretien et révisions de la nacelle", inclus: true },
-    { libelle: "VGP semestrielle", inclus: true },
-    { libelle: "Entretien du porteur", inclus: true },
-    { libelle: "Assistance et dépannage", inclus: true },
-    { libelle: "Carburant", inclus: false },
-    { libelle: "Pneumatiques (hors option)", inclus: false },
+    { libelle: "# VÉHICULE", inclus: true }, { libelle: "Audit de votre parc", inclus: true }, { libelle: "Aménagement extérieur", inclus: true }, { libelle: "Frais de mise en route", inclus: true },
+    { libelle: "# ENTRETIEN", inclus: true }, { libelle: "Entretien courant", inclus: true }, { libelle: "Entretien curatif", inclus: true }, { libelle: "Réparation mécanique", inclus: true },
+    { libelle: "# CONSOMMABLES", inclus: true }, { libelle: "Appoints d'huile, filtres, ampoules, liquides…", inclus: true },
+    { libelle: "# GESTION ADMINISTRATIVE", inclus: true }, { libelle: "Taxes administratives", inclus: true }, { libelle: "Assurance responsabilité civile (si option assurance souscrite)", inclus: true },
+    { libelle: "Assurance dommages au véhicule (si option assurance souscrite)", inclus: true }, { libelle: "Assurances vol et incendie (si option assurance souscrite)", inclus: true }, { libelle: "Planning des entretiens", inclus: true },
+    { libelle: "# GESTION DES CONTRÔLES OBLIGATOIRES", inclus: true }, { libelle: "Préparation et présentation aux contrôles obligatoires (VGP)", inclus: true }, { libelle: "Contrôle anti-pollution, contrôle technique", inclus: true },
+    { libelle: "# PANNE / IMMOBILISATION", inclus: true }, { libelle: "Assistance dépannage 24h/24 – 7j/7", inclus: true }, { libelle: "Véhicule de remplacement (relais)*", inclus: false },
+    { libelle: "# SERVICE", inclus: true }, { libelle: "Un interlocuteur unique", inclus: true }, { libelle: "Mesure de votre satisfaction", inclus: true },
+    { libelle: "# EN OPTION", inclus: true }, { libelle: "Aménagement intérieur", inclus: true }, { libelle: "Pneumatiques compris", inclus: false },
+    { libelle: "# AUTRES", inclus: true }, { libelle: "Carburant", inclus: false }, { libelle: "Taxes dues aux infractions au code de la route", inclus: false }, { libelle: "Compensation kilométrique annuelle et entre les véhicules de même PTC", inclus: true },
   ],
   prestations_sans_entretien: [
-    { libelle: "Entretien et révisions de la nacelle", inclus: false },
-    { libelle: "VGP semestrielle", inclus: true },
-    { libelle: "Entretien du porteur (à la charge du client)", inclus: false },
-    { libelle: "Assistance et dépannage", inclus: true },
-    { libelle: "Carburant", inclus: false },
-    { libelle: "Pneumatiques (hors option)", inclus: false },
+    { libelle: "# VÉHICULE", inclus: true }, { libelle: "Audit de votre parc", inclus: true }, { libelle: "Aménagement extérieur", inclus: true }, { libelle: "Frais de mise en route", inclus: true },
+    { libelle: "# ENTRETIEN", inclus: true }, { libelle: "Entretien courant de la nacelle", inclus: false }, { libelle: "Entretien curatif", inclus: false }, { libelle: "Entretien du porteur (à la charge du locataire)", inclus: false },
+    { libelle: "# CONSOMMABLES", inclus: true }, { libelle: "Appoints d'huile, filtres, ampoules, liquides…", inclus: false },
+    { libelle: "# GESTION ADMINISTRATIVE", inclus: true }, { libelle: "Taxes administratives", inclus: true }, { libelle: "Assurances (si option assurance souscrite)", inclus: true }, { libelle: "Planning des entretiens", inclus: false },
+    { libelle: "# GESTION DES CONTRÔLES OBLIGATOIRES", inclus: true }, { libelle: "Préparation et présentation aux contrôles obligatoires (VGP)", inclus: true }, { libelle: "Contrôle anti-pollution, contrôle technique", inclus: false },
+    { libelle: "# PANNE / IMMOBILISATION", inclus: true }, { libelle: "Assistance dépannage 24h/24 – 7j/7", inclus: true }, { libelle: "Véhicule de remplacement (relais)*", inclus: false },
+    { libelle: "# SERVICE", inclus: true }, { libelle: "Un interlocuteur unique", inclus: true }, { libelle: "Mesure de votre satisfaction", inclus: true },
+    { libelle: "# AUTRES", inclus: true }, { libelle: "Carburant", inclus: false }, { libelle: "Taxes dues aux infractions au code de la route", inclus: false },
   ],
   km_an_defaut: 30000,
   heures_defaut: "illimitées",
@@ -213,3 +220,83 @@ export const CONFIG_LLD_DEFAUT: ConfigLLD = {
   },
   agence: [],
 };
+
+// ───────────── Offres (offres_lld) — lot 2 ─────────────
+
+export type StatutOffreLLD = "brouillon" | "generee" | "signee" | "refusee" | "expiree" | "annulee";
+
+/** Une durée proposée : loyer HT / mois sans assurance, et avec assurance si l'offre la propose */
+export interface DureeOffreLLD {
+  mois: number;
+  loyer_ht: number;
+  loyer_assurance_ht?: number;
+}
+
+export interface OptionOffreLLD {
+  libelle: string;
+  prix_mensuel_ht: number;
+}
+
+export interface ClientOffreLLD {
+  raison_sociale: string;
+  siren?: string;
+  adresse?: string;
+  cp?: string;
+  ville?: string;
+  contact_nom?: string;
+  contact_email?: string;
+  contact_tel?: string;
+}
+
+/** Choix du client à la signature de l'offre */
+export interface ChoixOffreLLD {
+  duree_mois: number;
+  loyer_ht: number;
+  avec_assurance: boolean;
+  options: OptionOffreLLD[];
+  /** Loyer mensuel HT total retenu (loyer + assurance + options) */
+  total_mensuel_ht: number;
+  caution_ttc: number;
+}
+
+export interface OffreLLD {
+  numero: string; // OF-AAAA-MM-NN
+  statut: StatutOffreLLD;
+  date: string;
+  date_expiration: string;
+  validite_jours: number;
+  client_id?: string;
+  client: ClientOffreLLD;
+  commercial: { nom: string; email: string; tel?: string };
+  /** Matériel d'occasion du parc Delta (vo) ou neuf Klubb (neuf) */
+  materiel: "vo" | "neuf";
+  /** Courte durée : durées de 1 à 11 mois, prix par mois */
+  courte_duree: boolean;
+  /** L'offre affiche un loyer sans et un loyer avec assurance */
+  avec_assurance: boolean;
+  full_services: boolean;
+  modele: string;
+  quantite: number;
+  /** Une durée fixe, ou plusieurs au choix du client (24 / 36 / 48…) */
+  durees: DureeOffreLLD[];
+  options: OptionOffreLLD[];
+  transport: { mode: "offert" | "chiffre"; prix_ht?: number; adresse?: string };
+  km_an: number;
+  heures: string;
+  prix_km_sup: number;
+  /** Caution = 1 mois de loyer TTC (décision Jonathan 05/11/2026) */
+  caution_mois: number;
+  prestations: PrestationLLD[];
+  commentaire?: string;
+  pdf_url?: string;
+  pdf_signe_url?: string;
+  signature_jeton?: string;
+  zone_signature?: { page: number; x: number; y: number; w: number; h: number };
+  choix?: ChoixOffreLLD;
+  signature?: { nom: string; fonction?: string; email?: string; date: string; ip?: string };
+  signe_le?: string;
+  cree_par?: string;
+  cree_le?: string;
+  modifie_le?: string;
+  historique?: { date: string; action: string; par: string }[];
+}

@@ -71,6 +71,10 @@ export async function signerPdf(
   lg: Lg,
   /** Libellé du document (défaut : « Devis ») — ex. « Contrat de location financière » */
   libelleDoc?: string,
+  /** Lignes supplémentaires du certificat (ex. offre LLD : durée et options choisies par le client) */
+  lignesSup?: { label: string; value: string }[],
+  /** Mention imprimée dans l'encadré, au-dessus de la signature (ex. « Durée retenue : 36 mois, avec assurance ») */
+  mentionZone?: string,
 ): Promise<{ pdf: Buffer; hashOriginal: string; hashSigne: string }> {
   const T = TXT[lg];
   const hashOriginal = sha256(original);
@@ -92,7 +96,12 @@ export async function signerPdf(
   page.drawRectangle({ x: x0 + 1, y: yHaut - hauteur + 1, width: largeur - 2, height: ySousEntete - (yHaut - hauteur + 1), color: rgb(1, 1, 1) });
   const bas = yHaut - hauteur;
   const imgBas = bas + 5.5 * MM;
-  const echelle = Math.min((largeur - 6 * MM) / img.width, (ySousEntete - 0.5 * MM - imgBas) / img.height);
+  let hautImg = ySousEntete - 0.5 * MM;
+  if (mentionZone) {
+    page.drawText(propre(gras, mentionZone), { x: x0 + 3 * MM, y: ySousEntete - 3.2 * MM, size: 7.5, font: gras, color: bleu, maxWidth: largeur - 6 * MM });
+    hautImg = ySousEntete - 4.5 * MM;
+  }
+  const echelle = Math.min((largeur - 6 * MM) / img.width, (hautImg - imgBas) / img.height);
   page.drawImage(img, { x: x0 + 3 * MM, y: imgBas, width: img.width * echelle, height: img.height * echelle });
   const legende = `${T.signe} ${s.nom}${s.fonction ? ` (${s.fonction})` : ""} ${T.le} ${dateCourte(s.date)}`;
   coupe(police, legende, 6.5, largeur - 6 * MM).slice(0, 2).forEach((l, i) =>
@@ -113,6 +122,7 @@ export async function signerPdf(
     y -= 13 * Math.max(vs.length, 1) + 9;
   };
   ligne(libelleDoc || T.devis, `${numero} — ${T.bpa}`);
+  for (const l of lignesSup || []) ligne(l.label, l.value);
   ligne(T.signataire, s.nom);
   ligne(T.fonction, s.fonction || "");
   ligne(T.societe, s.societe || "");

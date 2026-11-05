@@ -5,6 +5,7 @@ import { MachinesProvider } from "./contexts/MachinesContext";
 import LoginPage from "./LoginPage";
 import SignerDevisPage from "./pages/SignerDevisPage";
 import ValidationDevisPage from "./pages/ValidationDevisPage";
+import SignerOffrePage from "./pages/SignerOffrePage";
 import GaleriePage from "./pages/GaleriePage";
 import RestitutionsPage from "./pages/RestitutionsPage";
 import DisponiblesPage from "./pages/DisponiblesPage";
@@ -273,6 +274,8 @@ export default function App() {
         <Route path="/devis/:numero/:jeton" element={<SignerDevisPage />} />
         {/* Page PUBLIQUE (lien personnel) : validation d'une remise > 1 000 € par Jonathan / Nathalie */}
         <Route path="/devis-validation/:numero/:jeton" element={<ValidationDevisPage />} />
+
+        <Route path="/offre-lld/:numero/:jeton" element={<SignerOffrePage />} />
 
         {/* Toute le reste de l'app interne, avec authentification + contextes. */}
         <Route

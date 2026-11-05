@@ -35,6 +35,7 @@ import {
 import { signerPdf } from "./_lib/signatureDevis.js";
 import { archiverHubspot, creerEtapesPrepa, mettreEnPreparationDevis, notifierPreparateurs, publierHubspot } from "./_lib/preparationAuto.js";
 import { collecterVentes, construireRapport, semainePrecedente } from "./_lib/rapportVentes.js";
+import { changerStatutOffre, creerOffre, genererLienOffre, modifierOffre, offreDepuisCorps, offreParJeton, offrePublique, signerOffre } from "./_lib/offresLld.js";
 
 export const maxDuration = 30;
 
@@ -819,6 +820,17 @@ export default async function handler(req: any, res: any) {
       try { return await actionPublique(req, res, b); }
       catch (e: any) { console.error("❌ signature en ligne:", e); return res.status(500).json({ error: "erreur_serveur" }); }
     }
+    // 📄 Offre LLD : page publique de signature (choix de la durée + signature)
+    if (b.action === "public_offre_lire" || b.action === "public_offre_signer") {
+      try {
+        const { ref, o, erreur } = await offreParJeton(appAdmin(), str(b.numero, 20), str(b.jeton, 40).toLowerCase());
+        if (erreur || !ref || !o) return res.status(404).json({ error: erreur || "lien_invalide" });
+        if (b.action === "public_offre_lire") return res.status(200).json({ ok: true, offre: offrePublique(o) });
+        const r = await signerOffre(appAdmin(), ref, o, b, req);
+        if (r.ok) return res.status(200).json({ ok: true, offre: r.offre });
+        return res.status(r.status).json({ error: r.error, offre: r.offre });
+      } catch (e: any) { console.error("❌ signature offre LLD:", e); return res.status(500).json({ error: "erreur_serveur" }); }
+    }
     if (b.action === "public_validation_lire" || b.action === "public_valider") {
       try { return await actionValidation(req, res, b); }
       catch (e: any) { console.error("❌ validation remise:", e); return res.status(500).json({ error: "erreur_serveur" }); }
@@ -839,6 +851,29 @@ export default async function handler(req: any, res: any) {
       email: user.email,
       tel: str(profil.telephone || profil.tel || "", 40),
     };
+
+    // ───────────── OFFRES LLD (Jonathan seul) ─────────────
+    if (action.startsWith("offre_")) {
+      if (String(profil.role || "") !== "superadmin") return res.status(403).json({ error: "Les offres LLD sont réservées à Jonathan" });
+      const app = appAdmin();
+      const hote = String(req.headers["x-forwarded-host"] || req.headers.host || "delta-vo.vercel.app");
+      try {
+        if (action === "offre_creer" || action === "offre_modifier") {
+          const { offre, erreurs } = offreDepuisCorps(body, commercial);
+          if (erreurs.length) return res.status(400).json({ error: `Indiquez : ${erreurs.join(", ")}` });
+          if (action === "offre_creer") return res.status(200).json({ ok: true, ...(await creerOffre(app, offre, commercial.nom)) });
+          return res.status(200).json({ ok: true, ...(await modifierOffre(app, str(body.numero, 20), offre, commercial.nom)) });
+        }
+        if (action === "offre_generer") return res.status(200).json({ ok: true, ...(await genererLienOffre(app, str(body.numero, 20), body.pdfBase64, body.zone_signature, hote, commercial.nom)) });
+        if (action === "offre_statut") {
+          const statut = body.statut === "refusee" ? "refusee" : body.statut === "annulee" ? "annulee" : null;
+          if (!statut) return res.status(400).json({ error: "statut" });
+          await changerStatutOffre(app, str(body.numero, 20), statut, str(body.motif, 300), commercial.nom);
+          return res.status(200).json({ ok: true });
+        }
+      } catch (e: any) { return res.status(400).json({ error: e?.message || "erreur" }); }
+      return res.status(400).json({ error: `Action inconnue : ${action}` });
+    }
 
     // ───────────── CRÉER ─────────────
     if (action === "creer") {

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { UserRole } from "../types";
 import { canEditClientsLld, canManageOffresLld, canViewBanqueLld } from "../utils/permissions";
 import ClientsLld from "../components/lld/ClientsLld";
+import OffresLld from "../components/lld/OffresLld";
 
 /**
  * 📄 Onglet LLD — locations longue durée (cahier des charges Jonathan 05/11/2026).
@@ -19,19 +20,19 @@ type Onglet = "offres" | "contrats" | "affecter" | "clients";
 export default function LldPage({ userRole, userName, userEmail }: Props) {
   const estJonathan = canManageOffresLld(userRole);
   const onglets = useMemo<{ id: Onglet; label: string; dispo: boolean }[]>(() => [
-    ...(estJonathan ? [{ id: "offres" as Onglet, label: "Offres", dispo: false }] : []),
+    ...(estJonathan ? [{ id: "offres" as Onglet, label: "Offres", dispo: true }] : []),
     { id: "contrats", label: "Contrats", dispo: false },
     ...(canEditClientsLld(userRole) ? [{ id: "affecter" as Onglet, label: "À affecter", dispo: false }] : []),
     { id: "clients", label: "Clients", dispo: true },
   ], [estJonathan, userRole]);
-  const [onglet, setOnglet] = useState<Onglet>("clients");
+  const [onglet, setOnglet] = useState<Onglet>(estJonathan ? "offres" : "clients");
   useEffect(() => { if (!onglets.some((o) => o.id === onglet && o.dispo)) setOnglet("clients"); }, [onglets, onglet]);
 
   return (
     <div className="page" style={{ padding: "16px 20px 40px" }}>
       <div style={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
         <h1 style={{ margin: 0, fontSize: 24, color: "#1a2a6e" }}>Locations longue durée</h1>
-        <span style={{ fontSize: 12, color: "#777" }}>Lot 1 : mémoire client. Offres, contrats et affectation arrivent aux lots suivants.</span>
+        <span style={{ fontSize: 12, color: "#777" }}>Contrats et affectation arrivent aux lots suivants.</span>
       </div>
       <div role="tablist" aria-label="Sections LLD" style={{ display: "flex", flexWrap: "wrap", gap: 4, borderBottom: "2px solid #dfe4ec", marginBottom: 16 }}>
         {onglets.map((o) => (
@@ -42,6 +43,7 @@ export default function LldPage({ userRole, userName, userEmail }: Props) {
           </button>
         ))}
       </div>
+      {onglet === "offres" && estJonathan && <OffresLld userName={userName} userEmail={userEmail} />}
       {onglet === "clients" && (
         <ClientsLld userName={userName} userEmail={userEmail} peutModifier={canEditClientsLld(userRole)} voitBanque={canViewBanqueLld(userRole)} />
       )}

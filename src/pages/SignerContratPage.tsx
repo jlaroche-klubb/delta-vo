@@ -61,6 +61,7 @@ export default function SignerContratPage() {
   const [cgLues, setCgLues] = useState(false); const [cgOuvertes, setCgOuvertes] = useState(false);
   const [pieces, setPieces] = useState<{ cni: boolean; rib: boolean }>({ cni: false, rib: false });
   const [envoiPiece, setEnvoiPiece] = useState<"" | "cni" | "rib">("");
+  const [ribLu, setRibLu] = useState(false);
   const [envoi, setEnvoi] = useState(false);
   const [erreur, setErreur] = useState("");
   const [details, setDetails] = useState<string[]>([]);
@@ -111,7 +112,14 @@ export default function SignerContratPage() {
   async function deposer(piece: "cni" | "rib", f: File | null) {
     if (!f) return;
     setErreur(""); setEnvoiPiece(piece);
-    try { await deposerPiecePublique(numero, jeton, piece, await preparerFichier(f)); setPieces((p) => ({ ...p, [piece]: true })); }
+    try {
+      const banque = await deposerPiecePublique(numero, jeton, piece, await preparerFichier(f));
+      setPieces((p) => ({ ...p, [piece]: true }));
+      if (piece === "rib" && banque && (banque.iban || banque.bic || banque.titulaire)) {
+        setSepa((s) => ({ ...s, iban: banque.iban || s.iban, bic: banque.bic || s.bic, titulaire: banque.titulaire || s.titulaire }));
+        setRibLu(true);
+      }
+    }
     catch (e: any) { setErreur(e?.message === "taille" ? "Fichier trop lourd (3 Mo max.)" : e?.message === "format" ? "Format accepté : JPG, PNG ou PDF" : e?.message || "Dépôt impossible"); }
     finally { setEnvoiPiece(""); }
   }
@@ -252,6 +260,8 @@ export default function SignerContratPage() {
                     Créancier : <b>{c.sepa.creancier}</b> · ICS {c.sepa.ics} · référence unique du mandat <b>{c.rum}</b> · paiement récurrent, prélèvement le {c.jour_prelevement} du mois.<br />
                     En signant ce contrat, vous autorisez {c.sepa.creancier} à envoyer des instructions à votre banque pour débiter votre compte, et votre banque à débiter votre compte conformément à ces instructions. Vous bénéficiez du droit d'être remboursé par votre banque selon les conditions décrites dans votre convention de compte ; toute demande de remboursement doit être présentée dans les 8 semaines suivant la date de débit.
                   </div>
+                  {ribLu ? <div style={{ fontSize: 13, color: VERT, fontWeight: 600, marginBottom: 8 }}>✓ Coordonnées lues sur votre RIB — vérifiez-les avant de signer.</div>
+                    : <div style={{ fontSize: 13, color: "#555", marginBottom: 8 }}>💡 Déposez votre RIB à l'étape 3 : l'IBAN, le BIC et le titulaire se remplissent automatiquement.</div>}
                   <div style={grille}>
                     <label style={lab}>Titulaire du compte *<input style={{ ...champ, marginTop: 4, ...okStyle(!!sepaEff.titulaire.trim()) }} value={sepa.titulaire} onChange={(e) => setSepa({ ...sepa, titulaire: e.target.value })} /></label>
                     <label style={lab}>IBAN *<input style={{ ...champ, marginTop: 4, fontFamily: "ui-monospace, monospace", ...okStyle(!sepa.iban || ibanValide(sepa.iban)) }} value={sepa.iban} onChange={(e) => setSepa({ ...sepa, iban: e.target.value.toUpperCase() })} placeholder="FR76 …" autoComplete="off" />{sepa.iban && !ibanValide(sepa.iban) && <span style={{ fontSize: 11.5, color: ROUGE }}>IBAN invalide (clé de contrôle)</span>}</label>

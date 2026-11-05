@@ -302,6 +302,11 @@ export interface OffreLLD {
   pdf_url?: string;
   pdf_signe_url?: string;
   signature_jeton?: string;
+  /** Lien envoyé par email depuis Delta VO */
+  envoye_le?: string;
+  envoye_a?: string;
+  /** Contrats créés à la signature */
+  contrats?: string[];
   zone_signature?: { page: number; x: number; y: number; w: number; h: number };
   choix?: ChoixOffreLLD;
   signature?: { nom: string; fonction?: string; email?: string; date: string; ip?: string };

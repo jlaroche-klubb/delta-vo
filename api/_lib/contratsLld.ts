@@ -17,6 +17,7 @@ import admin from "firebase-admin";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { coupe, propre, signerPdf } from "./signatureDevis.js";
 import { fetchAvecReessai } from "./auth.js";
+import { demanderIA, extraireJSON } from "./ia.js";
 
 const BUCKET = "delta-vo.firebasestorage.app";
 const COL = "contrats_lld";
@@ -111,7 +112,9 @@ export async function creerContratsDepuisOffre(app: admin.app.App, o: any): Prom
   const choix = o.choix || {};
   const fiche: any = o.client_id ? (await db.collection("clients_lld").doc(String(o.client_id)).get()).data() : null;
   const cfg: any = (await db.collection("config").doc("lld").get()).data() || {};
-  const client = fiche ? clientContratDepuisFiche(fiche) : clientContratDepuisFiche({ ...o.client, signataire: { nom: o.signature?.nom, email: o.signature?.email || o.client?.contact_email, tel: o.client?.contact_tel } });
+  // Fiche en mémoire, complétée par ce que le client a saisi à la signature de l'offre (les valeurs vides n'écrasent rien)
+  const saisi: any = Object.fromEntries(Object.entries(o.client || {}).filter(([, v]) => v !== "" && v !== null && v !== undefined));
+  const client = clientContratDepuisFiche({ ...(fiche || {}), ...saisi, signataire: saisi.signataire || fiche?.signataire || { nom: o.signature?.nom, email: o.signature?.email || o.client?.contact_email, tel: o.client?.contact_tel } });
   if (!client.contact_nom) { client.contact_nom = str(o.signature?.nom, 80); client.contact_email = client.contact_email || str(o.signature?.email, 120).toLowerCase(); }
   const duree = (o.durees || []).find((d: any) => d.mois === choix.duree_mois) || {};
   const assurance = !!choix.avec_assurance;
@@ -360,7 +363,7 @@ export async function contratPublique(app: admin.app.App, c: any) {
 const TYPES_PIECE: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "application/pdf": "pdf" };
 
 /** 📎 Dépôt d'une pièce (CNI ou RIB) avant signature — Storage privé (pas de jeton de téléchargement) */
-export async function deposerPieceContrat(app: admin.app.App, ref: admin.firestore.DocumentReference, c: any, body: any): Promise<{ ok: boolean; status: number; error?: string }> {
+export async function deposerPieceContrat(app: admin.app.App, ref: admin.firestore.DocumentReference, c: any, body: any): Promise<{ ok: boolean; status: number; error?: string; banque?: { titulaire: string; iban: string; bic: string } }> {
   if (c.statut !== "envoye") return { ok: false, status: 409, error: "indisponible" };
   const type = body.piece === "cni" ? "cni" : body.piece === "rib" ? "rib" : "";
   if (!type) return { ok: false, status: 400, error: "piece_inconnue" };
@@ -375,7 +378,24 @@ export async function deposerPieceContrat(app: admin.app.App, ref: admin.firesto
   await admin.storage(app).bucket(BUCKET).file(chemin).save(data, { contentType, resumable: false });
   const piece = { chemin, nom: str(body.nom, 120) || `${type}.${ext}`, type: contentType, taille: data.length, le: new Date().toISOString() };
   await ref.update({ [`pieces.${type}`]: piece, modifie_le: piece.le });
-  return { ok: true, status: 200 };
+  // 🤖 RIB : lecture des coordonnées bancaires par l'IA pour préremplir le mandat SEPA (le client vérifie avant de signer ; rien n'est enregistré ici)
+  let banque: { titulaire: string; iban: string; bic: string } | undefined;
+  if (type === "rib") banque = await lireRibIA(data, contentType).catch(() => undefined);
+  return { ok: true, status: 200, banque };
+}
+
+/** Extraction titulaire / IBAN / BIC d'un RIB (image ou PDF) — modèle rapide, réponse JSON ; IBAN vérifié (clé 97) */
+export async function lireRibIA(data: Buffer, contentType: string): Promise<{ titulaire: string; iban: string; bic: string } | undefined> {
+  const partie = contentType === "application/pdf" ? { pdf: { data: data.toString("base64") } } : { image: { mediaType: contentType, data: data.toString("base64") } };
+  const r = await demanderIA({
+    modele: "rapide", json: true, maxTokens: 400, timeoutMs: 25_000,
+    parties: [{ texte: "Ce document est un relevé d'identité bancaire (RIB) français ou européen. Extrais exactement, sans inventer : le nom du titulaire du compte (tel qu'imprimé), l'IBAN complet (lettres et chiffres, sans espaces) et le BIC/SWIFT. Réponds uniquement en JSON : {\"titulaire\": \"\", \"iban\": \"\", \"bic\": \"\"}. Champ vide si illisible." }, partie],
+  });
+  if (!r.ok) return undefined;
+  const j = extraireJSON(r.texte) || {};
+  const iban = String(j.iban || "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  const bic = String(j.bic || "").replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+  return { titulaire: str(j.titulaire, 120), iban: ibanValide(iban) ? iban : "", bic: bicValide(bic) ? bic : "" };
 }
 
 /** 📥 Lecture d'une pièce (Jonathan + assistantes) — renvoyée en base64, jamais d'URL publique */

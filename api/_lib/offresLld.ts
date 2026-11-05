@@ -56,6 +56,7 @@ export function offreDepuisCorps(b: any, commercialParDefaut: { nom: string; ema
   const courte = b.courte_duree === true;
   const erreurs: string[] = [];
   if (!str(c.raison_sociale)) erreurs.push("client");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str(c.contact_email, 120))) erreurs.push("l'email du client");
   if (!str(b.modele)) erreurs.push("modèle");
   if (!durees.length) erreurs.push("au moins une durée avec un loyer");
   if (courte && durees.some((d: any) => d.mois > 11)) erreurs.push("courte durée : 11 mois maximum");
@@ -143,6 +144,31 @@ export async function genererLienOffre(app: admin.app.App, numero: string, pdfBa
   return { pdf_url: pdfUrl, lien: lienOffre(hote, numero, jeton) };
 }
 
+/** 📧 Envoi du lien de signature au client par email (après génération du PDF) — Jonathan peut aussi copier le lien */
+export async function envoyerLienOffre(app: admin.app.App, numero: string, hote: string, par: string): Promise<{ envoye_a: string }> {
+  const ref = admin.firestore(app).collection(COL).doc(numero);
+  const o: any = (await ref.get()).data();
+  if (!o) throw new Error(`Offre ${numero} introuvable`);
+  if (o.statut !== "generee" || !o.signature_jeton || !o.pdf_url) throw new Error("Générez d'abord le PDF et le lien");
+  const dest = str(o.client?.contact_email, 120).toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(dest)) throw new Error("Email du client manquant sur l'offre");
+  const lien = lienOffre(hote, numero, o.signature_jeton);
+  const dureesTxt = (o.durees || []).map((d: any) => `${d.mois} mois`).join(" / ");
+  const ok = await emailBrevo([{ email: dest, name: o.client?.contact_nom || o.client?.raison_sociale }],
+    `Proposition commerciale ${numero} — location longue durée ${esc(o.modele)}`,
+    `<p>Bonjour${o.client?.contact_nom ? " " + esc(o.client.contact_nom) : ""},</p>` +
+    `<p>Veuillez trouver ci-joint notre proposition commerciale <b>${esc(numero)}</b> pour la location longue durée d'une nacelle <b>${esc(o.modele)}</b>${o.quantite > 1 ? ` (× ${o.quantite})` : ""}, formule ${o.full_services ? "Full services" : "Sans entretien"}${dureesTxt ? ` — durée${(o.durees || []).length > 1 ? "s au choix" : ""} : ${esc(dureesTxt)}` : ""}.</p>` +
+    `<p>Pour l'accepter, ouvrez le lien ci-dessous : vous y choisirez votre durée, indiquerez les coordonnées de votre société pour l'établissement du contrat, et signerez en ligne en quelques minutes.</p>` +
+    `<p style="margin:18px 0"><a href="${lien}" style="background:#1e8e3e;color:white;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:bold">Consulter et signer la proposition</a></p>` +
+    `<p style="font-size:12px;color:#666">Lien valable jusqu'au ${esc(String(o.date_expiration || "").split("-").reverse().join("/"))}. Si le bouton ne fonctionne pas : ${lien}</p>` +
+    `<p>Cordialement,<br/>${esc(o.commercial?.nom || "")}${o.commercial?.tel ? `<br/>${esc(o.commercial.tel)}` : ""}<br/>Delta Services</p>`,
+    { attachment: [{ name: `Proposition_LLD_${numero}.pdf`, url: o.pdf_url }], replyTo: o.commercial?.email ? { email: o.commercial.email, name: o.commercial.nom } : undefined });
+  if (!ok) throw new Error("L'email n'a pas pu être envoyé (Brevo)");
+  const now = new Date().toISOString();
+  await ref.update({ envoye_le: now, envoye_a: dest, modifie_le: now, historique: admin.firestore.FieldValue.arrayUnion({ date: now, action: `lien de signature envoyé par email à ${dest}`, par }) });
+  return { envoye_a: dest };
+}
+
 export async function changerStatutOffre(app: admin.app.App, numero: string, statut: "refusee" | "annulee", motif: string, par: string): Promise<void> {
   const ref = admin.firestore(app).collection(COL).doc(numero);
   const o: any = (await ref.get()).data();
@@ -178,7 +204,72 @@ export function offrePublique(o: any) {
   };
 }
 
-export interface ResultatSignatureOffre { ok: boolean; status: number; error?: string; offre?: any }
+/** Fiche société connue (mémoire client) pour préremplir l'étape « coordonnées » de la signature — jamais la banque ni les notes */
+export async function ficheOffrePublique(app: admin.app.App, o: any) {
+  const f: any = o.client_id ? (await admin.firestore(app).collection("clients_lld").doc(String(o.client_id)).get()).data() || {} : {};
+  const c = o.client || {};
+  const ct = (x: any) => (x ? { nom: str(x.nom, 80), fonction: str(x.fonction, 80), email: str(x.email, 120), tel: str(x.tel, 40) } : null);
+  return {
+    raison_sociale: str(f.raison_sociale || c.raison_sociale, 120), siret: str(f.siret, 14), siren: str(f.siren || c.siren, 9), adresse: str(f.adresse || c.adresse, 200), cp: str(f.cp || c.cp, 10), ville: str(f.ville || c.ville, 80),
+    tva_intra: str(f.tva_intra, 20), naf: str(f.naf, 10), forme_juridique: str(f.forme_juridique, 80), telephone: str(f.telephone, 40), fax: str(f.fax, 40), email: str(f.email, 120),
+    facturation_societe: str(f.facturation_societe, 120), facturation_email: str(f.facturation_email, 120), facturation_adresse: str(f.facturation_adresse, 200),
+    contact_compta: ct(f.contact_compta), contact_maintenance: ct(f.contact_maintenance), commande_obligatoire: typeof f.commande_obligatoire === "boolean" ? f.commande_obligatoire : null, contact_commande: ct(f.contact_commande),
+    signataire: { nom: str(f.signataire?.nom || c.contact_nom, 80), fonction: str(f.signataire?.fonction, 80), email: str(f.signataire?.email || c.contact_email, 120), tel: str(f.signataire?.tel || c.contact_tel, 40) },
+    deja_complete: !!(f.siret && f.adresse && f.telephone && f.email),
+  };
+}
+
+export interface ResultatSignatureOffre { ok: boolean; status: number; error?: string; details?: string[]; offre?: any }
+
+const emailOk = (e: string) => !e || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+const telOk = (t: string) => !t || String(t).replace(/\D/g, "").length >= 9;
+function contactDe(c: any) { return c && typeof c === "object" ? { nom: str(c.nom, 80), fonction: str(c.fonction, 80), email: str(c.email, 120).toLowerCase(), tel: str(c.tel, 40) } : { nom: "", fonction: "", email: "", tel: "" }; }
+/** Fiche société saisie à la signature de l'offre : obligatoires = raison sociale, SIRET 14, adresse, téléphone, email ; contacts facultatifs (redemandés au contrat) */
+export function ficheDepuisCorps(f: any, signataire: { nom: string; fonction: string; email: string; tel: string }) {
+  f = f || {};
+  const fiche = {
+    raison_sociale: str(f.raison_sociale, 120), siret: String(f.siret || "").replace(/\D/g, "").slice(0, 14), siren: "", adresse: str(f.adresse, 200), cp: str(f.cp, 10), ville: str(f.ville, 80),
+    tva_intra: str(f.tva_intra, 20).toUpperCase().replace(/\s/g, ""), naf: str(f.naf, 10).toUpperCase(), forme_juridique: str(f.forme_juridique, 80), telephone: str(f.telephone, 40), fax: str(f.fax, 40), email: str(f.email, 120).toLowerCase(),
+    facturation_societe: str(f.facturation_societe, 120), facturation_email: str(f.facturation_email, 120).toLowerCase(), facturation_adresse: str(f.facturation_adresse, 200),
+    contact_compta: contactDe(f.contact_compta), contact_maintenance: contactDe(f.contact_maintenance), commande_obligatoire: f.commande_obligatoire === true, contact_commande: contactDe(f.contact_commande),
+    signataire: { nom: signataire.nom, fonction: signataire.fonction, email: signataire.email, tel: signataire.tel },
+  };
+  fiche.siren = fiche.siret.slice(0, 9);
+  const e: string[] = [];
+  if (fiche.raison_sociale.length < 2) e.push("raison sociale");
+  if (fiche.siret.length !== 14) e.push("SIRET (14 chiffres)");
+  if (!fiche.adresse || !fiche.cp || !fiche.ville) e.push("adresse complète");
+  if (!fiche.telephone || !telOk(fiche.telephone)) e.push("téléphone");
+  if (!fiche.email || !emailOk(fiche.email)) e.push("email de la société");
+  if (!emailOk(fiche.facturation_email)) e.push("email de facturation");
+  for (const [lib, c] of [["contact comptabilité", fiche.contact_compta], ["contact maintenance", fiche.contact_maintenance], ["contact n° de commande", fiche.contact_commande]] as const) {
+    if (!emailOk(c.email) || !telOk(c.tel)) e.push(`${lib} : email ou téléphone invalide`);
+  }
+  return { fiche, erreurs: e };
+}
+
+/** 🧠 Mémoire client après signature de l'offre : les champs vides sont remplis directement (Jonathan n'avait saisi que le nom), les écarts partent en relecture */
+async function alimenterMemoireClient(app: admin.app.App, clientId: string, fiche: any, numero: string, now: string): Promise<void> {
+  const db = admin.firestore(app);
+  const ref = db.collection("clients_lld").doc(clientId);
+  const avant: any = (await ref.get()).data();
+  if (!avant) return;
+  const direct: Record<string, any> = {};
+  const modifs: any[] = [];
+  const norm = (v: string) => v.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ").trim();
+  const cmp = (champ: string, a: any, b: any) => {
+    const sa = str(a, 200), sb = str(b, 200);
+    if (!sb) return;
+    if (!sa) direct[champ] = sb;
+    else if (norm(sa) !== norm(sb)) modifs.push({ date: now, contrat: numero, champ, avant: sa, apres: sb });
+  };
+  for (const k of ["siret", "siren", "adresse", "cp", "ville", "tva_intra", "naf", "forme_juridique", "telephone", "fax", "email", "facturation_societe", "facturation_email", "facturation_adresse"]) cmp(k, avant[k], fiche[k]);
+  if (norm(str(avant.raison_sociale, 120)) !== norm(fiche.raison_sociale)) modifs.push({ date: now, contrat: numero, champ: "raison_sociale", avant: str(avant.raison_sociale, 120), apres: fiche.raison_sociale });
+  for (const k of ["contact_compta", "contact_maintenance", "contact_commande", "signataire"]) for (const j of ["nom", "fonction", "tel", "email"]) cmp(`${k}.${j}`, avant[k]?.[j], fiche[k]?.[j]);
+  if (fiche.commande_obligatoire && avant.commande_obligatoire !== true) direct.commande_obligatoire = true;
+  if (Object.keys(direct).length) await ref.update({ ...direct, modifie_le: now, modifie_par: `signature offre ${numero}` });
+  if (modifs.length) await ref.update({ modifications_en_attente: admin.firestore.FieldValue.arrayUnion(...modifs) });
+}
 
 export async function signerOffre(app: admin.app.App, ref: admin.firestore.DocumentReference, o: any, body: any, req: any): Promise<ResultatSignatureOffre> {
   const vue = offrePublique(o);
@@ -200,6 +291,9 @@ export async function signerOffre(app: admin.app.App, ref: admin.firestore.Docum
   const cautionTtc = Math.round(totalMensuel * 1.2 * (o.caution_mois || 1) * 100) / 100;
   const png = Buffer.from(String(body.signature || "").replace(/^data:image\/png;base64,/, ""), "base64");
   if (png.length < 300 || png.length > 600_000 || png.readUInt32BE(0) !== 0x89504e47) return { ok: false, status: 400, error: "signature_requise" };
+  // 🏢 Coordonnées de la société pour le contrat (SIRET, adresse, contacts) — obligatoires depuis le 05/11
+  const { fiche, erreurs: erreursFiche } = ficheDepuisCorps(body.fiche, { nom, fonction, email, tel: str(body.tel, 40) });
+  if (erreursFiche.length) return { ok: false, status: 400, error: "fiche_incomplete", details: erreursFiche };
 
   const [original] = await admin.storage(app).bucket(BUCKET).file(`offres_lld/${o.numero}.pdf`).download();
   const date = new Date();
@@ -217,6 +311,7 @@ export async function signerOffre(app: admin.app.App, ref: admin.firestore.Docum
     if (cur?.statut === "signee") return true;
     tx.update(ref, {
       statut: "signee", signe_le: now, pdf_signe_url: url, choix,
+      client: { ...(o.client || {}), raison_sociale: fiche.raison_sociale, siren: fiche.siren, siret: fiche.siret, adresse: fiche.adresse, cp: fiche.cp, ville: fiche.ville, contact_nom: nom, contact_email: email || o.client?.contact_email || "", contact_tel: str(body.tel, 40) || o.client?.contact_tel || "" },
       signature: { nom, fonction, email, date: now, ip, navigateur, empreinte_original: signe.hashOriginal, empreinte_signe: signe.hashSigne },
       historique: admin.firestore.FieldValue.arrayUnion({ date: now, action: `signée en ligne par ${nom} — ${mention}`, par: nom }),
     });
@@ -224,8 +319,10 @@ export async function signerOffre(app: admin.app.App, ref: admin.firestore.Docum
   });
   if (deja) return { ok: false, status: 409, error: "signee", offre: offrePublique({ ...o, statut: "signee" }) };
 
-  const o2 = { ...o, statut: "signee", pdf_signe_url: url, choix, signature: { nom, fonction, email, date: now }, signe_le: now };
+  const o2 = { ...o, statut: "signee", pdf_signe_url: url, choix, signature: { nom, fonction, email, date: now }, signe_le: now, client: { ...(o.client || {}), ...fiche, contact_nom: nom, contact_email: email || o.client?.contact_email || "", contact_tel: str(body.tel, 40) || "" } };
   const vue2 = offrePublique(o2);
+  // 🧠 Mémoire client complétée avec les coordonnées saisies (avant la création des contrats, qui lisent la fiche)
+  if (o.client_id) { try { await alimenterMemoireClient(app, String(o.client_id), fiche, o.numero, now); } catch (e: any) { console.error(`⚠ mémoire client ${o.client_id} :`, e?.message || e); } }
   // 📄 Lot 3 : un contrat en brouillon par nacelle (best-effort : la signature est déjà enregistrée)
   let contrats: string[] = [];
   try { contrats = await creerContratsDepuisOffre(app, o2); } catch (e: any) { console.error(`❌ contrats depuis l'offre ${o.numero} :`, e?.message || e); }

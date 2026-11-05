@@ -30,6 +30,10 @@ export function modifierOffreLLD(numero: string, o: OffreLLDSaisie): Promise<{ d
 export function genererLienOffreLLD(numero: string, pdfBase64: string, zone: OffreLLD["zone_signature"]): Promise<{ pdf_url: string; lien: string }> {
   return appel({ action: "offre_generer", numero, pdfBase64, zone_signature: zone });
 }
+/** 📧 Envoie le lien de signature au client (email de l'offre), avec le PDF en pièce jointe */
+export function envoyerLienOffreLLD(numero: string): Promise<{ envoye_a: string }> {
+  return appel({ action: "offre_envoyer", numero });
+}
 export function changerStatutOffreLLD(numero: string, statut: "refusee" | "annulee", motif = ""): Promise<void> {
   return appel({ action: "offre_statut", numero, statut, motif });
 }
@@ -52,9 +56,18 @@ async function appelPublic(corps: Record<string, any>): Promise<any> {
   if (!r.ok) throw Object.assign(new Error(j.error || `Erreur ${r.status}`), { details: j });
   return j;
 }
-export async function lireOffrePublique(numero: string, jeton: string): Promise<OffrePublique> {
-  return (await appelPublic({ action: "public_offre_lire", numero, jeton })).offre;
+export interface ContactFiche { nom: string; fonction: string; email: string; tel: string }
+/** Coordonnées société demandées à la signature de l'offre (pour rédiger le contrat) */
+export interface FicheOffre {
+  raison_sociale: string; siret: string; siren: string; adresse: string; cp: string; ville: string; tva_intra: string; naf: string; forme_juridique: string; telephone: string; fax: string; email: string;
+  facturation_societe: string; facturation_email: string; facturation_adresse: string;
+  contact_compta: ContactFiche | null; contact_maintenance: ContactFiche | null; commande_obligatoire: boolean | null; contact_commande: ContactFiche | null;
+  signataire: ContactFiche; deja_complete: boolean;
 }
-export async function signerOffrePublique(numero: string, jeton: string, d: { nom: string; fonction: string; email: string; accepte: boolean; signature: string; duree_mois: number; avec_assurance: boolean; options: string[] }): Promise<OffrePublique> {
+export async function lireOffrePublique(numero: string, jeton: string): Promise<{ offre: OffrePublique; fiche: FicheOffre }> {
+  const r = await appelPublic({ action: "public_offre_lire", numero, jeton });
+  return { offre: r.offre, fiche: r.fiche };
+}
+export async function signerOffrePublique(numero: string, jeton: string, d: { nom: string; fonction: string; email: string; tel: string; accepte: boolean; signature: string; duree_mois: number; avec_assurance: boolean; options: string[]; fiche: Omit<FicheOffre, "signataire" | "deja_complete" | "siren"> }): Promise<OffrePublique> {
   return (await appelPublic({ action: "public_offre_signer", numero, jeton, ...d })).offre;
 }

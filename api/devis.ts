@@ -35,7 +35,7 @@ import {
 import { signerPdf } from "./_lib/signatureDevis.js";
 import { archiverHubspot, creerEtapesPrepa, mettreEnPreparationDevis, notifierPreparateurs, publierHubspot } from "./_lib/preparationAuto.js";
 import { collecterVentes, construireRapport, semainePrecedente } from "./_lib/rapportVentes.js";
-import { changerStatutOffre, creerOffre, genererLienOffre, modifierOffre, offreDepuisCorps, offreParJeton, offrePublique, signerOffre } from "./_lib/offresLld.js";
+import { changerStatutOffre, creerOffre, envoyerLienOffre, ficheOffrePublique, genererLienOffre, modifierOffre, offreDepuisCorps, offreParJeton, offrePublique, signerOffre } from "./_lib/offresLld.js";
 import { annulerContrat, contratDepuisCorps, contratParJeton, contratPublique, controlerContrat, creerContratManuel, deposerPieceContrat, enregistrerPdfContrat, genererLienContrat, lirePieceContrat, modifierContrat, signerContrat } from "./_lib/contratsLld.js";
 
 export const maxDuration = 30;
@@ -826,10 +826,10 @@ export default async function handler(req: any, res: any) {
       try {
         const { ref, o, erreur } = await offreParJeton(appAdmin(), str(b.numero, 20), str(b.jeton, 40).toLowerCase());
         if (erreur || !ref || !o) return res.status(404).json({ error: erreur || "lien_invalide" });
-        if (b.action === "public_offre_lire") return res.status(200).json({ ok: true, offre: offrePublique(o) });
+        if (b.action === "public_offre_lire") return res.status(200).json({ ok: true, offre: offrePublique(o), fiche: await ficheOffrePublique(appAdmin(), o) });
         const r = await signerOffre(appAdmin(), ref, o, b, req);
         if (r.ok) return res.status(200).json({ ok: true, offre: r.offre });
-        return res.status(r.status).json({ error: r.error, offre: r.offre });
+        return res.status(r.status).json({ error: r.error, details: r.details, offre: r.offre });
       } catch (e: any) { console.error("❌ signature offre LLD:", e); return res.status(500).json({ error: "erreur_serveur" }); }
     }
     // 📑 Contrat LLD : page publique (fiche locataire, SEPA, CGV, pièces, signature)
@@ -839,7 +839,7 @@ export default async function handler(req: any, res: any) {
         const { ref, c, erreur } = await contratParJeton(app, str(b.numero, 20), str(b.jeton, 40).toLowerCase());
         if (erreur || !ref || !c) return res.status(404).json({ error: erreur || "lien_invalide" });
         if (b.action === "public_contrat_lire") return res.status(200).json({ ok: true, contrat: await contratPublique(app, c) });
-        if (b.action === "public_contrat_piece") { const r = await deposerPieceContrat(app, ref, c, b); return res.status(r.status).json(r.ok ? { ok: true } : { error: r.error }); }
+        if (b.action === "public_contrat_piece") { const r = await deposerPieceContrat(app, ref, c, b); return res.status(r.status).json(r.ok ? { ok: true, banque: r.banque || null } : { error: r.error }); }
         const r = await signerContrat(app, ref, c, b, req);
         if (r.ok) return res.status(200).json({ ok: true, contrat: r.contrat });
         return res.status(r.status).json({ error: r.error, details: r.details, contrat: r.contrat });
@@ -886,6 +886,7 @@ export default async function handler(req: any, res: any) {
           return res.status(200).json({ ok: true, ...(await modifierOffre(app, str(body.numero, 20), offre, commercial.nom)) });
         }
         if (action === "offre_generer") return res.status(200).json({ ok: true, ...(await genererLienOffre(app, str(body.numero, 20), body.pdfBase64, body.zone_signature, hote, commercial.nom)) });
+        if (action === "offre_envoyer") return res.status(200).json({ ok: true, ...(await envoyerLienOffre(app, str(body.numero, 20), hote, commercial.nom)) });
         if (action === "offre_statut") {
           const statut = body.statut === "refusee" ? "refusee" : body.statut === "annulee" ? "annulee" : null;
           if (!statut) return res.status(400).json({ error: "statut" });

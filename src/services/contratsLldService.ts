@@ -77,8 +77,9 @@ async function appelPublic(corps: Record<string, any>): Promise<any> {
 export async function lireContratPublique(numero: string, jeton: string): Promise<ContratPublic> {
   return (await appelPublic({ action: "public_contrat_lire", numero, jeton })).contrat;
 }
-export async function deposerPiecePublique(numero: string, jeton: string, piece: "cni" | "rib", fichier: { base64: string; content_type: string; nom: string }): Promise<void> {
-  await appelPublic({ action: "public_contrat_piece", numero, jeton, piece, ...fichier });
+/** Dépôt d'une pièce ; pour le RIB, le serveur renvoie les coordonnées bancaires lues par l'IA (préremplissage du mandat, à vérifier par le client) */
+export async function deposerPiecePublique(numero: string, jeton: string, piece: "cni" | "rib", fichier: { base64: string; content_type: string; nom: string }): Promise<{ titulaire: string; iban: string; bic: string } | null> {
+  return (await appelPublic({ action: "public_contrat_piece", numero, jeton, piece, ...fichier })).banque || null;
 }
 export interface SignatureContratSaisie {
   nom: string; fonction: string; email: string; tel: string; accepte_cg: boolean; signature: string;

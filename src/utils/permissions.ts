@@ -46,6 +46,30 @@ export function canAccessAdmin(role: UserRole): boolean {
   return isSuperAdmin(role);
 }
 
+// ==================== LLD (offres, contrats, clients) ====================
+// Cahier des charges Jonathan 05/11/2026. Nathalie (admin) = niveau assistante
+// tant que Jonathan n'a pas tranché.
+
+/** Onglet LLD : pas d'atelier ni de dealers */
+export function canAccessLld(role: UserRole): boolean {
+  return ["superadmin", "admin", "secretaire", "vendeur_fr"].includes(role);
+}
+
+/** Offres LLD et paramètres LLD : Jonathan seulement */
+export function canManageOffresLld(role: UserRole): boolean {
+  return isSuperAdmin(role);
+}
+
+/** Mémoire client : créer, modifier, relire les corrections du client */
+export function canEditClientsLld(role: UserRole): boolean {
+  return ["superadmin", "admin", "secretaire"].includes(role);
+}
+
+/** 🔒 Banque, CNI, RIB : jamais les commerciaux */
+export function canViewBanqueLld(role: UserRole): boolean {
+  return ["superadmin", "admin", "secretaire"].includes(role);
+}
+
 export function canAccessExport(_role: UserRole): boolean {
   return true; // Onglet Export visible par tous les rôles
 }
@@ -230,6 +254,7 @@ export function getAccessiblePages(role: UserRole): string[] {
   
   if (canAccessRestitutions(role)) pages.push("restitutions");
   if (canAccessDisponibles(role)) pages.push("disponibles");
+  if (canAccessLld(role)) pages.push("lld");
   if (canAccessExport(role)) pages.push("export");
   if (canAccessEnCours(role)) pages.push("encours");
   if (canAccessCloturees(role)) pages.push("cloturees");

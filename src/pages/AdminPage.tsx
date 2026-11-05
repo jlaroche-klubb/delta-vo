@@ -12,6 +12,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { chargerConfigDevis, enregistrerConfigDevis, envoyerRapportVentes, type ConfigDevis } from "../services/devisVenteService";
 import { viderCatalogueHubspot } from "../services/hubspotService";
+import ParametresLld from "../components/lld/ParametresLld";
 
 interface PendingUser {
   id: string;
@@ -449,6 +450,17 @@ export default function AdminPage() {
           </>
         )}
       </section>
+
+      {/* 📄 PARAMÈTRES LLD (Jonathan) */}
+      {profile?.role === "superadmin" && (
+        <section className="admin-section">
+          <div className="section-header">
+            <h2>📄 Paramètres LLD (offres et contrats de location longue durée)</h2>
+            <p className="section-desc">Modèles, grille tarifaire, options, prestations, société, fournisseur, SEPA, équipe « Votre agence ». Listes : une ligne par élément, champs séparés par « ; ».</p>
+          </div>
+          <ParametresLld />
+        </section>
+      )}
 
       {/* ACTIVE USERS */}
       <section className="admin-section">

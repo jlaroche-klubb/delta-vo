@@ -13,6 +13,7 @@ const en: TranslationSchema = {
   },
   nav: {
     restitutions: "Returns",
+    lld: "LLD",
     disponibles: "Available",
     export: "Export",
     encours: "In preparation",

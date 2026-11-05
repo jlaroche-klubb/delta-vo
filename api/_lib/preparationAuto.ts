@@ -89,7 +89,7 @@ function site(raw?: string | null): string {
 }
 
 /** 📧 Préparateurs du site prévenus — même fonction serveur que l'appli (best-effort) */
-export async function notifierPreparateurs(app: admin.app.App, d: any, typePrepa: "normale" | "en_etat", acheteur: string, commercial: string, livraison: string, par: string): Promise<string> {
+export async function notifierPreparateurs(app: admin.app.App, d: any, typePrepa: "normale" | "en_etat", acheteur: string, commercial: string, livraison: string, par: string, typeSortie: "vente" | "lld" = "vente"): Promise<string> {
   const s = site(d.localite);
   if (!s) return "site inconnu : préparateurs non prévenus";
   try {
@@ -98,7 +98,7 @@ export async function notifierPreparateurs(app: admin.app.App, d: any, typePrepa
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${await jetonService(app)}` },
       body: JSON.stringify({
         immat: d.immat, site: s, reference: d.numero_dossier || "", type_nacelle: d.type_nacelle || "", modele_porteur: d.modele_porteur || "",
-        annee: d.annee_circulation || "", type_prepa: typePrepa, type_sortie: "vente", acheteur, commercial, date_livraison_prevue: livraison, par,
+        annee: d.annee_circulation || "", type_prepa: typePrepa, type_sortie: typeSortie, acheteur, commercial, date_livraison_prevue: livraison, par,
         etapes: creerEtapesPrepa(typePrepa).map((e) => e.label),
       }),
       signal: AbortSignal.timeout(20_000),

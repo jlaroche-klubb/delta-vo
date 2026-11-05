@@ -36,7 +36,7 @@ import { signerPdf } from "./_lib/signatureDevis.js";
 import { archiverHubspot, creerEtapesPrepa, mettreEnPreparationDevis, notifierPreparateurs, publierHubspot } from "./_lib/preparationAuto.js";
 import { collecterVentes, construireRapport, semainePrecedente } from "./_lib/rapportVentes.js";
 import { changerStatutOffre, creerOffre, envoyerLienOffre, ficheOffrePublique, genererLienOffre, modifierOffre, offreDepuisCorps, offreParJeton, offrePublique, signerOffre } from "./_lib/offresLld.js";
-import { annulerContrat, contratDepuisCorps, contratParJeton, contratPublique, controlerContrat, creerContratManuel, deposerPieceContrat, enregistrerPdfContrat, genererLienContrat, lirePieceContrat, modifierContrat, signerContrat } from "./_lib/contratsLld.js";
+import { affecterContrat, annulerContrat, contratDepuisCorps, contratParJeton, contratPublique, controlerContrat, creerContratManuel, deposerPieceContrat, desaffecterContrat, enregistrerPdfContrat, genererLienContrat, lirePieceContrat, livrerContrat, modifierContrat, signerContrat } from "./_lib/contratsLld.js";
 
 export const maxDuration = 30;
 
@@ -845,12 +845,18 @@ export default async function handler(req: any, res: any) {
         return res.status(r.status).json({ error: r.error, details: r.details, contrat: r.contrat });
       } catch (e: any) { console.error("❌ signature contrat LLD:", e); return res.status(500).json({ error: "erreur_serveur" }); }
     }
-    // 📎 Pièces d'un contrat LLD (CNI, RIB, contrat signé) : Jonathan + assistantes (Nathalie, secrétaires)
-    if (b.action === "contrat_piece") {
+    // 📎 Pièces d'un contrat LLD (CNI, RIB, contrat signé) et 🚚 affectation / livraison : Jonathan + assistantes (Nathalie, secrétaires)
+    if (["contrat_piece", "contrat_affecter", "contrat_desaffecter", "contrat_livrer"].includes(String(b.action))) {
       const u = await exigerUtilisateur(req, res, { roles: ["superadmin", "admin", "secretaire"] });
       if (!u) return;
-      try { return res.status(200).json({ ok: true, ...(await lirePieceContrat(appAdmin(), str(b.numero, 20), str(b.piece, 10))) }); }
-      catch (e: any) { return res.status(404).json({ error: e?.message || "Pièce introuvable" }); }
+      const p = (await admin.firestore(appAdmin()).collection("users").doc(u.uid).get()).data() || {};
+      const par = `${p.prenom || ""} ${p.nom || ""}`.trim() || u.email;
+      try {
+        if (b.action === "contrat_piece") return res.status(200).json({ ok: true, ...(await lirePieceContrat(appAdmin(), str(b.numero, 20), str(b.piece, 10))) });
+        if (b.action === "contrat_affecter") return res.status(200).json({ ok: true, ...(await affecterContrat(appAdmin(), str(b.numero, 20), { machine_id: str(b.machine_id, 60), type_prepa: b.type_prepa === "en_etat" ? "en_etat" : "normale", date_livraison: str(b.date_livraison, 10) }, par)) });
+        if (b.action === "contrat_desaffecter") { await desaffecterContrat(appAdmin(), str(b.numero, 20), str(b.motif, 200), par); return res.status(200).json({ ok: true }); }
+        await livrerContrat(appAdmin(), str(b.numero, 20), str(b.date_livraison, 10), par); return res.status(200).json({ ok: true });
+      } catch (e: any) { return res.status(400).json({ error: e?.message || "erreur" }); }
     }
     if (b.action === "public_validation_lire" || b.action === "public_valider") {
       try { return await actionValidation(req, res, b); }

@@ -3,7 +3,7 @@ import { collection, getDocs } from "firebase/firestore";
 import { db } from "../../firebase";
 import type { ClientLLD, ConfigLLD, ContratLLD, OptionOffreLLD, TarifNegocieLLD } from "../../types/lld";
 import { chargerConfigLLD, ecouterClientsLLD, loyerGrille } from "../../services/lldService";
-import { annulerContratLLD, controlerContratLLD, creerContratLLD, ecouterContratsLLD, enregistrerPdfContratLLD, genererLienContratLLD, modifierContratLLD, ouvrirPieceContratLLD, type ContratLLDSaisie } from "../../services/contratsLldService";
+import { annulerContratLLD, controlerContratLLD, creerContratLLD, desaffecterContratLLD, ecouterContratsLLD, enregistrerPdfContratLLD, genererLienContratLLD, livrerContratLLD, modifierContratLLD, ouvrirPieceContratLLD, type ContratLLDSaisie } from "../../services/contratsLldService";
 import { genererContratLldPdf } from "../../utils/generateContratLldPdf";
 
 /**
@@ -106,6 +106,16 @@ export default function ContratsLld({ userName, userEmail, peutGerer, voitTout }
   async function piece(c: ContratLLD, p: "cni" | "rib" | "contrat") {
     try { await ouvrirPieceContratLLD(c.numero, p); } catch (e: any) { alert(`❌ ${e?.message || "Pièce introuvable"}`); }
   }
+  async function livrer(c: ContratLLD) {
+    const d = window.prompt(`Date de livraison de ${c.immat || "la nacelle"} au client ${c.client.raison_sociale} (AAAA-MM-JJ) :`, new Date().toISOString().slice(0, 10));
+    if (d === null) return;
+    try { await livrerContratLLD(c.numero, d); } catch (e: any) { alert(`❌ ${e?.message}`); }
+  }
+  async function desaffecter(c: ContratLLD) {
+    const motif = window.prompt(`Retirer ${c.immat || "la nacelle"} du contrat ${c.numero} ? Le contrat repasse « à affecter » ; pensez à remettre la machine en disponible dans En préparation. Motif :`);
+    if (motif === null) return;
+    try { await desaffecterContratLLD(c.numero, motif); } catch (e: any) { alert(`❌ ${e?.message}`); }
+  }
   async function annuler(c: ContratLLD) {
     const motif = window.prompt(`Annuler le contrat ${c.numero} ? Motif (facultatif) :`);
     if (motif === null) return;
@@ -156,7 +166,9 @@ export default function ContratsLld({ userName, userEmail, peutGerer, voitTout }
                         {envoyable && <button type="button" style={{ ...BTN, ...PETIT, background: c.statut === "envoye" ? "#5f6b7a" : "#1a73e8" }} disabled={enCours === c.numero} onClick={() => lien(c)} title="Crée le lien personnel de signature et le copie">{c.statut === "envoye" ? "🔗 Recopier le lien" : "🔗 Lien de signature"}</button>}
                         {voitTout && c.pieces?.cni && <button type="button" style={{ ...BTN2, ...PETIT }} onClick={() => piece(c, "cni")}>🪪 CNI</button>}
                         {voitTout && c.pieces?.rib && <button type="button" style={{ ...BTN2, ...PETIT }} onClick={() => piece(c, "rib")}>🏦 RIB</button>}
-                        {signe && c.signature?.nom && <span style={{ fontSize: 12, color: "#1e6b35", alignSelf: "center" }}>signé par {c.signature.nom} le {dateFr(c.signe_le)}</span>}
+                        {signe && c.signature?.nom && <span style={{ fontSize: 12, color: "#1e6b35", alignSelf: "center" }}>signé par {c.signature.nom} le {dateFr(c.signe_le)}{c.affecte_le ? ` · ${c.immat} affectée le ${dateFr(c.affecte_le)}` : ""}{c.livre_le ? ` · livré le ${dateFr(c.livre_le)}` : ""}</span>}
+                        {voitTout && (c.statut === "affecte" || c.statut === "en_preparation") && <button type="button" style={{ ...BTN, ...PETIT, background: "#1e8e3e" }} onClick={() => livrer(c)}>✓ Livré</button>}
+                        {voitTout && (c.statut === "affecte" || c.statut === "en_preparation") && <button type="button" style={{ ...BTN2, ...PETIT, color: "#8a5a00", borderColor: "#e0b45c" }} onClick={() => desaffecter(c)} title="Retirer la nacelle du contrat">↩</button>}
                         {peutGerer && <button type="button" style={{ ...BTN2, ...PETIT }} onClick={() => apercu(c)} disabled={!cfg}>👁 Aperçu</button>}
                         {c.pdf_url && <a href={c.pdf_url} target="_blank" rel="noopener noreferrer" style={{ ...BTN2, ...PETIT, textDecoration: "none" }}>⬇ Contrat PDF</a>}
                         {c.pdf_signe_url && <a href={c.pdf_signe_url} target="_blank" rel="noopener noreferrer" style={{ ...BTN2, ...PETIT, textDecoration: "none", background: "#e3f4e8", color: "#1e6b35", borderColor: "#1e6b35" }}>✍️ Contrat signé</a>}

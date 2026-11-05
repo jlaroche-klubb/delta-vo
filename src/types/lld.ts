@@ -382,8 +382,14 @@ export interface ContratLLD {
   /** Nouveau client : CNI et RIB obligatoires à la signature */
   nouveau_client?: boolean;
   signature?: { nom: string; fonction?: string; email?: string; date: string; ip?: string; navigateur?: string; cg_version?: string; empreinte_original?: string; empreinte_signe?: string };
-  /** Pièces déposées à la signature (chemins Storage privés, téléchargement via l'API) */
-  pieces?: { cni?: PieceContratLLD; rib?: PieceContratLLD };
+  /** Pièces déposées à la signature (chemins Storage privés, téléchargement via l'API) ; contrat = PDF signé */
+  pieces?: { cni?: PieceContratLLD; rib?: PieceContratLLD; contrat?: PieceContratLLD };
+  /** Lot 5 : affectation de la nacelle et mise en préparation */
+  affecte_le?: string;
+  affecte_par?: string;
+  type_prepa?: "normale" | "en_etat";
+  date_livraison_prevue?: string;
+  livre_le?: string;
   signe_le?: string;
   cree_par?: string;
   cree_le?: string;

@@ -3,7 +3,7 @@ import { collection, getDocs } from "firebase/firestore";
 import { db } from "../../firebase";
 import type { ClientLLD, ConfigLLD, ContratLLD, OptionOffreLLD, TarifNegocieLLD } from "../../types/lld";
 import { chargerConfigLLD, ecouterClientsLLD, loyerGrille } from "../../services/lldService";
-import { annulerContratLLD, controlerContratLLD, creerContratLLD, ecouterContratsLLD, enregistrerPdfContratLLD, modifierContratLLD, type ContratLLDSaisie } from "../../services/contratsLldService";
+import { annulerContratLLD, controlerContratLLD, creerContratLLD, ecouterContratsLLD, enregistrerPdfContratLLD, genererLienContratLLD, modifierContratLLD, ouvrirPieceContratLLD, type ContratLLDSaisie } from "../../services/contratsLldService";
 import { genererContratLldPdf } from "../../utils/generateContratLldPdf";
 
 /**
@@ -11,8 +11,9 @@ import { genererContratLldPdf } from "../../utils/generateContratLldPdf";
  * signée (un brouillon par nacelle, créé par le serveur), soit à la main pour
  * un client « sous tarif ». Jonathan seul crée, modifie, contrôle et génère le
  * PDF (25 pages) ; le contrôle est bloquant : tout doit être vert avant le PDF
- * et l'envoi (lot 4). Assistantes : consultation + téléchargement ;
- * commerciaux : leurs contrats en lecture.
+ * et l'envoi. Lot 4 : lien personnel de signature (copié, envoyé par Jonathan),
+ * page publique client, pièces (CNI, RIB, contrat signé) téléchargeables par
+ * Jonathan et les assistantes. Commerciaux : leurs contrats en lecture.
  */
 interface Props { userName: string; userEmail: string; peutGerer: boolean; voitTout: boolean }
 
@@ -83,8 +84,8 @@ export default function ContratsLld({ userName, userEmail, peutGerer, voitTout }
     setEnCours(c.numero);
     try {
       const pdf = genererContratLldPdf(c, cfg);
-      await enregistrerPdfContratLLD(c.numero, pdf.base64, pdf.zoneSignature);
-      alert(`✅ Contrat ${c.numero} : PDF généré (${pdf.pages} pages) et archivé. L'envoi au client pour signature arrive au lot 4.`);
+      await enregistrerPdfContratLLD(c.numero, pdf.base64, pdf.zoneSignature, pdf.champs);
+      alert(`✅ Contrat ${c.numero} : PDF généré (${pdf.pages} pages) et archivé. Créez maintenant le lien de signature (🔗) et envoyez-le au client.`);
     } catch (e: any) { alert(`❌ ${e?.message || "Génération impossible"}`); }
     finally { setEnCours(""); }
   }
@@ -92,6 +93,18 @@ export default function ContratsLld({ userName, userEmail, peutGerer, voitTout }
     if (!cfg) return;
     const pdf = genererContratLldPdf(c, cfg);
     const url = URL.createObjectURL(pdf.blob); window.open(url, "_blank"); setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  }
+  async function lien(c: ContratLLD) {
+    setEnCours(c.numero);
+    try {
+      const r = await genererLienContratLLD(c.numero);
+      try { await navigator.clipboard.writeText(r.lien); } catch { window.prompt("Copiez le lien :", r.lien); }
+      alert(`🔗 Lien de signature du contrat ${c.numero} copié dans le presse-papiers :\n\n${r.lien}\n\nEnvoyez-le vous-même au client. Il remplira sa fiche locataire et son mandat SEPA, acceptera les CG${c.nouveau_client !== false ? ", déposera CNI + RIB" : ""} et signera en ligne.`);
+    } catch (e: any) { alert(`❌ ${e?.message || "Lien impossible"}`); }
+    finally { setEnCours(""); }
+  }
+  async function piece(c: ContratLLD, p: "cni" | "rib" | "contrat") {
+    try { await ouvrirPieceContratLLD(c.numero, p); } catch (e: any) { alert(`❌ ${e?.message || "Pièce introuvable"}`); }
   }
   async function annuler(c: ContratLLD) {
     const motif = window.prompt(`Annuler le contrat ${c.numero} ? Motif (facultatif) :`);
@@ -119,6 +132,8 @@ export default function ContratsLld({ userName, userEmail, peutGerer, voitTout }
             {liste.map((c) => {
               const st = STATUT_CONTRAT[c.statut] || STATUT_CONTRAT.brouillon;
               const modifiable = peutGerer && (c.statut === "brouillon" || c.statut === "controle");
+              const envoyable = peutGerer && c.controle?.ok && !!c.pdf_url && (c.statut === "controle" || c.statut === "envoye");
+              const signe = ["signe", "affecte", "en_preparation", "livre"].includes(c.statut);
               const ctrl = c.controle;
               return (
                 <Fragment key={c.numero}>
@@ -138,12 +153,16 @@ export default function ContratsLld({ userName, userEmail, peutGerer, voitTout }
                       <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         {modifiable && <button type="button" style={{ ...BTN2, ...PETIT }} disabled={enCours === c.numero} onClick={() => controler(c)} title="Vérifie SIRET, montants, cohérence avec l'offre ou le tarif, immat">{enCours === c.numero ? "⏳" : "🔒 Contrôler"}</button>}
                         {modifiable && c.controle?.ok && <button type="button" style={{ ...BTN, ...PETIT }} disabled={enCours === c.numero} onClick={() => genererPdf(c)}>{c.pdf_url ? "📄 Régénérer le PDF" : "📄 Générer le PDF"}</button>}
+                        {envoyable && <button type="button" style={{ ...BTN, ...PETIT, background: c.statut === "envoye" ? "#5f6b7a" : "#1a73e8" }} disabled={enCours === c.numero} onClick={() => lien(c)} title="Crée le lien personnel de signature et le copie">{c.statut === "envoye" ? "🔗 Recopier le lien" : "🔗 Lien de signature"}</button>}
+                        {voitTout && c.pieces?.cni && <button type="button" style={{ ...BTN2, ...PETIT }} onClick={() => piece(c, "cni")}>🪪 CNI</button>}
+                        {voitTout && c.pieces?.rib && <button type="button" style={{ ...BTN2, ...PETIT }} onClick={() => piece(c, "rib")}>🏦 RIB</button>}
+                        {signe && c.signature?.nom && <span style={{ fontSize: 12, color: "#1e6b35", alignSelf: "center" }}>signé par {c.signature.nom} le {dateFr(c.signe_le)}</span>}
                         {peutGerer && <button type="button" style={{ ...BTN2, ...PETIT }} onClick={() => apercu(c)} disabled={!cfg}>👁 Aperçu</button>}
                         {c.pdf_url && <a href={c.pdf_url} target="_blank" rel="noopener noreferrer" style={{ ...BTN2, ...PETIT, textDecoration: "none" }}>⬇ Contrat PDF</a>}
                         {c.pdf_signe_url && <a href={c.pdf_signe_url} target="_blank" rel="noopener noreferrer" style={{ ...BTN2, ...PETIT, textDecoration: "none", background: "#e3f4e8", color: "#1e6b35", borderColor: "#1e6b35" }}>✍️ Contrat signé</a>}
                         {ctrl && <button type="button" style={{ ...BTN2, ...PETIT, color: "#555", borderColor: "#ccc" }} onClick={() => setDetail(detail === c.numero ? "" : c.numero)}>{detail === c.numero ? "▲" : "▼ contrôle"}</button>}
                         {modifiable && <button type="button" style={{ ...BTN2, ...PETIT, color: "#555", borderColor: "#ccc" }} onClick={() => setEdition(c)} title="Modifier (le contrôle et le PDF seront à refaire)">✏️</button>}
-                        {modifiable && <button type="button" style={{ ...BTN2, ...PETIT, color: "#b3261e", borderColor: "#b3261e" }} onClick={() => annuler(c)} title="Annuler le contrat">✕</button>}
+                        {(modifiable || (peutGerer && c.statut === "envoye")) && <button type="button" style={{ ...BTN2, ...PETIT, color: "#b3261e", borderColor: "#b3261e" }} onClick={() => annuler(c)} title="Annuler le contrat">✕</button>}
                       </div>
                     </td>
                   </tr>

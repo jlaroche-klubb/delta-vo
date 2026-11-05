@@ -302,6 +302,11 @@ export interface OffreLLD {
   pdf_url?: string;
   pdf_signe_url?: string;
   signature_jeton?: string;
+  /** Lien envoyé par email depuis Delta VO */
+  envoye_le?: string;
+  envoye_a?: string;
+  /** Contrats créés à la signature */
+  contrats?: string[];
   zone_signature?: { page: number; x: number; y: number; w: number; h: number };
   choix?: ChoixOffreLLD;
   signature?: { nom: string; fonction?: string; email?: string; date: string; ip?: string };
@@ -368,9 +373,32 @@ export interface ContratLLD {
   pdf_signe_url?: string;
   signature_jeton?: string;
   zone_signature?: { page: number; x: number; y: number; w: number; h: number };
+  /** Positions des champs remplis par le serveur à la signature (SEPA, fiche locataire, fait le / à) */
+  champs_pdf?: Record<string, { page: number; x: number; y: number; w: number; taille: number; lignes?: number; cases?: number; pas?: number; h?: number; type?: "texte" | "cases" | "case" | "zone" }>;
+  /** Lot 4 : lien envoyé */
+  envoye_le?: string;
+  /** Référence unique du mandat SEPA (générée à l'envoi du lien) */
+  rum?: string;
+  /** Nouveau client : CNI et RIB obligatoires à la signature */
+  nouveau_client?: boolean;
+  signature?: { nom: string; fonction?: string; email?: string; date: string; ip?: string; navigateur?: string; cg_version?: string; empreinte_original?: string; empreinte_signe?: string };
+  /** Pièces déposées à la signature (chemins Storage privés, téléchargement via l'API) */
+  pieces?: { cni?: PieceContratLLD; rib?: PieceContratLLD };
   signe_le?: string;
   cree_par?: string;
   cree_le?: string;
   modifie_le?: string;
   historique?: { date: string; action: string; par: string }[];
+}
+
+export interface PieceContratLLD { chemin: string; nom: string; type: string; taille: number; le: string }
+
+/** 🔒 Données bancaires du contrat (collection contrats_lld_prive, Jonathan + assistantes) */
+export interface ContratLLDPrive {
+  titulaire?: string;
+  adresse_titulaire?: string;
+  iban?: string;
+  bic?: string;
+  rum?: string;
+  signe_le?: string;
 }

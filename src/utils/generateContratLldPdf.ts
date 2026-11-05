@@ -30,11 +30,16 @@ const dateFr = (iso?: string) => (iso ? iso.slice(0, 10).split("-").reverse().jo
 const espaceSiret = (s?: string) => (s || "").replace(/\s/g, "").replace(/^(\d{3})(\d{3})(\d{3})(\d{0,5})$/, (_m, a, b, c, d) => `${a} ${b} ${c}${d ? " " + d : ""}`);
 
 export interface ZoneSignatureContrat { page: number; x: number; y: number; w: number; h: number }
+/** Position d'un champ rempli par le serveur à la signature (mm, y = ligne de base depuis le haut ; page = n° PDF) */
+export interface ChampPdf { page: number; x: number; y: number; w: number; taille: number; lignes?: number; cases?: number; pas?: number; h?: number; type?: "texte" | "cases" | "case" | "zone" }
+export type ChampsPdfContrat = Record<string, ChampPdf>;
 
 type Style = "normal" | "bold" | "italic" | "bolditalic";
 
-export function genererContratLldPdf(c: ContratLLD, cfg: ConfigLLD): { base64: string; blob: Blob; filename: string; zoneSignature: ZoneSignatureContrat; pages: number } {
+export function genererContratLldPdf(c: ContratLLD, cfg: ConfigLLD): { base64: string; blob: Blob; filename: string; zoneSignature: ZoneSignatureContrat; champs: ChampsPdfContrat; pages: number } {
   const pdf = new jsPDF({ unit: "mm", format: "a4" });
+  const champs: ChampsPdfContrat = {};
+  const pageCourante = () => pdf.getCurrentPageInfo().pageNumber;
   const img = (data: string, x: number, y: number, w: number, h: number) => { try { pdf.addImage(data, data.startsWith("data:image/png") ? "PNG" : "JPEG", x, y, w, h); } catch { /* image optionnelle */ } };
   const police = (style: Style, taille: number, couleur: [number, number, number] = TEXTE) => pdf.setFont("helvetica", style).setFontSize(taille).setTextColor(...couleur);
   const texte = (t: string, x: number, y: number, o: { align?: "left" | "center" | "right"; maxW?: number } = {}) => {
@@ -112,12 +117,13 @@ export function genererContratLldPdf(c: ContratLLD, cfg: ConfigLLD): { base64: s
     pdf.setDrawColor(...TEXTE).setLineWidth(0.3).rect(x, y - 2.6, 3, 3);
     if (ok) { pdf.setLineWidth(0.6).line(x + 0.6, y - 1.2, x + 1.3, y - 0.3); pdf.line(x + 1.3, y - 0.3, x + 2.6, y - 2.3); }
   };
-  const champ = (lib: string, val: string | undefined, y: number, o: { x?: number; w?: number; lignes?: number } = {}) => {
+  const champ = (lib: string, val: string | undefined, y: number, o: { x?: number; w?: number; lignes?: number; cle?: string } = {}) => {
     const x = o.x ?? M + 4, w = o.w ?? W - 2 * M - 8;
     police("bold", 8, TEXTE); texte(lib, x, y);
     const lx = x + Math.max(pdf.getTextWidth(lib) + 2, 38);
     police("normal", 9, BLEU);
     const n = o.lignes ?? 1;
+    if (o.cle) champs[o.cle] = { page: pageCourante(), x: lx, y, w: x + w - lx, taille: 9, lignes: n, type: "texte" };
     const lignes = val ? (pdf.splitTextToSize(nettoie(val), w - (lx - x)) as string[]).slice(0, n) : [];
     for (let i = 0; i < n; i++) {
       if (lignes[i]) pdf.text(lignes[i], lx, y + i * 5.5);
@@ -220,8 +226,10 @@ export function genererContratLldPdf(c: ContratLLD, cfg: ConfigLLD): { base64: s
   texte("Le Locataire déclare accepter toutes les conditions du présent contrat de location, établi en autant d'exemplaires que de Parties.", M, y, { maxW: W - 2 * M });
   y += 18;
   police("normal", 9.5, TEXTE);
-  texte("FAIT LE  _______________________________", M, y); y += 9;
-  texte("A  ____________________________________", M, y); y += 20;
+  texte("FAIT LE  _______________________________", M, y);
+  champs.fait_le = { page: pageCourante(), x: M + 16, y: y - 0.5, w: 60, taille: 9.5, type: "texte" }; y += 9;
+  texte("A  ____________________________________", M, y);
+  champs.fait_a = { page: pageCourante(), x: M + 8, y: y - 0.5, w: 68, taille: 9.5, type: "texte" }; y += 20;
   const zoneSignature: ZoneSignatureContrat = { page: numPage + 1, x: M, y, w: 85, h: 52 };
   pdf.setDrawColor(...ANTHRACITE).setLineWidth(0.4).rect(M, y, 85, 52);
   police("bold", 9.5, TEXTE); texte("LE LOCATAIRE", M + 3, y + 6);
@@ -251,9 +259,10 @@ export function genererContratLldPdf(c: ContratLLD, cfg: ConfigLLD): { base64: s
   police("normal", 6.5, TEXTE);
   texte(`En signant ce formulaire de mandat, vous autorisez (A) ${sepa.creancier || soc.raison_sociale} à envoyer des instructions à votre banque pour débiter votre compte, et (B) votre banque à débiter votre compte conformément aux instructions de ${sepa.creancier || soc.raison_sociale}. Vous bénéficiez du droit d'être remboursé par votre banque selon les conditions décrites dans la convention que vous avez passée avec elle. Une demande de remboursement doit être présentée dans les 8 semaines suivant la date de débit de votre compte pour un prélèvement autorisé.`, M + 2, y + 24, { maxW: W - 2 * M - 4 });
   let ys = y + 40;
-  const ligneSepa = (lib: string, val: string, sous: string, cases?: number) => {
+  const ligneSepa = (lib: string, val: string, sous: string, cases?: number, cle?: string) => {
     police("normal", 8, ROUGE); texte(lib, M + 2, ys);
     const x0 = M + 48;
+    if (cle) champs[cle] = cases ? { page: pageCourante(), x: x0, y: ys, w: cases * 4.2, taille: 8, cases, pas: 4.2, type: "cases" } : { page: pageCourante(), x: x0, y: ys, w: W - M - 4 - x0, taille: 8.5, type: "texte" };
     if (cases) {
       pdf.setDrawColor(...GRIS).setLineWidth(0.2);
       for (let i = 0; i < cases; i++) pdf.rect(x0 + i * 4.2, ys - 3.5, 4.2, 4.5);
@@ -266,12 +275,12 @@ export function genererContratLldPdf(c: ContratLLD, cfg: ConfigLLD): { base64: s
     police("normal", 6, GRIS); texte(sous, x0, ys + 4.5);
     ys += 10;
   };
-  ligneSepa("Votre Nom *", cl.raison_sociale, "Nom / Prénoms du débiteur");
-  ligneSepa("Votre adresse *", cl.adresse || "", "Numéro et nom de la rue");
-  ligneSepa("", `${cl.cp || ""}  ${cl.ville || ""}`.trim(), "Code postal / Ville");
+  ligneSepa("Votre Nom *", cl.raison_sociale, "Nom / Prénoms du débiteur", undefined, "sepa_nom");
+  ligneSepa("Votre adresse *", cl.adresse || "", "Numéro et nom de la rue", undefined, "sepa_adresse");
+  ligneSepa("", `${cl.cp || ""}  ${cl.ville || ""}`.trim(), "Code postal / Ville", undefined, "sepa_cp_ville");
   ligneSepa("", "FRANCE", "Pays");
-  ligneSepa("Les coordonnées de votre compte *", "", "Numéro d'identification international du compte bancaire - IBAN", 27);
-  ligneSepa("", "", "Code international d'identification de votre banque - BIC", 11);
+  ligneSepa("Les coordonnées de votre compte *", "", "Numéro d'identification international du compte bancaire - IBAN", 27, "sepa_iban");
+  ligneSepa("", "", "Code international d'identification de votre banque - BIC", 11, "sepa_bic");
   ligneSepa("Nom du créancier *", sepa.creancier || soc.raison_sociale, "Nom du créancier");
   ligneSepa("I.C.S *", sepa.ics || "", "Identifiant Créancier SEPA", 13);
   const adrCre = (sepa.adresse_creancier || soc.adresse || "").split("\n").map((l) => l.trim()).filter(Boolean);
@@ -279,9 +288,10 @@ export function genererContratLldPdf(c: ContratLLD, cfg: ConfigLLD): { base64: s
   ligneSepa("", `${adrCre.slice(1).join(" ")}  —  FRANCE`, "Code postal / Ville / Pays");
   police("normal", 8, ROUGE); texte("Type de paiement *", M + 2, ys);
   police("normal", 8, TEXTE); texte("Paiement récurrent/répétitif", M + 48, ys); caseCochee(M + 90, ys, true); texte("Paiement ponctuel", M + 100, ys); caseCochee(M + 128, ys, false); ys += 10;
-  ligneSepa("Signé à *", "", "Lieu / Date");
+  ligneSepa("Signé à *", "", "Lieu / Date", undefined, "sepa_lieu_date");
   police("normal", 8, ROUGE); texte("Signature(s) *", M + 2, ys);
   pdf.setDrawColor(...GRIS).setLineWidth(0.3).rect(M + 48, ys - 4, W - M - 4 - (M + 48), 26);
+  champs.sepa_signature = { page: pageCourante(), x: M + 48, y: ys - 4, w: W - M - 4 - (M + 48), h: 26, taille: 0, type: "zone" };
   police("normal", 6.5, GRIS); texte("Veuillez tamponner et signer ici", M + 50, ys);
   ys += 28;
   police("normal", 6, GRIS);
@@ -298,45 +308,47 @@ export function genererContratLldPdf(c: ContratLLD, cfg: ConfigLLD): { base64: s
   police("normal", 8.5, TEXTE); texte("NB : Tous les champs sont obligatoires", M, y); y += 10;
   const sousTitre = (t: string, yy2: number, sous?: string) => { police("bold", 10, ANTHRACITE); texte(t, M + 4, yy2); if (sous) { police("normal", 7.5, GRIS); texte(sous, M + 4, yy2 + 4); } return yy2 + (sous ? 11 : 8); };
   y = sousTitre("ENTREPRISE", y);
-  y = champ("SOCIETE :", cl.raison_sociale, y);
-  y = champ("ADRESSE POSTALE :", [cl.adresse, [cl.cp, cl.ville].filter(Boolean).join(" ")].filter(Boolean).join("\n"), y, { lignes: 2 });
-  y = champ("SIRET :", espaceSiret(cl.siret || cl.siren), y);
-  y = champ("N° DE TVA :", cl.tva_intra, y);
-  y = champ("CODE NAF :", cl.naf, y);
-  y = champ("TELEPHONE :", cl.telephone || cl.contact_tel, y);
-  y = champ("FAX :", cl.fax, y);
-  y = champ("EMAIL :", cl.email || cl.contact_email, y);
+  y = champ("SOCIETE :", cl.raison_sociale, y, { cle: "f_societe" });
+  y = champ("ADRESSE POSTALE :", [cl.adresse, [cl.cp, cl.ville].filter(Boolean).join(" ")].filter(Boolean).join("\n"), y, { lignes: 2, cle: "f_adresse" });
+  y = champ("SIRET :", espaceSiret(cl.siret || cl.siren), y, { cle: "f_siret" });
+  y = champ("N° DE TVA :", cl.tva_intra, y, { cle: "f_tva" });
+  y = champ("CODE NAF :", cl.naf, y, { cle: "f_naf" });
+  y = champ("TELEPHONE :", cl.telephone || cl.contact_tel, y, { cle: "f_tel" });
+  y = champ("FAX :", cl.fax, y, { cle: "f_fax" });
+  y = champ("EMAIL :", cl.email || cl.contact_email, y, { cle: "f_email" });
   y += 4;
   y = sousTitre("ADRESSE DE FACTURATION (SI DIFFERENTE)", y);
-  y = champ("SOCIETE :", cl.facturation_societe, y);
-  y = champ("Adresse email :", cl.facturation_email, y);
-  y = champ("ADRESSE POSTALE :", cl.facturation_adresse, y, { lignes: 2 });
+  y = champ("SOCIETE :", cl.facturation_societe, y, { cle: "f_fact_societe" });
+  y = champ("Adresse email :", cl.facturation_email, y, { cle: "f_fact_email" });
+  y = champ("ADRESSE POSTALE :", cl.facturation_adresse, y, { lignes: 2, cle: "f_fact_adresse" });
   y += 4;
   y = sousTitre("SIGNATAIRE DU CONTRAT", y);
-  y = champ("NOM :", cl.contact_nom, y);
-  y = champ("TELEPHONE :", cl.contact_tel, y);
-  y = champ("EMAIL :", cl.contact_email, y);
+  y = champ("NOM :", cl.contact_nom, y, { cle: "f_sign_nom" });
+  y = champ("TELEPHONE :", cl.contact_tel, y, { cle: "f_sign_tel" });
+  y = champ("EMAIL :", cl.contact_email, y, { cle: "f_sign_email" });
 
   y = nouvellePage() + 4;
   y = sousTitre("CONTACT COMPTABILITE FOURNISSEUR", y);
-  y = champ("NOM :", cl.contact_compta?.nom, y);
-  y = champ("TELEPHONE :", cl.contact_compta?.tel, y);
-  y = champ("EMAIL :", cl.contact_compta?.email, y);
+  y = champ("NOM :", cl.contact_compta?.nom, y, { cle: "f_compta_nom" });
+  y = champ("TELEPHONE :", cl.contact_compta?.tel, y, { cle: "f_compta_tel" });
+  y = champ("EMAIL :", cl.contact_compta?.email, y, { cle: "f_compta_email" });
   y += 6;
   y = sousTitre("CONTACT POUR LA MAINTENANCE DU VEHICULE", y, "(Révision, visite périodique nacelle, demande de relevé kilométrique)");
-  y = champ("NOM :", cl.contact_maintenance?.nom, y);
-  y = champ("TELEPHONE :", cl.contact_maintenance?.tel, y);
-  y = champ("EMAIL :", cl.contact_maintenance?.email, y);
+  y = champ("NOM :", cl.contact_maintenance?.nom, y, { cle: "f_maint_nom" });
+  y = champ("TELEPHONE :", cl.contact_maintenance?.tel, y, { cle: "f_maint_tel" });
+  y = champ("EMAIL :", cl.contact_maintenance?.email, y, { cle: "f_maint_email" });
   y += 6;
   y = sousTitre("N° DE COMMANDE", y);
   police("bold", 8, TEXTE); texte("OBLIGATOIRE :", M + 4, y);
   caseCochee(M + 44, y, cl.commande_obligatoire === true); police("normal", 8.5, TEXTE); texte("OUI", M + 49, y);
   caseCochee(M + 74, y, cl.commande_obligatoire === false); texte("NON", M + 79, y);
+  champs.f_cmd_oui = { page: pageCourante(), x: M + 44, y, w: 3, h: 3, taille: 0, type: "case" };
+  champs.f_cmd_non = { page: pageCourante(), x: M + 74, y, w: 3, h: 3, taille: 0, type: "case" };
   y += 9;
   police("bold", 8, TEXTE); texte("SI OUI, PERSONNE A CONTACTER POUR L'OBTENTION DU NUMERO :", M + 4, y); y += 7;
-  y = champ("NOM :", cl.contact_commande?.nom, y);
-  y = champ("EMAIL :", cl.contact_commande?.email, y);
-  y = champ("TELEPHONE :", cl.contact_commande?.tel, y);
+  y = champ("NOM :", cl.contact_commande?.nom, y, { cle: "f_cmd_nom" });
+  y = champ("EMAIL :", cl.contact_commande?.email, y, { cle: "f_cmd_email" });
+  y = champ("TELEPHONE :", cl.contact_commande?.tel, y, { cle: "f_cmd_tel" });
   y += 6;
   police("italic", 7.5, GRIS);
   texte("Pour un nouveau client, une copie de la pièce d'identité du signataire et un RIB sont joints au dossier lors de la signature en ligne.", M + 4, y, { maxW: W - 2 * M - 8 });
@@ -419,7 +431,7 @@ export function genererContratLldPdf(c: ContratLLD, cfg: ConfigLLD): { base64: s
 
   pdf.setProperties({ title: `Contrat de location LLD ${c.numero} — ${cl.raison_sociale}`, author: soc.raison_sociale });
   const base64 = pdf.output("datauristring").split(",")[1];
-  return { base64, blob: pdf.output("blob"), filename: `Contrat_LLD_${c.numero}_${cl.raison_sociale.replace(/[^\w-]+/g, "_")}.pdf`, zoneSignature, pages: total };
+  return { base64, blob: pdf.output("blob"), filename: `Contrat_LLD_${c.numero}_${cl.raison_sociale.replace(/[^\w-]+/g, "_")}.pdf`, zoneSignature, champs, pages: total };
 }
 
 /** Clé TVA intracommunautaire FR depuis le SIREN (clé = (12 + 3 × (SIREN mod 97)) mod 97) */

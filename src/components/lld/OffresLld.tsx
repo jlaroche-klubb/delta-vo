@@ -2,15 +2,16 @@ import { useEffect, useMemo, useState } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "../../firebase";
 import type { ClientLLD, ConfigLLD, DureeOffreLLD, OffreLLD, OptionOffreLLD, PrestationLLD } from "../../types/lld";
-import { chargerConfigLLD, ecouterClientsLLD, loyerGrille } from "../../services/lldService";
-import { changerStatutOffreLLD, creerOffreLLD, ecouterOffresLLD, genererLienOffreLLD, modifierOffreLLD, type OffreLLDSaisie } from "../../services/offresLldService";
+import { chargerConfigLLD, creerClientLLD, ecouterClientsLLD, loyerGrille } from "../../services/lldService";
+import { changerStatutOffreLLD, creerOffreLLD, ecouterOffresLLD, envoyerLienOffreLLD, genererLienOffreLLD, modifierOffreLLD, type OffreLLDSaisie } from "../../services/offresLldService";
 import { genererOffreLldPdf } from "../../utils/generateOffreLldPdf";
 
 /**
  * 📄 Offres LLD (lot 2) — réservé à Jonathan. Une offre = un client, un modèle
  * (× quantité), une durée fixe ou plusieurs au choix, options, transport
- * (offert ou chiffré), PDF 9 pages et lien de signature que Jonathan envoie
- * lui-même (bouton « Copier le lien »). Le client choisit sa durée et signe.
+ * (offert ou chiffré), PDF 9 pages et lien de signature : copié, ou envoyé par
+ * email depuis Delta VO. Côté client : juste la société, l'email et le
+ * commercial ; le client donne ses coordonnées (SIRET, adresse…) en signant.
  */
 interface Props { userName: string; userEmail: string }
 
@@ -71,6 +72,13 @@ export default function OffresLld({ userName, userEmail }: Props) {
     finally { setEnCours(""); }
   }
   async function copier(t: string) { try { await navigator.clipboard.writeText(t); } catch { window.prompt("Copiez le lien :", t); } }
+  async function envoyer(o: OffreLLD) {
+    if (!window.confirm(`Envoyer la proposition ${o.numero} (PDF + lien de signature) à ${o.client.contact_email} ?`)) return;
+    setEnCours(o.numero);
+    try { const r = await envoyerLienOffreLLD(o.numero); alert(`📧 Proposition ${o.numero} envoyée à ${r.envoye_a}.`); }
+    catch (e: any) { alert(`❌ ${e?.message || "Envoi impossible"}`); }
+    finally { setEnCours(""); }
+  }
   function apercu(o: OffreLLD) {
     if (!cfg) return;
     const pdf = genererOffreLldPdf(o, cfg);
@@ -114,6 +122,7 @@ export default function OffresLld({ userName, userEmail }: Props) {
                   <td style={{ padding: "10px 12px" }}><span style={{ display: "inline-block", borderRadius: 12, padding: "3px 10px", fontSize: 12, fontWeight: 700, background: st.bg, color: st.fg }}>{st.lib}</span></td>
                   <td style={{ padding: "8px 12px", whiteSpace: "nowrap", display: "flex", gap: 6, flexWrap: "wrap" }}>
                     {modifiable && <button type="button" style={{ ...BTN, padding: "6px 10px", fontSize: 13 }} disabled={enCours === o.numero} onClick={() => genererEtLien(o)}>{enCours === o.numero ? "⏳" : o.statut === "generee" ? "🔗 Régénérer + copier le lien" : "📄 Générer PDF + lien"}</button>}
+                    {o.statut === "generee" && o.signature_jeton && <button type="button" style={{ ...BTN, padding: "6px 10px", fontSize: 13, background: "#1e8e3e" }} disabled={enCours === o.numero} onClick={() => envoyer(o)} title={`Email à ${o.client.contact_email}`}>{o.envoye_le ? "📧 Renvoyer" : "📧 Envoyer par email"}</button>}
                     {o.statut === "generee" && o.signature_jeton && <button type="button" style={{ ...BTN2, padding: "6px 10px", fontSize: 13 }} onClick={() => copier(lienDe(o)).then(() => alert("Lien copié."))}>📋 Copier le lien</button>}
                     <button type="button" style={{ ...BTN2, padding: "6px 10px", fontSize: 13 }} onClick={() => apercu(o)}>👁 Aperçu PDF</button>
                     {o.pdf_signe_url && <a href={o.pdf_signe_url} target="_blank" rel="noopener noreferrer" style={{ ...BTN2, padding: "6px 10px", fontSize: 13, textDecoration: "none", background: "#e3f4e8", color: "#1e6b35", borderColor: "#1e6b35" }}>✍️ PDF signé</a>}
@@ -163,6 +172,18 @@ function OffreForm({ offre, cfg, clients, commerciaux, userName, userEmail, onFe
   const set = <K extends keyof OffreLLDSaisie>(k: K, v: OffreLLDSaisie[K]) => setF((x) => ({ ...x, [k]: v }));
 
   const clientsFiltres = useMemo(() => { const q = clientRech.trim().toLowerCase(); return q ? clients.filter((c) => c.raison_sociale.toLowerCase().includes(q) || (c.siren || "").includes(q)).slice(0, 8) : []; }, [clients, clientRech]);
+  const [creation, setCreation] = useState(false);
+  async function creerClientRapide() {
+    const nom = clientRech.trim();
+    if (nom.length < 2) return;
+    setCreation(true);
+    try {
+      const id = await creerClientLLD({ raison_sociale: nom }, userName);
+      setF((x) => ({ ...x, client_id: id, client: { raison_sociale: nom, contact_email: x.client.contact_email || "" } }));
+      setClientRech("");
+    } catch (e: any) { setErreur(e?.message || "Création impossible"); }
+    finally { setCreation(false); }
+  }
   function choisirClient(c: ClientLLD) {
     setF((x) => ({ ...x, client_id: c.id, client: { raison_sociale: c.raison_sociale, siren: c.siren, adresse: c.adresse, cp: c.cp, ville: c.ville, contact_nom: c.signataire?.nom || "", contact_email: c.signataire?.email || c.email || "", contact_tel: c.signataire?.tel || c.telephone || "" } }));
     setClientRech("");
@@ -182,6 +203,7 @@ function OffreForm({ offre, cfg, clients, commerciaux, userName, userEmail, onFe
 
   const manquants: string[] = [];
   if (!f.client.raison_sociale.trim()) manquants.push("le client");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.client.contact_email || "")) manquants.push("l'email du client (pour lui envoyer la proposition)");
   if (!f.modele.trim()) manquants.push("le modèle");
   if (!f.durees.length || f.durees.some((d) => !(d.mois > 0) || !(d.loyer_ht > 0))) manquants.push("au moins une durée avec un loyer HT");
   if (f.avec_assurance && f.durees.some((d) => !(d.loyer_assurance_ht! > 0))) manquants.push("le loyer avec assurance de chaque durée");
@@ -231,7 +253,7 @@ function OffreForm({ offre, cfg, clients, commerciaux, userName, userEmail, onFe
         <div style={TITRE}>Client et commercial</div>
         <div style={{ display: "grid", gridTemplateColumns: "2fr 1.4fr", gap: 12 }}>
           <div style={{ position: "relative" }}>
-            <label style={LABEL}>Client (mémoire client) *</label>
+            <label style={LABEL}>Client *</label>
             {f.client.raison_sociale ? (
               <div style={{ ...CHAMP, display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f5f9fd" }}>
                 <span><b>{f.client.raison_sociale}</b>{f.client.ville ? ` · ${f.client.ville}` : ""}{f.client.contact_nom ? ` · ${f.client.contact_nom}` : ""}</span>
@@ -239,15 +261,24 @@ function OffreForm({ offre, cfg, clients, commerciaux, userName, userEmail, onFe
               </div>
             ) : (
               <>
-                <input style={CHAMP} value={clientRech} onChange={(e) => setClientRech(e.target.value)} placeholder="Tapez le nom du client (créé dans LLD → Clients)…" autoFocus />
+                <input style={CHAMP} value={clientRech} onChange={(e) => setClientRech(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !clientsFiltres.length) { e.preventDefault(); creerClientRapide(); } }} placeholder="Nom de la société du client…" autoFocus />
                 {clientsFiltres.length > 0 && (
                   <div style={{ position: "absolute", zIndex: 10, left: 0, right: 0, background: "white", border: "1px solid #ccd", borderRadius: 6, boxShadow: "0 6px 18px rgba(0,0,0,.15)" }}>
                     {clientsFiltres.map((c) => <div key={c.id} onMouseDown={(e) => { e.preventDefault(); choisirClient(c); }} style={{ padding: "8px 10px", cursor: "pointer", fontSize: 13, borderBottom: "1px solid #f2f2f2" }}><b>{c.raison_sociale}</b> <span style={{ color: "#777" }}>{[c.ville, c.siren].filter(Boolean).join(" · ")}{c.sous_tarif ? " · sous tarif" : ""}</span></div>)}
                   </div>
                 )}
-                {clientRech.length > 1 && !clientsFiltres.length && <div style={{ fontSize: 12, color: "#8a5a00", marginTop: 4 }}>Aucun client : créez-le d'abord dans LLD → Clients.</div>}
+                {clientRech.trim().length > 1 && !clientsFiltres.length && (
+                  <div style={{ marginTop: 6, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                    <button type="button" style={{ ...BTN2, padding: "6px 10px", fontSize: 13 }} disabled={creation} onClick={creerClientRapide}>{creation ? "⏳" : `+ Créer « ${clientRech.trim()} »`}</button>
+                    <span style={{ fontSize: 12, color: "#777" }}>Juste le nom : le client complétera SIRET, adresse et contacts en signant la proposition.</span>
+                  </div>
+                )}
               </>
             )}
+            <div style={{ marginTop: 10 }}>
+              <label style={LABEL}>Email du client * <span style={{ fontWeight: 400, color: "#777" }}>— reçoit la proposition et le lien de signature</span></label>
+              <input style={CHAMP} type="email" value={f.client.contact_email || ""} onChange={(e) => set("client", { ...f.client, contact_email: e.target.value.trim() })} placeholder="prenom.nom@societe.fr" />
+            </div>
           </div>
           <div>
             <label style={LABEL}>Commercial local</label>

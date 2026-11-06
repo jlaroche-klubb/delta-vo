@@ -5,6 +5,7 @@ import type { ClientLLD, ConfigLLD, DureeOffreLLD, OffreLLD, OptionOffreLLD, Pre
 import { chargerConfigLLD, creerClientLLD, ecouterClientsLLD, loyerGrille } from "../../services/lldService";
 import { changerStatutOffreLLD, creerOffreLLD, ecouterOffresLLD, envoyerLienOffreLLD, genererLienOffreLLD, modifierOffreLLD, type OffreLLDSaisie } from "../../services/offresLldService";
 import { genererOffreLldPdf } from "../../utils/generateOffreLldPdf";
+import ChampModele from "./ChampModele";
 
 /**
  * 📄 Offres LLD (lot 2) — réservé à Jonathan. Une offre = un client, un modèle
@@ -297,7 +298,7 @@ function OffreForm({ offre, cfg, clients, commerciaux, userName, userEmail, onFe
           <div><label style={LABEL}>Formule</label><div style={{ display: "flex", gap: 6 }}>{radio(f.full_services, "Full services", () => choisirFormule(true))}{radio(!f.full_services, "Sans entretien", () => choisirFormule(false))}</div></div>
           <div><label style={LABEL}>Durée</label><div style={{ display: "flex", gap: 6 }}>{radio(!f.courte_duree, "Longue durée", () => { set("courte_duree", false); set("durees", [loyerDefaut(36)]); })}{radio(f.courte_duree, "Courte durée (1 à 11 mois)", () => { set("courte_duree", true); set("durees", [loyerDefaut(1)]); })}</div></div>
           <div><label style={LABEL}>Assurance</label><div style={{ display: "flex", gap: 6 }}>{radio(!f.avec_assurance, "Sans", () => set("avec_assurance", false))}{radio(f.avec_assurance, "Loyer sans et avec assurance", () => set("avec_assurance", true))}</div></div>
-          <div><label style={LABEL}>Modèle de nacelle *</label><select style={CHAMP} value={f.modele} onChange={(e) => set("modele", e.target.value)}>{(cfg?.modeles || []).map((m) => <option key={m} value={m}>{m}</option>)}{f.modele && !(cfg?.modeles || []).includes(f.modele) && <option value={f.modele}>{f.modele}</option>}</select></div>
+          <div><label style={LABEL}>Modèle de nacelle * <span style={{ fontWeight: 400, color: "#777" }}>— liste de l'admin ou saisie manuelle (neuf)</span></label><ChampModele style={CHAMP} valeur={f.modele} modeles={cfg?.modeles || []} onChange={(m) => { set("modele", m); }} /></div>
           <div><label style={LABEL}>Quantité (un contrat par nacelle à la signature)</label><input style={CHAMP} type="number" min={1} max={50} value={f.quantite} onChange={(e) => set("quantite", Math.max(1, Number(e.target.value) || 1))} /></div>
         </div>
       </div>

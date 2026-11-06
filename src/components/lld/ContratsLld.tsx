@@ -5,6 +5,7 @@ import type { ClientLLD, ConfigLLD, ContratLLD, OptionOffreLLD, TarifNegocieLLD 
 import { chargerConfigLLD, ecouterClientsLLD, loyerGrille } from "../../services/lldService";
 import { annulerContratLLD, controlerContratLLD, creerContratLLD, desaffecterContratLLD, ecouterContratsLLD, enregistrerPdfContratLLD, genererLienContratLLD, livrerContratLLD, modifierContratLLD, ouvrirPieceContratLLD, type ContratLLDSaisie } from "../../services/contratsLldService";
 import { genererContratLldPdf } from "../../utils/generateContratLldPdf";
+import ChampModele from "./ChampModele";
 
 /**
  * 📑 Contrats LLD (lot 3). Un contrat = une nacelle. Il naît soit d'une offre
@@ -342,7 +343,7 @@ function ContratForm({ contrat, cfg, clients, commerciaux, userName, userEmail, 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
           <div><label style={LABEL}>Matériel</label><div style={{ display: "flex", gap: 6 }}>{radio(f.materiel === "vo", "Occasion (VO) · rétrofité", () => { set("materiel", "vo"); appliquerGrille(f.modele, f.duree_mois, false); })}{radio(f.materiel === "neuf", "Neuf Klubb", () => { set("materiel", "neuf"); appliquerGrille(f.modele, f.duree_mois, true); })}</div></div>
           <div><label style={LABEL}>Formule</label><div style={{ display: "flex", gap: 6 }}>{radio(f.full_services, "Full services", () => set("full_services", true))}{radio(!f.full_services, "Sans entretien", () => set("full_services", false))}</div></div>
-          <div><label style={LABEL}>Modèle de nacelle *</label><select style={CHAMP} value={f.modele} onChange={(e) => { set("modele", e.target.value); appliquerGrille(e.target.value); }}>{(cfg?.modeles || []).map((m) => <option key={m} value={m}>{m}</option>)}{f.modele && !(cfg?.modeles || []).includes(f.modele) && <option value={f.modele}>{f.modele}</option>}</select></div>
+          <div><label style={LABEL}>Modèle de nacelle * <span style={{ fontWeight: 400, color: "#777" }}>— liste de l'admin ou saisie manuelle (neuf)</span></label><ChampModele style={CHAMP} valeur={f.modele} modeles={cfg?.modeles || []} onChange={(m) => { set("modele", m); appliquerGrille(m); }} /></div>
           <div><label style={LABEL}>Immatriculation (si la nacelle est déjà choisie)</label><input style={CHAMP} value={f.immat || ""} onChange={(e) => set("immat", e.target.value.toUpperCase())} placeholder="Sinon, affectée après signature" /></div>
         </div>
       </div>
